@@ -110,12 +110,65 @@
         }
 
         .search-input {
-            flex: 1;
-            padding: 10px 14px;
+            width: 100%;
+            padding: 12px 14px;
             border: 1px solid #ddd;
             border-radius: 4px;
+            font-size: 14px;
+            position: relative;
+        }
+
+        .search-container {
+            position: relative;
+            flex: 1;
+        }
+
+        .search-history-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #ddd;
+            border-top: none;
+            border-radius: 0 0 4px 4px;
+            max-height: 200px;
+            overflow-y: auto;
+            display: none;
+            z-index: 10;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .search-history-dropdown.active {
+            display: block;
+        }
+
+        .history-item {
+            padding: 10px 14px;
+            border-bottom: 1px solid #f0f0f0;
+            cursor: pointer;
             font-size: 13px;
-            min-width: 200px;
+            color: #666;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .history-item:hover {
+            background-color: #f5f5f5;
+        }
+
+        .history-delete {
+            background: none;
+            border: none;
+            color: #999;
+            cursor: pointer;
+            font-size: 12px;
+            padding: 0 4px;
+        }
+
+        .history-delete:hover {
+            color: #ff4757;
         }
 
         /* 필터 섹션 - 컨테이너 */
@@ -327,6 +380,50 @@
             font-size: 13px;
             color: #999;
             margin-bottom: 20px;
+        }
+
+        .statistics-dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-card.views {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .stat-card.subscribers {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        .stat-card.ratio {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+
+        .stat-card.count {
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+        }
+
+        .stat-label {
+            font-size: 11px;
+            opacity: 0.9;
+            margin-bottom: 8px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .stat-value {
+            font-size: 18px;
+            font-weight: 700;
         }
 
         /* 카드 그리드 */
@@ -659,12 +756,15 @@
             <!-- 검색 섹션 -->
             <div class="search-section">
                 <div class="search-label">검색어</div>
-                <input
-                    type="text"
-                    class="search-input"
-                    id="searchInput"
-                    placeholder=""
-                >
+                <div class="search-container">
+                    <input
+                        type="text"
+                        class="search-input"
+                        id="searchInput"
+                        placeholder=""
+                    >
+                    <div class="search-history-dropdown" id="searchHistory"></div>
+                </div>
             </div>
 
             <!-- 필터 섹션 -->
@@ -760,7 +860,11 @@
                     </div>
                     <select class="sort-dropdown" id="sortDropdown">
                         <option value="relevance">조회수 + 내림차순</option>
-                        <option value="viewCount">조회수 기준</option>
+                        <option value="viewCount">조회수순</option>
+                        <option value="engagementRatio">비율순 (높음)</option>
+                        <option value="subscriberCount">구독자순</option>
+                        <option value="duration">길이순 (길음)</option>
+                        <option value="likeCount">좋아요순</option>
                         <option value="publishedAt">최신순</option>
                     </select>
                     <button class="btn-excel" id="btnExcel">📥 엑셀</button>
@@ -769,6 +873,7 @@
             </div>
 
             <div id="resultsInfo" class="results-count"></div>
+            <div id="statisticsDashboard" class="statistics-dashboard"></div>
             <div id="errorContainer"></div>
             <div id="statusContainer" class="status"></div>
 
@@ -815,9 +920,12 @@
         const RESULTS_INFO = document.getElementById('resultsInfo');
         const STATUS_CONTAINER = document.getElementById('statusContainer');
         const ERROR_CONTAINER = document.getElementById('errorContainer');
+        const SEARCH_HISTORY_DROPDOWN = document.getElementById('searchHistory');
+        const STATISTICS_DASHBOARD = document.getElementById('statisticsDashboard');
 
         const YOUTUBE_API_URL = 'https://www.googleapis.com/youtube/v3';
         const MAX_RESULTS = 30;
+        const MAX_HISTORY = 10;
 
         let allVideosData = [];
         let allChannelsData = {};
@@ -831,7 +939,55 @@
             if (savedQuery) SEARCH_INPUT.value = savedQuery;
         }
 
+        // 검색 히스토리 함수
+        function getSearchHistory() {
+            const history = JSON.parse(localStorage.getItem('yt_search_history') || '[]');
+            return history;
+        }
+
+        function saveSearchToHistory(query) {
+            if (!query.trim()) return;
+            let history = getSearchHistory();
+            history = history.filter(item => item !== query);
+            history.unshift(query);
+            history = history.slice(0, MAX_HISTORY);
+            localStorage.setItem('yt_search_history', JSON.stringify(history));
+            updateSearchHistory();
+        }
+
+        function deleteHistoryItem(query) {
+            let history = getSearchHistory();
+            history = history.filter(item => item !== query);
+            localStorage.setItem('yt_search_history', JSON.stringify(history));
+            updateSearchHistory();
+        }
+
+        function updateSearchHistory() {
+            const history = getSearchHistory();
+            SEARCH_HISTORY_DROPDOWN.innerHTML = '';
+            if (history.length === 0) return;
+
+            history.forEach(item => {
+                const historyItem = document.createElement('div');
+                historyItem.className = 'history-item';
+                historyItem.innerHTML = `
+                    <span style="cursor: pointer; flex: 1;">${escapeHtml(item)}</span>
+                    <button class="history-delete" data-query="${escapeHtml(item)}">✕</button>
+                `;
+                historyItem.querySelector('span').addEventListener('click', () => {
+                    SEARCH_INPUT.value = item;
+                    SEARCH_HISTORY_DROPDOWN.classList.remove('active');
+                });
+                historyItem.querySelector('.history-delete').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    deleteHistoryItem(item);
+                });
+                SEARCH_HISTORY_DROPDOWN.appendChild(historyItem);
+            });
+        }
+
         loadFromLocalStorage();
+        updateSearchHistory();
 
         // 뷰 전환
         BTN_CARD_VIEW.addEventListener('click', () => {
@@ -856,7 +1012,18 @@
         BTN_DELETE.addEventListener('click', deleteSettings);
         BTN_EXCEL.addEventListener('click', downloadExcel);
         SEARCH_INPUT.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') handleSearch();
+            if (e.key === 'Enter') {
+                saveSearchToHistory(SEARCH_INPUT.value);
+                handleSearch();
+            }
+        });
+        SEARCH_INPUT.addEventListener('focus', () => {
+            if (getSearchHistory().length > 0) {
+                SEARCH_HISTORY_DROPDOWN.classList.add('active');
+            }
+        });
+        SEARCH_INPUT.addEventListener('blur', () => {
+            setTimeout(() => SEARCH_HISTORY_DROPDOWN.classList.remove('active'), 200);
         });
         SORT_DROPDOWN.addEventListener('change', refilterResults);
 
@@ -893,6 +1060,7 @@
                 return;
             }
 
+            saveSearchToHistory(searchQuery);
             await searchVideos(searchQuery, apiKey);
         }
 
@@ -1013,6 +1181,34 @@
                 case 'viewCount':
                     sorted.sort((a, b) => parseInt(b.statistics.viewCount) - parseInt(a.statistics.viewCount));
                     break;
+                case 'engagementRatio':
+                    sorted.sort((a, b) => {
+                        const ratioA = calculateEngagementRatio(a);
+                        const ratioB = calculateEngagementRatio(b);
+                        return ratioB - ratioA;
+                    });
+                    break;
+                case 'subscriberCount':
+                    sorted.sort((a, b) => {
+                        const subA = allChannelsData[a.snippet.channelId] ? parseInt(allChannelsData[a.snippet.channelId].subscriberCount) || 0 : 0;
+                        const subB = allChannelsData[b.snippet.channelId] ? parseInt(allChannelsData[b.snippet.channelId].subscriberCount) || 0 : 0;
+                        return subB - subA;
+                    });
+                    break;
+                case 'duration':
+                    sorted.sort((a, b) => {
+                        const durationA = parseDuration(a.contentDetails.duration);
+                        const durationB = parseDuration(b.contentDetails.duration);
+                        return durationB - durationA;
+                    });
+                    break;
+                case 'likeCount':
+                    sorted.sort((a, b) => {
+                        const likesA = parseInt(a.statistics.likeCount) || 0;
+                        const likesB = parseInt(b.statistics.likeCount) || 0;
+                        return likesB - likesA;
+                    });
+                    break;
                 case 'publishedAt':
                     sorted.sort((a, b) => new Date(b.snippet.publishedAt) - new Date(a.snippet.publishedAt));
                     break;
@@ -1052,16 +1248,74 @@
             return 1;
         }
 
+        function calculateStatistics(videos) {
+            if (videos.length === 0) return null;
+
+            let totalViews = 0;
+            let totalSubscribers = 0;
+            let totalRatio = 0;
+            let ratioCount = 0;
+
+            videos.forEach(video => {
+                const viewCount = parseInt(video.statistics.viewCount) || 0;
+                const channelStats = allChannelsData[video.snippet.channelId];
+                const subscriberCount = channelStats ? parseInt(channelStats.subscriberCount) || 0 : 0;
+
+                totalViews += viewCount;
+                if (subscriberCount > 0) {
+                    totalSubscribers += subscriberCount;
+                    totalRatio += viewCount / subscriberCount;
+                    ratioCount++;
+                }
+            });
+
+            return {
+                avgViews: Math.round(totalViews / videos.length),
+                avgSubscribers: Math.round(totalSubscribers / videos.length),
+                avgRatio: ratioCount > 0 ? (totalRatio / ratioCount).toFixed(2) : 0,
+                totalCount: videos.length
+            };
+        }
+
+        function displayStatistics(videos) {
+            const stats = calculateStatistics(videos);
+            if (!stats) {
+                STATISTICS_DASHBOARD.innerHTML = '';
+                return;
+            }
+
+            STATISTICS_DASHBOARD.innerHTML = `
+                <div class="stat-card count">
+                    <div class="stat-label">총 영상</div>
+                    <div class="stat-value">${stats.totalCount}</div>
+                </div>
+                <div class="stat-card views">
+                    <div class="stat-label">평균 조회수</div>
+                    <div class="stat-value">${formatNumber(stats.avgViews)}</div>
+                </div>
+                <div class="stat-card subscribers">
+                    <div class="stat-label">평균 구독자</div>
+                    <div class="stat-value">${formatNumber(stats.avgSubscribers)}</div>
+                </div>
+                <div class="stat-card ratio">
+                    <div class="stat-label">평균 비율</div>
+                    <div class="stat-value">${stats.avgRatio}</div>
+                </div>
+            `;
+        }
+
         function displayResults(filtered, uploadPeriod, videoLength, engagementRatios) {
             RESULTS_CONTAINER.innerHTML = '';
             TABLE_BODY.innerHTML = '';
 
             if (filtered.length === 0) {
                 showNoResults('조건에 맞는 영상이 없습니다');
+                STATISTICS_DASHBOARD.innerHTML = '';
                 return;
             }
 
             showResultsInfo(filtered.length, uploadPeriod, videoLength, engagementRatios);
+            displayStatistics(filtered);
 
             filtered.forEach(video => {
                 // 카드 뷰용
