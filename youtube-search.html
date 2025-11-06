@@ -264,6 +264,130 @@
             gap: 10px;
         }
 
+        /* 저장된 검색 섹션 */
+        .saved-searches-section {
+            margin-bottom: 30px;
+        }
+
+        .saved-searches-title {
+            font-size: 12px;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .saved-searches-controls {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .saved-search-name-input {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        .btn-save-search {
+            padding: 8px 16px;
+            background-color: #4caf50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-save-search:hover {
+            background-color: #45a049;
+        }
+
+        .saved-searches-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .saved-search-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            background-color: #e8f5e9;
+            border: 1px solid #4caf50;
+            border-radius: 20px;
+            font-size: 12px;
+            color: #2e7d32;
+        }
+
+        .saved-search-item-name {
+            cursor: pointer;
+            font-weight: 500;
+            flex: 1;
+        }
+
+        .saved-search-item-name:hover {
+            text-decoration: underline;
+        }
+
+        .saved-search-item-delete {
+            background: none;
+            border: none;
+            color: #c62828;
+            cursor: pointer;
+            font-size: 14px;
+            padding: 0 4px;
+        }
+
+        .saved-search-item-delete:hover {
+            font-weight: bold;
+        }
+
+        .saved-searches-comparison {
+            background-color: #f5f5f5;
+            border: 1px solid #e5e5e5;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 12px;
+            display: none;
+            font-size: 12px;
+        }
+
+        .saved-searches-comparison.active {
+            display: block;
+        }
+
+        .comparison-item {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 10px;
+            padding: 10px;
+            background-color: white;
+            border-radius: 4px;
+        }
+
+        .comparison-stat {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+        }
+
+        .comparison-stat-label {
+            color: #666;
+        }
+
+        .comparison-stat-value {
+            font-weight: 600;
+            color: #333;
+        }
+
         /* 오른쪽 컨텐츠 영역 */
         .content {
             flex: 1;
@@ -426,6 +550,106 @@
             font-weight: 700;
         }
 
+        /* 태그 분석 대시보드 */
+        .tag-analysis-dashboard {
+            background-color: white;
+            border: 1px solid #e5e5e5;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .tag-analysis-dashboard.active {
+            display: block;
+        }
+
+        .tag-analysis-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .tag-analysis-toggle {
+            font-size: 12px;
+            cursor: pointer;
+            padding: 6px 12px;
+            background-color: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            color: #666;
+            transition: all 0.2s ease;
+        }
+
+        .tag-analysis-toggle:hover {
+            background-color: #efefef;
+            border-color: #ccc;
+        }
+
+        .tag-cloud {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .tag-item {
+            background-color: #f0f0f0;
+            color: #333;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 1px solid #e0e0e0;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .tag-item:hover {
+            background-color: #e8e8e8;
+            border-color: #bbb;
+            transform: scale(1.05);
+        }
+
+        .tag-frequency {
+            font-weight: 600;
+            color: #4caf50;
+        }
+
+        .tag-stats-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+
+        .tag-stats-table thead {
+            background-color: #f5f5f5;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .tag-stats-table th {
+            padding: 10px;
+            text-align: left;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .tag-stats-table td {
+            padding: 8px 10px;
+            border-bottom: 1px solid #f0f0f0;
+            color: #666;
+        }
+
+        .tag-stats-table tbody tr:hover {
+            background-color: #fafafa;
+        }
+
         /* 카드 그리드 */
         .results-grid {
             display: grid;
@@ -504,12 +728,15 @@
         }
 
         .engagement-badge {
-            display: inline-block;
+            display: block;
             padding: 3px 8px;
             border-radius: 3px;
             font-size: 10px;
             font-weight: 600;
             white-space: nowrap;
+            margin-top: 8px;
+            margin-bottom: 4px;
+            width: fit-content;
         }
 
         .engagement-1 {
@@ -535,6 +762,287 @@
         .engagement-5 {
             background-color: #ccffee;
             color: #009999;
+        }
+
+        /* 댓글 분석 모달 */
+        .comments-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .comments-modal.active {
+            display: flex;
+        }
+
+        .comments-modal-content {
+            background-color: white;
+            border-radius: 8px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            padding: 20px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            position: relative;
+        }
+
+        .comments-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #e5e5e5;
+        }
+
+        .comments-modal-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: #333;
+        }
+
+        .comments-modal-close {
+            background: none;
+            border: none;
+            font-size: 20px;
+            color: #999;
+            cursor: pointer;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .comments-modal-close:hover {
+            color: #333;
+        }
+
+        .comments-loading {
+            text-align: center;
+            padding: 20px;
+            color: #999;
+        }
+
+        .comments-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 15px;
+            padding: 10px;
+            background-color: #f5f5f5;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        .comment-stat-item {
+            text-align: center;
+        }
+
+        .comment-stat-label {
+            color: #999;
+            font-size: 10px;
+            margin-bottom: 4px;
+        }
+
+        .comment-stat-value {
+            font-weight: 700;
+            font-size: 14px;
+            color: #333;
+        }
+
+        .comments-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .comment-item {
+            border: 1px solid #e5e5e5;
+            border-radius: 4px;
+            padding: 10px;
+            background-color: #fafafa;
+        }
+
+        .comment-author {
+            font-weight: 600;
+            font-size: 12px;
+            color: #333;
+            margin-bottom: 4px;
+        }
+
+        .comment-text {
+            font-size: 12px;
+            color: #666;
+            line-height: 1.4;
+            margin-bottom: 6px;
+            word-break: break-word;
+        }
+
+        .comment-meta {
+            display: flex;
+            gap: 12px;
+            font-size: 11px;
+            color: #999;
+        }
+
+        .comment-likes {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+        }
+
+        .comment-replies {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+        }
+
+        .btn-view-comments {
+            padding: 4px 8px;
+            font-size: 11px;
+            background-color: #e8f5e9;
+            border: 1px solid #4caf50;
+            border-radius: 3px;
+            color: #2e7d32;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-view-comments:hover {
+            background-color: #c8e6c9;
+        }
+
+        /* 채널 분석 모달 */
+        .channel-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .channel-modal.active {
+            display: flex;
+        }
+
+        .channel-modal-content {
+            background-color: white;
+            border-radius: 8px;
+            max-width: 700px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            padding: 25px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            position: relative;
+        }
+
+        .channel-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #e5e5e5;
+        }
+
+        .channel-modal-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: #333;
+        }
+
+        .channel-modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            color: #999;
+            cursor: pointer;
+            padding: 0;
+            width: 35px;
+            height: 35px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .channel-modal-close:hover {
+            color: #333;
+        }
+
+        .channel-stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .channel-stat-box {
+            background-color: #f5f5f5;
+            padding: 15px;
+            border-radius: 6px;
+            border-left: 4px solid #4caf50;
+        }
+
+        .channel-stat-label {
+            font-size: 12px;
+            color: #999;
+            margin-bottom: 6px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .channel-stat-value {
+            font-size: 18px;
+            font-weight: 700;
+            color: #333;
+        }
+
+        .channel-description {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            font-size: 13px;
+            color: #666;
+            line-height: 1.6;
+            border: 1px solid #e5e5e5;
+        }
+
+        .channel-loading {
+            text-align: center;
+            padding: 30px;
+            color: #999;
+        }
+
+        .btn-view-channel {
+            padding: 4px 8px;
+            font-size: 11px;
+            background-color: #e3f2fd;
+            border: 1px solid #2196f3;
+            border-radius: 3px;
+            color: #1565c0;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-view-channel:hover {
+            background-color: #bbdefb;
         }
 
         /* 카드 뷰 */
@@ -767,6 +1275,17 @@
                 </div>
             </div>
 
+            <!-- 저장된 검색 섹션 -->
+            <div class="saved-searches-section">
+                <div class="saved-searches-title">💾 저장된 검색</div>
+                <div class="saved-searches-controls">
+                    <input type="text" class="saved-search-name-input" id="savedSearchName" placeholder="검색 이름 입력">
+                    <button class="btn-save-search" id="btnSaveSearch">저장</button>
+                </div>
+                <div class="saved-searches-list" id="savedSearchesList"></div>
+                <div class="saved-searches-comparison" id="savedSearchesComparison"></div>
+            </div>
+
             <!-- 필터 섹션 -->
             <div class="filters-wrapper">
                 <!-- 기간 필터 -->
@@ -874,6 +1393,7 @@
 
             <div id="resultsInfo" class="results-count"></div>
             <div id="statisticsDashboard" class="statistics-dashboard"></div>
+            <div id="tagAnalysisDashboard" class="tag-analysis-dashboard"></div>
             <div id="errorContainer"></div>
             <div id="statusContainer" class="status"></div>
 
@@ -904,6 +1424,28 @@
         </div>
     </div>
 
+    <!-- 댓글 분석 모달 -->
+    <div class="comments-modal" id="commentsModal">
+        <div class="comments-modal-content">
+            <div class="comments-modal-header">
+                <div class="comments-modal-title" id="commentsModalTitle">댓글 분석</div>
+                <button class="comments-modal-close" id="commentsModalClose">✕</button>
+            </div>
+            <div id="commentsModalBody"></div>
+        </div>
+    </div>
+
+    <!-- 채널 분석 모달 -->
+    <div class="channel-modal" id="channelModal">
+        <div class="channel-modal-content">
+            <div class="channel-modal-header">
+                <div class="channel-modal-title" id="channelModalTitle">채널 분석</div>
+                <button class="channel-modal-close" id="channelModalClose">✕</button>
+            </div>
+            <div id="channelModalBody"></div>
+        </div>
+    </div>
+
     <script>
         const API_KEY_INPUT = document.getElementById('apiKey');
         const SEARCH_INPUT = document.getElementById('searchInput');
@@ -922,14 +1464,31 @@
         const ERROR_CONTAINER = document.getElementById('errorContainer');
         const SEARCH_HISTORY_DROPDOWN = document.getElementById('searchHistory');
         const STATISTICS_DASHBOARD = document.getElementById('statisticsDashboard');
+        const TAG_ANALYSIS_DASHBOARD = document.getElementById('tagAnalysisDashboard');
+        const BTN_SAVE_SEARCH = document.getElementById('btnSaveSearch');
+        const SAVED_SEARCH_NAME_INPUT = document.getElementById('savedSearchName');
+        const SAVED_SEARCHES_LIST = document.getElementById('savedSearchesList');
+        const SAVED_SEARCHES_COMPARISON = document.getElementById('savedSearchesComparison');
+        const COMMENTS_MODAL = document.getElementById('commentsModal');
+        const COMMENTS_MODAL_CLOSE = document.getElementById('commentsModalClose');
+        const COMMENTS_MODAL_BODY = document.getElementById('commentsModalBody');
+        const COMMENTS_MODAL_TITLE = document.getElementById('commentsModalTitle');
+        const CHANNEL_MODAL = document.getElementById('channelModal');
+        const CHANNEL_MODAL_CLOSE = document.getElementById('channelModalClose');
+        const CHANNEL_MODAL_BODY = document.getElementById('channelModalBody');
+        const CHANNEL_MODAL_TITLE = document.getElementById('channelModalTitle');
 
         const YOUTUBE_API_URL = 'https://www.googleapis.com/youtube/v3';
         const MAX_RESULTS = 30;
         const MAX_HISTORY = 10;
+        const MAX_SAVED_SEARCHES = 5;
 
         let allVideosData = [];
         let allChannelsData = {};
         let currentView = 'card';
+        let tagAnalysisExpanded = false;
+        let currentSearchState = null;
+        let currentApiKey = null;
 
         // LocalStorage 로드
         function loadFromLocalStorage() {
@@ -986,8 +1545,262 @@
             });
         }
 
+        // 저장된 검색 함수
+        function getSavedSearches() {
+            const searches = JSON.parse(localStorage.getItem('yt_saved_searches') || '[]');
+            return searches;
+        }
+
+        function saveCurentSearch(name) {
+            if (!name.trim()) {
+                alert('검색 이름을 입력하세요');
+                return;
+            }
+
+            const uploadPeriod = document.querySelector('input[name="uploadPeriod"]:checked').value;
+            const videoLength = document.querySelector('input[name="videoLength"]:checked').value;
+            const engagementRatios = Array.from(document.querySelectorAll('input[name="engagementRatio"]:checked')).map(el => el.value);
+
+            const searchData = {
+                id: Date.now().toString(),
+                name: name,
+                query: SEARCH_INPUT.value,
+                uploadPeriod: uploadPeriod,
+                videoLength: videoLength,
+                engagementRatios: engagementRatios,
+                timestamp: new Date().toISOString(),
+                resultCount: allVideosData.length,
+                stats: calculateStatistics(allVideosData)
+            };
+
+            let searches = getSavedSearches();
+            searches.unshift(searchData);
+            searches = searches.slice(0, MAX_SAVED_SEARCHES);
+            localStorage.setItem('yt_saved_searches', JSON.stringify(searches));
+            updateSavedSearchesList();
+            SAVED_SEARCH_NAME_INPUT.value = '';
+            alert('검색이 저장되었습니다');
+        }
+
+        function deleteSavedSearch(id) {
+            let searches = getSavedSearches();
+            searches = searches.filter(s => s.id !== id);
+            localStorage.setItem('yt_saved_searches', JSON.stringify(searches));
+            updateSavedSearchesList();
+        }
+
+        function loadSavedSearch(id) {
+            const searches = getSavedSearches();
+            const search = searches.find(s => s.id === id);
+            if (!search) return;
+
+            SEARCH_INPUT.value = search.query;
+
+            // 필터 복원
+            document.querySelector(`input[name="uploadPeriod"][value="${search.uploadPeriod}"]`).checked = true;
+            document.querySelector(`input[name="videoLength"][value="${search.videoLength}"]`).checked = true;
+
+            document.querySelectorAll('input[name="engagementRatio"]').forEach(el => {
+                el.checked = search.engagementRatios.includes(el.value);
+            });
+
+            handleSearch();
+        }
+
+        function updateSavedSearchesList() {
+            const searches = getSavedSearches();
+            SAVED_SEARCHES_LIST.innerHTML = '';
+
+            if (searches.length === 0) {
+                SAVED_SEARCHES_LIST.innerHTML = '<div style="color: #999; font-size: 12px;">저장된 검색이 없습니다</div>';
+                return;
+            }
+
+            searches.forEach(search => {
+                const item = document.createElement('div');
+                item.className = 'saved-search-item';
+                item.innerHTML = `
+                    <span class="saved-search-item-name">${escapeHtml(search.name)}</span>
+                    <button class="saved-search-item-delete" data-id="${search.id}">✕</button>
+                `;
+
+                item.querySelector('.saved-search-item-name').addEventListener('click', () => {
+                    loadSavedSearch(search.id);
+                });
+
+                item.querySelector('.saved-search-item-delete').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (confirm('검색을 삭제하시겠습니까?')) {
+                        deleteSavedSearch(search.id);
+                    }
+                });
+
+                SAVED_SEARCHES_LIST.appendChild(item);
+            });
+        }
+
+        // 댓글 분석 함수
+        async function fetchAndDisplayComments(videoId, videoTitle, apiKey) {
+            COMMENTS_MODAL_TITLE.textContent = `📬 ${escapeHtml(videoTitle.substring(0, 30))}... 댓글 분석`;
+            COMMENTS_MODAL_BODY.innerHTML = '<div class="comments-loading">댓글을 불러오는 중...</div>';
+            COMMENTS_MODAL.classList.add('active');
+
+            try {
+                const response = await fetch(
+                    `${YOUTUBE_API_URL}/commentThreads?part=snippet&videoId=${videoId}&maxResults=100&textFormat=plainText&key=${apiKey}`
+                );
+
+                if (!response.ok) {
+                    throw new Error('댓글을 불러올 수 없습니다');
+                }
+
+                const data = await response.json();
+                const comments = data.items || [];
+
+                if (comments.length === 0) {
+                    COMMENTS_MODAL_BODY.innerHTML = '<div style="color: #999; padding: 20px; text-align: center;">댓글이 없습니다</div>';
+                    return;
+                }
+
+                // 댓글 통계 계산
+                let totalReplies = 0;
+                let totalLikes = 0;
+                comments.forEach(thread => {
+                    const snippet = thread.snippet;
+                    totalReplies += snippet.totalReplyCount || 0;
+                    totalLikes += snippet.topLevelComment.snippet.likeCount || 0;
+                });
+
+                const html = `
+                    <div class="comments-stats">
+                        <div class="comment-stat-item">
+                            <div class="comment-stat-label">총 댓글</div>
+                            <div class="comment-stat-value">${comments.length}</div>
+                        </div>
+                        <div class="comment-stat-item">
+                            <div class="comment-stat-label">총 답글</div>
+                            <div class="comment-stat-value">${totalReplies}</div>
+                        </div>
+                        <div class="comment-stat-item">
+                            <div class="comment-stat-label">총 좋아요</div>
+                            <div class="comment-stat-value">${totalLikes}</div>
+                        </div>
+                        <div class="comment-stat-item">
+                            <div class="comment-stat-label">평균 좋아요</div>
+                            <div class="comment-stat-value">${Math.round(totalLikes / comments.length)}</div>
+                        </div>
+                    </div>
+                    <div class="comments-list">
+                        ${comments.slice(0, 20).map(thread => {
+                            const comment = thread.snippet.topLevelComment.snippet;
+                            return `
+                                <div class="comment-item">
+                                    <div class="comment-author">${escapeHtml(comment.authorDisplayName)}</div>
+                                    <div class="comment-text">${escapeHtml(comment.textDisplay)}</div>
+                                    <div class="comment-meta">
+                                        <span class="comment-likes">👍 ${comment.likeCount}</span>
+                                        ${thread.snippet.totalReplyCount > 0 ? `<span class="comment-replies">💬 ${thread.snippet.totalReplyCount}개 답글</span>` : ''}
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                    <div style="text-align: center; padding: 10px; color: #999; font-size: 11px;">
+                        상위 20개 댓글만 표시됩니다
+                    </div>
+                `;
+
+                COMMENTS_MODAL_BODY.innerHTML = html;
+            } catch (error) {
+                COMMENTS_MODAL_BODY.innerHTML = `<div style="color: #f44336; padding: 20px;">오류: ${error.message}</div>`;
+            }
+        }
+
+        // 모달 닫기
+        COMMENTS_MODAL_CLOSE.addEventListener('click', () => {
+            COMMENTS_MODAL.classList.remove('active');
+        });
+
+        COMMENTS_MODAL.addEventListener('click', (e) => {
+            if (e.target === COMMENTS_MODAL) {
+                COMMENTS_MODAL.classList.remove('active');
+            }
+        });
+
+        // 채널 분석 함수
+        async function fetchAndDisplayChannelAnalysis(channelId, channelTitle, apiKey) {
+            CHANNEL_MODAL_TITLE.textContent = `📺 ${escapeHtml(channelTitle)} 채널 분석`;
+            CHANNEL_MODAL_BODY.innerHTML = '<div class="channel-loading">채널 정보를 불러오는 중...</div>';
+            CHANNEL_MODAL.classList.add('active');
+
+            try {
+                const response = await fetch(
+                    `${YOUTUBE_API_URL}/channels?part=snippet,statistics,brandingSettings&id=${channelId}&key=${apiKey}`
+                );
+
+                if (!response.ok) {
+                    throw new Error('채널 정보를 불러올 수 없습니다');
+                }
+
+                const data = await response.json();
+                const channel = data.items[0];
+
+                if (!channel) {
+                    CHANNEL_MODAL_BODY.innerHTML = '<div style="color: #999; padding: 20px; text-align: center;">채널 정보를 찾을 수 없습니다</div>';
+                    return;
+                }
+
+                const stats = channel.statistics;
+                const snippet = channel.snippet;
+                const description = snippet.description || '설명 없음';
+
+                const html = `
+                    <div class="channel-description">
+                        ${escapeHtml(description.substring(0, 300))}${description.length > 300 ? '...' : ''}
+                    </div>
+                    <div class="channel-stats-grid">
+                        <div class="channel-stat-box">
+                            <div class="channel-stat-label">총 조회수</div>
+                            <div class="channel-stat-value">${formatNumber(parseInt(stats.viewCount) || 0)}</div>
+                        </div>
+                        <div class="channel-stat-box">
+                            <div class="channel-stat-label">구독자 수</div>
+                            <div class="channel-stat-value">${stats.hiddenSubscriberCount ? '비공개' : formatNumber(parseInt(stats.subscriberCount) || 0)}</div>
+                        </div>
+                        <div class="channel-stat-box">
+                            <div class="channel-stat-label">총 영상 수</div>
+                            <div class="channel-stat-value">${formatNumber(parseInt(stats.videoCount) || 0)}</div>
+                        </div>
+                        <div class="channel-stat-box">
+                            <div class="channel-stat-label">채널 카테고리</div>
+                            <div class="channel-stat-value">${snippet.customUrl || 'N/A'}</div>
+                        </div>
+                    </div>
+                    <div style="text-align: center; margin-top: 15px;">
+                        <a href="https://www.youtube.com/channel/${channelId}" target="_blank" style="display: inline-block; padding: 10px 20px; background-color: #ff0000; color: white; text-decoration: none; border-radius: 4px; font-weight: 600;">YouTube 채널 방문</a>
+                    </div>
+                `;
+
+                CHANNEL_MODAL_BODY.innerHTML = html;
+            } catch (error) {
+                CHANNEL_MODAL_BODY.innerHTML = `<div style="color: #f44336; padding: 20px;">오류: ${error.message}</div>`;
+            }
+        }
+
+        // 채널 모달 닫기
+        CHANNEL_MODAL_CLOSE.addEventListener('click', () => {
+            CHANNEL_MODAL.classList.remove('active');
+        });
+
+        CHANNEL_MODAL.addEventListener('click', (e) => {
+            if (e.target === CHANNEL_MODAL) {
+                CHANNEL_MODAL.classList.remove('active');
+            }
+        });
+
         loadFromLocalStorage();
         updateSearchHistory();
+        updateSavedSearchesList();
 
         // 뷰 전환
         BTN_CARD_VIEW.addEventListener('click', () => {
@@ -1026,6 +1839,13 @@
             setTimeout(() => SEARCH_HISTORY_DROPDOWN.classList.remove('active'), 200);
         });
         SORT_DROPDOWN.addEventListener('change', refilterResults);
+        BTN_SAVE_SEARCH.addEventListener('click', () => {
+            if (allVideosData.length === 0) {
+                alert('먼저 검색을 수행하세요');
+                return;
+            }
+            saveCurentSearch(SAVED_SEARCH_NAME_INPUT.value);
+        });
 
         // 필터 변경 시 자동 재필터링
         document.querySelectorAll('input[name="uploadPeriod"], input[name="videoLength"], input[name="engagementRatio"]').forEach(input => {
@@ -1304,6 +2124,110 @@
             `;
         }
 
+        function analyzeAndDisplayTags(videos) {
+            if (videos.length === 0) {
+                TAG_ANALYSIS_DASHBOARD.classList.remove('active');
+                return;
+            }
+
+            // 모든 태그 수집 및 분석
+            const tagMap = {};
+            videos.forEach(video => {
+                const tags = video.snippet.tags || [];
+                tags.forEach(tag => {
+                    if (!tagMap[tag]) {
+                        tagMap[tag] = {
+                            tag: tag,
+                            count: 0,
+                            totalViews: 0,
+                            totalSubscribers: 0,
+                            ratioSum: 0,
+                            videoCount: 0
+                        };
+                    }
+                    const viewCount = parseInt(video.statistics.viewCount) || 0;
+                    const channelStats = allChannelsData[video.snippet.channelId];
+                    const subscriberCount = channelStats ? parseInt(channelStats.subscriberCount) || 0 : 0;
+
+                    tagMap[tag].count++;
+                    tagMap[tag].totalViews += viewCount;
+                    tagMap[tag].totalSubscribers += subscriberCount;
+                    if (subscriberCount > 0) {
+                        tagMap[tag].ratioSum += viewCount / subscriberCount;
+                        tagMap[tag].videoCount++;
+                    }
+                });
+            });
+
+            // 태그를 빈도순으로 정렬
+            const sortedTags = Object.values(tagMap).sort((a, b) => b.count - a.count);
+            const topTags = sortedTags.slice(0, 15);
+
+            TAG_ANALYSIS_DASHBOARD.classList.add('active');
+            TAG_ANALYSIS_DASHBOARD.innerHTML = `
+                <div class="tag-analysis-title">
+                    📑 태그 분석 (총 ${Object.keys(tagMap).length}개 고유 태그)
+                    <button class="tag-analysis-toggle" id="tagToggleBtn">상세 보기</button>
+                </div>
+                <div class="tag-cloud" id="tagCloud"></div>
+                <div id="tagStatsTable" style="display: none;"></div>
+            `;
+
+            // 태그 클라우드 렌더링
+            const tagCloud = document.getElementById('tagCloud');
+            topTags.forEach(tagData => {
+                const maxFreq = topTags[0].count;
+                const size = Math.max(12, 14 + (tagData.count / maxFreq) * 6);
+                const tagEl = document.createElement('div');
+                tagEl.className = 'tag-item';
+                tagEl.innerHTML = `
+                    <span>${escapeHtml(tagData.tag)}</span>
+                    <span class="tag-frequency">${tagData.count}</span>
+                `;
+                tagEl.style.fontSize = size + 'px';
+                tagEl.addEventListener('click', () => {
+                    // 태그 클릭 시 필터링 (선택사항)
+                    console.log('Tag clicked:', tagData.tag);
+                });
+                tagCloud.appendChild(tagEl);
+            });
+
+            // 상세 테이블 렌더링
+            const statsTable = document.getElementById('tagStatsTable');
+            const tableHTML = `
+                <table class="tag-stats-table">
+                    <thead>
+                        <tr>
+                            <th>태그</th>
+                            <th>빈도</th>
+                            <th>평균 조회수</th>
+                            <th>평균 구독자</th>
+                            <th>평균 비율</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${topTags.map(t => `
+                            <tr>
+                                <td><strong>${escapeHtml(t.tag)}</strong></td>
+                                <td>${t.count}</td>
+                                <td>${formatNumber(Math.round(t.totalViews / t.count))}</td>
+                                <td>${formatNumber(Math.round(t.totalSubscribers / t.count))}</td>
+                                <td>${t.videoCount > 0 ? (t.ratioSum / t.videoCount).toFixed(2) : 'N/A'}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+            statsTable.innerHTML = tableHTML;
+
+            // 토글 버튼 이벤트
+            document.getElementById('tagToggleBtn').addEventListener('click', function() {
+                tagAnalysisExpanded = !tagAnalysisExpanded;
+                statsTable.style.display = tagAnalysisExpanded ? 'block' : 'none';
+                this.textContent = tagAnalysisExpanded ? '간단히 보기' : '상세 보기';
+            });
+        }
+
         function displayResults(filtered, uploadPeriod, videoLength, engagementRatios) {
             RESULTS_CONTAINER.innerHTML = '';
             TABLE_BODY.innerHTML = '';
@@ -1316,6 +2240,7 @@
 
             showResultsInfo(filtered.length, uploadPeriod, videoLength, engagementRatios);
             displayStatistics(filtered);
+            analyzeAndDisplayTags(filtered);
 
             filtered.forEach(video => {
                 // 카드 뷰용
@@ -1325,6 +2250,34 @@
                 // 테이블 뷰용
                 const row = createTableRow(video);
                 TABLE_BODY.appendChild(row);
+            });
+
+            // 댓글 버튼 이벤트 리스너
+            document.querySelectorAll('.btn-view-comments').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const videoId = btn.getAttribute('data-video-id');
+                    const title = btn.getAttribute('data-title');
+                    if (API_KEY_INPUT.value.trim()) {
+                        fetchAndDisplayComments(videoId, title, API_KEY_INPUT.value.trim());
+                    } else {
+                        alert('API 키를 입력하세요');
+                    }
+                });
+            });
+
+            // 채널 버튼 이벤트 리스너
+            document.querySelectorAll('.btn-view-channel').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const channelId = btn.getAttribute('data-channel-id');
+                    const channelTitle = btn.getAttribute('data-channel-title');
+                    if (API_KEY_INPUT.value.trim()) {
+                        fetchAndDisplayChannelAnalysis(channelId, channelTitle, API_KEY_INPUT.value.trim());
+                    } else {
+                        alert('API 키를 입력하세요');
+                    }
+                });
             });
         }
 
@@ -1400,7 +2353,11 @@
                     </div>
                     <div class="${badgeClass}">${engagementLevel}단계</div>
                     <div class="video-tags">${tagsHTML}</div>
-                    <a href="${videoLink}" target="_blank" class="video-link">YouTube에서 보기 →</a>
+                    <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                        <button class="btn-view-channel" data-channel-id="${snippet.channelId}" data-channel-title="${escapeHtml(channel)}">🎥 채널</button>
+                        <button class="btn-view-comments" data-video-id="${videoId}" data-title="${escapeHtml(title)}">💬 댓글</button>
+                        <a href="${videoLink}" target="_blank" class="video-link" style="flex: 1; text-align: center; display: flex; align-items: center; justify-content: center;">YouTube →</a>
+                    </div>
                 </div>
             `;
 
