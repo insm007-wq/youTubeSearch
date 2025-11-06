@@ -1307,6 +1307,12 @@
                 <label>1년</label>
               </label>
             </div>
+            <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #e5e5e5;">
+              <label class="filter-option">
+                <input type="checkbox" id="showVPH" />
+                <label>VPH 표시</label>
+              </label>
+            </div>
           </div>
 
           <!-- 길이 필터 -->
@@ -1374,6 +1380,7 @@
             <select class="sort-dropdown" id="sortDropdown">
               <option value="relevance">조회수 + 내림차순</option>
               <option value="viewCount">조회수순</option>
+              <option id="vphSortOption" value="vph" style="display: none;">VPH순 (높음)</option>
               <option value="engagementRatio">비율순 (높음)</option>
               <option value="subscriberCount">구독자순</option>
               <option value="duration">길이순 (길음)</option>
@@ -1407,6 +1414,7 @@
                 <th>비율</th>
                 <th>단계</th>
                 <th>길이</th>
+                <th id="vphHeaderCell" style="display: none;">VPH</th>
                 <th>업로드</th>
                 <th>링크</th>
               </tr>
@@ -1470,6 +1478,9 @@
       const CHANNEL_MODAL_CLOSE = document.getElementById("channelModalClose");
       const CHANNEL_MODAL_BODY = document.getElementById("channelModalBody");
       const CHANNEL_MODAL_TITLE = document.getElementById("channelModalTitle");
+      const SHOW_VPH_CHECKBOX = document.getElementById("showVPH");
+      const VPH_HEADER_CELL = document.getElementById("vphHeaderCell");
+      const VPH_SORT_OPTION = document.getElementById("vphSortOption");
 
       const YOUTUBE_API_URL = "https://www.googleapis.com/youtube/v3";
       const MAX_RESULTS = 30;
@@ -1482,19 +1493,33 @@
       let tagAnalysisExpanded = false;
       let currentSearchState = null;
       let currentApiKey = null;
+      let showVPH = false;
 
       // LocalStorage 로드
       function loadFromLocalStorage() {
         const savedKey = localStorage.getItem("yt_api_key");
         const savedQuery = localStorage.getItem("yt_search_query");
+        const savedShowVPH = localStorage.getItem("yt_show_vph");
         if (savedKey) API_KEY_INPUT.value = savedKey;
         if (savedQuery) SEARCH_INPUT.value = savedQuery;
+        if (savedShowVPH === "true") {
+          showVPH = true;
+          SHOW_VPH_CHECKBOX.checked = true;
+          VPH_HEADER_CELL.style.display = "";
+          VPH_SORT_OPTION.style.display = "";
+        }
       }
 
       // 검색 히스토리 함수
       function getSearchHistory() {
-        const history = JSON.parse(localStorage.getItem("yt_search_history") || "[]");
-        return history;
+        try {
+          const history = JSON.parse(localStorage.getItem("yt_search_history") || "[]");
+          return Array.isArray(history) ? history : [];
+        } catch (error) {
+          console.error('검색 히스토리 로드 실패:', error);
+          localStorage.removeItem("yt_search_history");
+          return [];
+        }
       }
 
       function saveSearchToHistory(query) {
@@ -1540,8 +1565,14 @@
 
       // 저장된 검색 함수
       function getSavedSearches() {
-        const searches = JSON.parse(localStorage.getItem("yt_saved_searches") || "[]");
-        return searches;
+        try {
+          const searches = JSON.parse(localStorage.getItem("yt_saved_searches") || "[]");
+          return Array.isArray(searches) ? searches : [];
+        } catch (error) {
+          console.error('저장된 검색 로드 실패:', error);
+          localStorage.removeItem("yt_saved_searches");
+          return [];
+        }
       }
 
       function saveCurentSearch(name) {
@@ -1850,6 +1881,25 @@
         saveCurentSearch(SAVED_SEARCH_NAME_INPUT.value);
       });
 
+      // VPH 체크박스 이벤트
+      SHOW_VPH_CHECKBOX.addEventListener("change", () => {
+        showVPH = SHOW_VPH_CHECKBOX.checked;
+        localStorage.setItem("yt_show_vph", showVPH);
+
+        // VPH 헤더 표시/숨김
+        VPH_HEADER_CELL.style.display = showVPH ? "" : "none";
+        // VPH 정렬 옵션 표시/숨김
+        VPH_SORT_OPTION.style.display = showVPH ? "" : "none";
+
+        // 현재 정렬이 VPH인데 VPH를 해제하면 기본 정렬로 변경
+        if (!showVPH && SORT_DROPDOWN.value === "vph") {
+          SORT_DROPDOWN.value = "relevance";
+        }
+
+        // 결과 다시 렌더링
+        refilterResults();
+      });
+
       // 필터 변경 시 자동 재필터링
       document.querySelectorAll('input[name="uploadPeriod"], input[name="videoLength"], input[name="engagementRatio"]').forEach((input) => {
         input.addEventListener("change", refilterResults);
@@ -1899,17 +1949,36 @@
           );
 
           if (!searchResponse.ok) {
-            throw new Error("검색 중 오류가 발생했습니다. API 키를 확인하세요.");
+            const errorData = await searchResponse.json().catch(() => ({}));
+            const errorMessage = errorData.error?.message || '검색 중 오류 발생';
+
+            if (searchResponse.status === 403) {
+              throw new Error('❌ API 키 권한 문제: ' + errorMessage + ' (할당량 초과일 수 있습니다)');
+            } else if (searchResponse.status === 400) {
+              throw new Error('❌ 잘못된 요청: ' + errorMessage);
+            } else if (searchResponse.status === 429) {
+              throw new Error('⏱️ API 요청 한도 초과: 잠시 후 다시 시도해주세요');
+            }
+            throw new Error('❌ ' + errorMessage);
           }
 
           const searchData = await searchResponse.json();
 
-          if (!searchData.items || searchData.items.length === 0) {
+          if (!searchData?.items || !Array.isArray(searchData.items) || searchData.items.length === 0) {
             showNoResults("검색 결과가 없습니다");
             return;
           }
 
-          const videoIds = searchData.items.map((item) => item.id.videoId).join(",");
+          // videoId 필터링 및 검증
+          const videoIds = searchData.items
+            .map((item) => item?.id?.videoId)
+            .filter(id => id && typeof id === 'string')
+            .join(",");
+
+          if (!videoIds) {
+            showNoResults("유효한 영상을 찾을 수 없습니다");
+            return;
+          }
           setStatus("영상 정보 조회 중...");
 
           const detailsResponse = await fetch(
@@ -1917,29 +1986,53 @@
           );
 
           if (!detailsResponse.ok) {
-            throw new Error("영상 정보를 가져오는 중 오류가 발생했습니다");
+            const errorData = await detailsResponse.json().catch(() => ({}));
+            throw new Error("❌ 영상 정보 조회 실패: " + (errorData.error?.message || '알 수 없는 오류'));
           }
 
           const detailsData = await detailsResponse.json();
-          allVideosData = detailsData.items;
+          if (!detailsData?.items || !Array.isArray(detailsData.items)) {
+            throw new Error("❌ 영상 정보 형식이 올바르지 않습니다");
+          }
+
+          // 데이터 검증 필터링
+          allVideosData = detailsData.items.filter(item =>
+            item?.id && item?.snippet && item?.statistics && item?.contentDetails
+          );
+
+          if (allVideosData.length === 0) {
+            showNoResults("유효한 영상 정보를 찾을 수 없습니다");
+            return;
+          }
 
           setStatus("채널 정보 조회 중...");
 
-          const channelIds = [...new Set(detailsData.items.map((video) => video.snippet.channelId))];
+          const channelIds = [...new Set(allVideosData.map((video) => video?.snippet?.channelId).filter(Boolean))];
           allChannelsData = {};
 
           for (let i = 0; i < channelIds.length; i += 50) {
-            const chunk = channelIds.slice(i, i + 50).join(",");
-            const channelResponse = await fetch(`${YOUTUBE_API_URL}/channels?part=statistics&id=${chunk}&key=${apiKey}`);
+            try {
+              const chunk = channelIds.slice(i, i + 50).join(",");
+              const progress = Math.round((i / channelIds.length) * 100);
+              setStatus(`채널 정보 조회 중... ${progress}%`);
 
-            if (!channelResponse.ok) {
-              throw new Error("채널 정보를 가져오는 중 오류가 발생했습니다");
+              const channelResponse = await fetch(`${YOUTUBE_API_URL}/channels?part=statistics&id=${chunk}&key=${apiKey}`);
+
+              if (channelResponse.ok) {
+                const channelData = await channelResponse.json();
+                channelData.items?.forEach((channel) => {
+                  if (channel?.id && channel?.statistics) {
+                    allChannelsData[channel.id] = channel.statistics;
+                  }
+                });
+              } else {
+                console.warn(`채널 정보 조회 부분 실패 (${i}-${i+50})`);
+                // 일부 실패해도 계속 진행
+              }
+            } catch (err) {
+              console.warn(`채널 정보 조회 중 오류 (${i}-${i+50}):`, err);
+              // 일부 실패해도 계속 진행
             }
-
-            const channelData = await channelResponse.json();
-            channelData.items.forEach((channel) => {
-              allChannelsData[channel.id] = channel.statistics;
-            });
           }
 
           refilterResults();
@@ -2001,6 +2094,13 @@
           case "viewCount":
             sorted.sort((a, b) => parseInt(b.statistics.viewCount) - parseInt(a.statistics.viewCount));
             break;
+          case "vph":
+            sorted.sort((a, b) => {
+              const vphA = calculateVPH(parseInt(a.statistics.viewCount) || 0, a.snippet.publishedAt);
+              const vphB = calculateVPH(parseInt(b.statistics.viewCount) || 0, b.snippet.publishedAt);
+              return vphB - vphA;
+            });
+            break;
           case "engagementRatio":
             sorted.sort((a, b) => {
               const ratioA = calculateEngagementRatio(a);
@@ -2044,7 +2144,9 @@
       }
 
       function parseDuration(duration) {
+        if (!duration) return 0;
         const match = duration.match(/PT(\d+H)?(\d+M)?(\d+S)?/);
+        if (!match) return 0;
         const hours = parseInt(match[1]) || 0;
         const minutes = parseInt(match[2]) || 0;
         const seconds = parseInt(match[3]) || 0;
@@ -2052,12 +2154,18 @@
       }
 
       function calculateEngagementRatio(video) {
-        const viewCount = parseInt(video.statistics.viewCount) || 0;
-        const channelStats = allChannelsData[video.snippet.channelId];
-        const subscriberCount = channelStats ? parseInt(channelStats.subscriberCount) || 0 : 0;
+        try {
+          if (!video || !video.statistics || !video.snippet) return 0;
+          const viewCount = parseInt(video.statistics.viewCount) || 0;
+          const channelStats = allChannelsData[video.snippet.channelId];
+          const subscriberCount = channelStats ? parseInt(channelStats.subscriberCount) || 0 : 0;
 
-        if (subscriberCount === 0) return 0;
-        return viewCount / subscriberCount;
+          if (subscriberCount === 0) return 0;
+          return viewCount / subscriberCount;
+        } catch (error) {
+          console.error('Engagement ratio 계산 오류:', error);
+          return 0;
+        }
       }
 
       function getEngagementLevel(ratio) {
@@ -2068,6 +2176,40 @@
         return 1;
       }
 
+      // vidIQ 방식의 감쇠 계수 계산 (최종 조정)
+      function getDecayFactor(daysSinceUpload) {
+        if (daysSinceUpload <= 1) return 1.0;      // 0-24시간: 100%
+        if (daysSinceUpload <= 3) return 0.55;     // 1-3일: 55%
+        if (daysSinceUpload <= 7) return 0.37;     // 3-7일: 37%
+        if (daysSinceUpload <= 14) return 0.25;    // 7-14일: 25% (vidIQ 정확 매칭)
+        if (daysSinceUpload <= 30) return 0.15;    // 14-30일: 15%
+        return 0.1;                                 // 30일 이상: 10%
+      }
+
+      function calculateVPH(viewCount, publishedAt) {
+        try {
+          if (!publishedAt) return 0;
+          const now = new Date();
+          const uploadDate = new Date(publishedAt);
+          const hoursElapsed = (now - uploadDate) / (1000 * 60 * 60);
+          const daysSinceUpload = hoursElapsed / 24;
+
+          if (hoursElapsed <= 0 || !isFinite(hoursElapsed)) return 0;
+
+          // 기본 VPH = 조회수 / 경과 시간
+          const baseVPH = viewCount / hoursElapsed;
+
+          // vidIQ 방식: 감쇠 계수 적용으로 최근 트렌드 반영
+          const decayFactor = getDecayFactor(daysSinceUpload);
+          const adjustedVPH = baseVPH * decayFactor;
+
+          return isFinite(adjustedVPH) ? Math.round(adjustedVPH) : 0;
+        } catch (error) {
+          console.error('VPH 계산 오류:', error);
+          return 0;
+        }
+      }
+
       function calculateStatistics(videos) {
         if (videos.length === 0) return null;
 
@@ -2075,13 +2217,16 @@
         let totalSubscribers = 0;
         let totalRatio = 0;
         let ratioCount = 0;
+        let totalVPH = 0;
 
         videos.forEach((video) => {
           const viewCount = parseInt(video.statistics.viewCount) || 0;
           const channelStats = allChannelsData[video.snippet.channelId];
           const subscriberCount = channelStats ? parseInt(channelStats.subscriberCount) || 0 : 0;
+          const vph = calculateVPH(viewCount, video.snippet.publishedAt);
 
           totalViews += viewCount;
+          totalVPH += vph;
           if (subscriberCount > 0) {
             totalSubscribers += subscriberCount;
             totalRatio += viewCount / subscriberCount;
@@ -2093,6 +2238,7 @@
           avgViews: Math.round(totalViews / videos.length),
           avgSubscribers: Math.round(totalSubscribers / videos.length),
           avgRatio: ratioCount > 0 ? (totalRatio / ratioCount).toFixed(2) : 0,
+          avgVPH: Math.round(totalVPH / videos.length),
           totalCount: videos.length,
         };
       }
@@ -2121,6 +2267,10 @@
                     <div class="stat-label">평균 비율</div>
                     <div class="stat-value">${stats.avgRatio}</div>
                 </div>
+                ${showVPH ? `<div class="stat-card vph">
+                    <div class="stat-label">평균 VPH</div>
+                    <div class="stat-value">${formatNumber(stats.avgVPH)}</div>
+                </div>` : ''}
             `;
       }
 
@@ -2315,9 +2465,9 @@
         const stats = video.statistics;
         const contentDetails = video.contentDetails;
 
-        const title = snippet.title;
-        const channel = snippet.channelTitle;
-        const thumbnail = snippet.thumbnails.medium.url;
+        const title = snippet.title || "제목 없음";
+        const channel = snippet.channelTitle || "채널 없음";
+        const thumbnail = snippet.thumbnails?.medium?.url || snippet.thumbnails?.default?.url || "";
         const videoLink = `https://www.youtube.com/watch?v=${videoId}`;
         const tags = snippet.tags ? snippet.tags.slice(0, 2) : [];
 
@@ -2327,11 +2477,13 @@
         const engagementRatioValue = calculateEngagementRatio(video);
         const engagementLevel = getEngagementLevel(engagementRatioValue);
         const duration = parseDuration(contentDetails.duration);
+        const vph = calculateVPH(viewCount, snippet.publishedAt);
 
         const viewCountText = formatNumber(viewCount);
         const subscriberText = subscriberCount > 0 ? formatNumber(subscriberCount) : "미공개";
         const ratioText = subscriberCount > 0 ? engagementRatioValue.toFixed(2) : "N/A";
         const durationText = formatDuration(duration);
+        const vphText = formatNumber(vph);
 
         let tagsHTML = "";
         if (tags.length > 0) {
@@ -2354,6 +2506,7 @@
                     </div>
                     <div class="video-stats">
                         <div class="stat-item">📊 ${ratioText}</div>
+                        ${showVPH ? `<div class="stat-item">⚡ VPH: ${vphText}</div>` : ''}
                     </div>
                     <div class="${badgeClass}">${engagementLevel}단계</div>
                     <div class="video-tags">${tagsHTML}</div>
@@ -2390,11 +2543,13 @@
         const engagementLevel = getEngagementLevel(engagementRatioValue);
         const duration = parseDuration(contentDetails.duration);
         const uploadDate = new Date(snippet.publishedAt).toLocaleDateString("ko-KR");
+        const vph = calculateVPH(viewCount, snippet.publishedAt);
 
         const viewCountText = formatNumber(viewCount);
         const subscriberText = subscriberCount > 0 ? formatNumber(subscriberCount) : "미공개";
         const ratioText = subscriberCount > 0 ? engagementRatioValue.toFixed(2) : "N/A";
         const durationText = formatDuration(duration);
+        const vphText = formatNumber(vph);
         const badgeClass = `engagement-badge engagement-${engagementLevel}`;
 
         row.innerHTML = `
@@ -2406,6 +2561,7 @@
                 <td>${ratioText}</td>
                 <td><span class="${badgeClass}">${engagementLevel}단계</span></td>
                 <td>${durationText}</td>
+                ${showVPH ? `<td>${vphText}</td>` : ''}
                 <td>${uploadDate}</td>
                 <td><a href="${videoLink}" target="_blank" class="table-link">보기</a></td>
             `;
@@ -2507,12 +2663,24 @@
       }
 
       function formatNumber(num) {
-        if (num >= 1000000) {
-          return (num / 1000000).toFixed(1) + "M";
-        } else if (num >= 1000) {
-          return (num / 1000).toFixed(1) + "K";
+        try {
+          if (typeof num !== 'number') {
+            num = parseInt(num) || 0;
+          }
+          if (!isFinite(num)) return "0";
+
+          num = Math.abs(Math.floor(num)); // 음수 방지, 정수 처리
+
+          if (num >= 1000000) {
+            return (num / 1000000).toFixed(1) + "M";
+          } else if (num >= 1000) {
+            return (num / 1000).toFixed(1) + "K";
+          }
+          return num.toString();
+        } catch (error) {
+          console.error('숫자 포맷팅 오류:', error);
+          return "0";
         }
-        return num.toString();
       }
 
       function formatDuration(seconds) {
@@ -2527,14 +2695,22 @@
       }
 
       function escapeHtml(text) {
-        const map = {
-          "&": "&amp;",
-          "<": "&lt;",
-          ">": "&gt;",
-          '"': "&quot;",
-          "'": "&#039;",
-        };
-        return text.replace(/[&<>"']/g, (m) => map[m]);
+        try {
+          if (text == null) return '';
+          if (typeof text !== 'string') text = String(text);
+
+          const map = {
+            "&": "&amp;",
+            "<": "&lt;",
+            ">": "&gt;",
+            '"': "&quot;",
+            "'": "&#039;",
+          };
+          return text.replace(/[&<>"']/g, (m) => map[m]);
+        } catch (error) {
+          console.error('HTML escape 오류:', error);
+          return '';
+        }
       }
 
       function setStatus(message) {
