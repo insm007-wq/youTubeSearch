@@ -2096,8 +2096,8 @@
             break;
           case "vph":
             sorted.sort((a, b) => {
-              const vphA = calculateVPH(parseInt(a.statistics.viewCount) || 0, a.snippet.publishedAt);
-              const vphB = calculateVPH(parseInt(b.statistics.viewCount) || 0, b.snippet.publishedAt);
+              const vphA = calculateVPH(parseInt(a.statistics.viewCount) || 0, a.snippet.publishedAt).value;
+              const vphB = calculateVPH(parseInt(b.statistics.viewCount) || 0, b.snippet.publishedAt).value;
               return vphB - vphA;
             });
             break;
@@ -2176,6 +2176,190 @@
         return 1;
       }
 
+      // ========== IndexedDB VPH 추적 시스템 ==========
+      class VPHTracker {
+        constructor() {
+          this.dbName = 'YouTubeVPHTracker';
+          this.dbVersion = 1;
+          this.storeName = 'view_history';
+          this.db = null;
+          this.cache = new Map(); // 메모리 캐시
+          this.pollingInterval = null;
+        }
+
+        // DB 초기화
+        async init() {
+          return new Promise((resolve, reject) => {
+            if (this.db) {
+              resolve();
+              return;
+            }
+
+            const request = indexedDB.open(this.dbName, this.dbVersion);
+
+            request.onerror = () => reject(request.error);
+            request.onsuccess = () => {
+              this.db = request.result;
+              this.cleanOldData();
+              resolve();
+            };
+
+            request.onupgradeneeded = (event) => {
+              const db = event.target.result;
+              if (!db.objectStoreNames.contains(this.storeName)) {
+                const store = db.createObjectStore(this.storeName, { keyPath: 'id', autoIncrement: true });
+                store.createIndex('videoId_time', ['videoId', 'timestamp'], { unique: false });
+                store.createIndex('videoId', 'videoId', { unique: false });
+                store.createIndex('timestamp', 'timestamp', { unique: false });
+              }
+            };
+          });
+        }
+
+        // 조회수 기록 저장
+        async recordViewCount(videoId, viewCount, title, channelId) {
+          if (!this.db) return;
+
+          const now = Date.now();
+          const record = {
+            videoId,
+            viewCount,
+            title,
+            channelId,
+            timestamp: now,
+          };
+
+          return new Promise((resolve, reject) => {
+            try {
+              const transaction = this.db.transaction([this.storeName], 'readwrite');
+              const store = transaction.objectStore(this.storeName);
+              const request = store.add(record);
+
+              request.onerror = () => reject(request.error);
+              request.onsuccess = () => {
+                // 캐시 업데이트
+                this.cache.set(`${videoId}_latest`, record);
+                resolve(record);
+              };
+            } catch (error) {
+              reject(error);
+            }
+          });
+        }
+
+        // 24시간 전 데이터 조회
+        async getViewCount24hAgo(videoId) {
+          if (!this.db) return null;
+
+          const now = Date.now();
+          const oneDay = 24 * 60 * 60 * 1000;
+          const oneDayAgo = now - oneDay;
+
+          return new Promise((resolve, reject) => {
+            try {
+              const transaction = this.db.transaction([this.storeName], 'readonly');
+              const store = transaction.objectStore(this.storeName);
+              const index = store.index('videoId');
+              const range = IDBKeyRange.only(videoId);
+              const request = index.getAll(range);
+
+              request.onerror = () => reject(request.error);
+              request.onsuccess = () => {
+                const records = request.result.sort((a, b) => a.timestamp - b.timestamp);
+
+                // 24시간 전 근처의 데이터 찾기
+                const targetRecord = records.find(r => r.timestamp >= oneDayAgo);
+
+                if (!targetRecord) {
+                  // 가장 오래된 데이터가 24시간 미만이면 null
+                  resolve(null);
+                } else {
+                  resolve(targetRecord);
+                }
+              };
+            } catch (error) {
+              reject(error);
+            }
+          });
+        }
+
+        // 현재 조회수 조회
+        async getCurrentViewCount(videoId) {
+          if (!this.db) return null;
+
+          return new Promise((resolve, reject) => {
+            try {
+              const transaction = this.db.transaction([this.storeName], 'readonly');
+              const store = transaction.objectStore(this.storeName);
+              const index = store.index('videoId');
+              const range = IDBKeyRange.only(videoId);
+              const request = index.getAll(range);
+
+              request.onerror = () => reject(request.error);
+              request.onsuccess = () => {
+                const records = request.result;
+                if (records.length === 0) {
+                  resolve(null);
+                } else {
+                  // 최신 기록 반환
+                  resolve(records[records.length - 1]);
+                }
+              };
+            } catch (error) {
+              reject(error);
+            }
+          });
+        }
+
+        // 30일 이상 된 데이터 삭제
+        async cleanOldData() {
+          if (!this.db) return;
+
+          const now = Date.now();
+          const thirtyDays = 30 * 24 * 60 * 60 * 1000;
+          const cutoffTime = now - thirtyDays;
+
+          return new Promise((resolve) => {
+            try {
+              const transaction = this.db.transaction([this.storeName], 'readwrite');
+              const store = transaction.objectStore(this.storeName);
+              const index = store.index('timestamp');
+              const range = IDBKeyRange.upperBound(cutoffTime);
+              const request = index.openCursor(range);
+
+              request.onsuccess = (event) => {
+                const cursor = event.target.result;
+                if (cursor) {
+                  store.delete(cursor.primaryKey);
+                  cursor.continue();
+                } else {
+                  resolve();
+                }
+              };
+            } catch (error) {
+              resolve();
+            }
+          });
+        }
+
+        // 배치 저장 (성능 최적화)
+        async batchRecordViewCounts(videoDataArray) {
+          if (!this.db || videoDataArray.length === 0) return;
+
+          return Promise.all(
+            videoDataArray.map(({ videoId, viewCount, title, channelId }) =>
+              this.recordViewCount(videoId, viewCount, title, channelId)
+            )
+          ).catch(error => console.error('배치 저장 오류:', error));
+        }
+      }
+
+      // 전역 추적 시스템 인스턴스
+      const vphTracker = new VPHTracker();
+
+      // 초기화
+      vphTracker.init().catch(error => console.warn('VPH 추적 초기화 오류:', error));
+
       // vidIQ 방식의 감쇠 계수 계산 (최종 조정)
       function getDecayFactor(daysSinceUpload) {
         if (daysSinceUpload <= 1) return 1.0;      // 0-24시간: 100%
@@ -2186,27 +2370,77 @@
         return 0.1;                                 // 30일 이상: 10%
       }
 
+      // 추정 VPH 계산 (동기, 빠른 반환, 신뢰도 낮음)
       function calculateVPH(viewCount, publishedAt) {
         try {
-          if (!publishedAt) return 0;
+          if (!publishedAt) return { value: 0, isTrusted: false };
           const now = new Date();
           const uploadDate = new Date(publishedAt);
           const hoursElapsed = (now - uploadDate) / (1000 * 60 * 60);
           const daysSinceUpload = hoursElapsed / 24;
 
-          if (hoursElapsed <= 0 || !isFinite(hoursElapsed)) return 0;
+          if (hoursElapsed <= 0 || !isFinite(hoursElapsed)) return { value: 0, isTrusted: false };
 
-          // 기본 VPH = 조회수 / 경과 시간
-          const baseVPH = viewCount / hoursElapsed;
+          // 단순 평균 (최근 24시간 데이터 없을 때 사용)
+          // 최근 트렌드를 반영하기 위해 최근 시간들의 가중치를 높임
+          const hoursWeight = Math.max(1, Math.min(hoursElapsed / 24, 1)); // 0-1 사이의 값
+          const recentBias = Math.max(0.3, 1 - (daysSinceUpload * 0.1)); // 시간이 지날수록 감소
+          const estimatedVPH = (viewCount / hoursElapsed) * recentBias;
 
-          // vidIQ 방식: 감쇠 계수 적용으로 최근 트렌드 반영
-          const decayFactor = getDecayFactor(daysSinceUpload);
-          const adjustedVPH = baseVPH * decayFactor;
-
-          return isFinite(adjustedVPH) ? Math.round(adjustedVPH) : 0;
+          return {
+            value: isFinite(estimatedVPH) ? Math.round(estimatedVPH) : 0,
+            isTrusted: false,
+            source: 'estimated'
+          };
         } catch (error) {
           console.error('VPH 계산 오류:', error);
-          return 0;
+          return { value: 0, isTrusted: false };
+        }
+      }
+
+      // 정확한 VPH 계산 (비동기, 역사적 데이터 기반)
+      async function calculateVPHAccurate(videoId, viewCount, publishedAt) {
+        try {
+          if (!videoId || !publishedAt) {
+            return { value: 0, isTrusted: false };
+          }
+
+          // 현재 조회수와 24시간 전 조회수 비교
+          const record24hAgo = await vphTracker.getViewCount24hAgo(videoId);
+
+          if (record24hAgo && record24hAgo.viewCount > 0) {
+            // 24시간 내 증가한 조회수
+            const recentViewIncrease = viewCount - record24hAgo.viewCount;
+
+            if (recentViewIncrease >= 0) {
+              // 실제 VPH = 최근 24시간 증가 / 24
+              const accurateVPH = Math.round(recentViewIncrease / 24);
+
+              // 신뢰도 점수: 데이터 나이에 따라 조정
+              const now = Date.now();
+              const dataAge = (now - record24hAgo.timestamp) / (60 * 60 * 1000); // 시간 단위
+              const confidence = Math.min(100, Math.max(80, 100 - (dataAge - 24) * 5)); // 24h 이상 차이나면 감소
+
+              return {
+                value: accurateVPH,
+                isTrusted: true,
+                source: 'tracked',
+                confidence: Math.round(confidence),
+                dataAgeHours: Math.round(dataAge * 10) / 10
+              };
+            }
+          }
+
+          // 24시간 데이터 없으면 추정치 반환
+          const estimated = calculateVPH(viewCount, publishedAt);
+          return {
+            ...estimated,
+            source: 'estimated_no_history'
+          };
+        } catch (error) {
+          console.error('정확한 VPH 계산 오류:', error);
+          const fallback = calculateVPH(viewCount, publishedAt);
+          return { ...fallback, source: 'error' };
         }
       }
 
@@ -2223,7 +2457,8 @@
           const viewCount = parseInt(video.statistics.viewCount) || 0;
           const channelStats = allChannelsData[video.snippet.channelId];
           const subscriberCount = channelStats ? parseInt(channelStats.subscriberCount) || 0 : 0;
-          const vph = calculateVPH(viewCount, video.snippet.publishedAt);
+          const vphResult = calculateVPH(viewCount, video.snippet.publishedAt);
+          const vph = vphResult.value || 0;
 
           totalViews += viewCount;
           totalVPH += vph;
@@ -2382,6 +2617,33 @@
         });
       }
 
+      // 정확한 VPH로 UI 업데이트
+      function updateVPHDisplay(videoId, vphResult) {
+        if (!vphResult.isTrusted) return;
+
+        const vphValue = vphResult.value;
+        const vphText = formatNumber(vphValue);
+        const vphLabel = `⚡ VPH: ${vphText} ✓`; // 정확함 표시
+
+        // 그리드 뷰 업데이트
+        const cards = document.querySelectorAll('[data-video-id]');
+        cards.forEach(card => {
+          if (card.getAttribute('data-video-id') === videoId) {
+            // VPH 항목 찾기
+            const vphElements = card.querySelectorAll('.stat-item');
+            vphElements.forEach(el => {
+              if (el.textContent.includes('VPH')) {
+                // 기존 텍스트 확인: "⚡ VPH: X (추정)"에서 "⚡ VPH: X"로 업데이트
+                el.textContent = vphLabel;
+              }
+            });
+          }
+        });
+
+        // 테이블 뷰 업데이트 (선택사항)
+        // 테이블에서는 videoId를 쉽게 찾을 수 없으므로 생략
+      }
+
       function displayResults(filtered, uploadPeriod, videoLength, engagementRatios) {
         RESULTS_CONTAINER.innerHTML = "";
         TABLE_BODY.innerHTML = "";
@@ -2391,6 +2653,15 @@
           STATISTICS_DASHBOARD.innerHTML = "";
           return;
         }
+
+        // 자동 추적: 현재 조회수 저장
+        const videosToTrack = filtered.map(video => ({
+          videoId: video.id,
+          viewCount: parseInt(video.statistics.viewCount) || 0,
+          title: video.snippet.title,
+          channelId: video.snippet.channelId
+        }));
+        vphTracker.batchRecordViewCounts(videosToTrack).catch(e => console.warn('VPH 추적 저장 오류:', e));
 
         showResultsInfo(filtered.length, uploadPeriod, videoLength, engagementRatios);
         displayStatistics(filtered);
@@ -2405,6 +2676,24 @@
           const row = createTableRow(video);
           TABLE_BODY.appendChild(row);
         });
+
+        // 비동기: 정확한 VPH 조회 및 UI 업데이트 (24시간 데이터 수집 후)
+        if (showVPH) {
+          filtered.forEach(video => {
+            const videoId = video.id;
+            const viewCount = parseInt(video.statistics.viewCount) || 0;
+
+            // 비동기로 정확한 VPH 계산
+            calculateVPHAccurate(videoId, viewCount, video.snippet.publishedAt)
+              .then(vphResult => {
+                if (vphResult.isTrusted) {
+                  // VPH 값이 정확해졌으므로 UI 업데이트
+                  updateVPHDisplay(videoId, vphResult);
+                }
+              })
+              .catch(e => console.warn(`VPH 비동기 계산 오류 (${videoId}):`, e));
+          });
+        }
 
         // 댓글 버튼 이벤트 리스너
         document.querySelectorAll(".btn-view-comments").forEach((btn) => {
@@ -2477,13 +2766,16 @@
         const engagementRatioValue = calculateEngagementRatio(video);
         const engagementLevel = getEngagementLevel(engagementRatioValue);
         const duration = parseDuration(contentDetails.duration);
-        const vph = calculateVPH(viewCount, snippet.publishedAt);
+        const vphResult = calculateVPH(viewCount, snippet.publishedAt);
+        const vph = vphResult.value || 0;
+        const vphTrusted = vphResult.isTrusted || false;
 
         const viewCountText = formatNumber(viewCount);
         const subscriberText = subscriberCount > 0 ? formatNumber(subscriberCount) : "미공개";
         const ratioText = subscriberCount > 0 ? engagementRatioValue.toFixed(2) : "N/A";
         const durationText = formatDuration(duration);
         const vphText = formatNumber(vph);
+        const vphLabel = vphTrusted ? `⚡ VPH: ${vphText}` : `⚡ VPH: ${vphText} (추정)`;
 
         let tagsHTML = "";
         if (tags.length > 0) {
@@ -2506,7 +2798,7 @@
                     </div>
                     <div class="video-stats">
                         <div class="stat-item">📊 ${ratioText}</div>
-                        ${showVPH ? `<div class="stat-item">⚡ VPH: ${vphText}</div>` : ''}
+                        ${showVPH ? `<div class="stat-item">${vphLabel}</div>` : ''}
                     </div>
                     <div class="${badgeClass}">${engagementLevel}단계</div>
                     <div class="video-tags">${tagsHTML}</div>
@@ -2519,6 +2811,9 @@
                     </div>
                 </div>
             `;
+
+        // 비동기 VPH 업데이트를 위한 video ID 속성 설정
+        card.setAttribute('data-video-id', videoId);
 
         return card;
       }
@@ -2543,7 +2838,9 @@
         const engagementLevel = getEngagementLevel(engagementRatioValue);
         const duration = parseDuration(contentDetails.duration);
         const uploadDate = new Date(snippet.publishedAt).toLocaleDateString("ko-KR");
-        const vph = calculateVPH(viewCount, snippet.publishedAt);
+        const vphResult = calculateVPH(viewCount, snippet.publishedAt);
+        const vph = vphResult.value || 0;
+        const vphTrusted = vphResult.isTrusted || false;
 
         const viewCountText = formatNumber(viewCount);
         const subscriberText = subscriberCount > 0 ? formatNumber(subscriberCount) : "미공개";
@@ -2561,7 +2858,7 @@
                 <td>${ratioText}</td>
                 <td><span class="${badgeClass}">${engagementLevel}단계</span></td>
                 <td>${durationText}</td>
-                ${showVPH ? `<td>${vphText}</td>` : ''}
+                ${showVPH ? `<td title="${vphTrusted ? '정확함' : '추정치'}">${vphText}${vphTrusted ? '' : '*'}</td>` : ''}
                 <td>${uploadDate}</td>
                 <td><a href="${videoLink}" target="_blank" class="table-link">보기</a></td>
             `;
