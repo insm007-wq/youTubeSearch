@@ -2361,13 +2361,18 @@
       vphTracker.init().catch(error => console.warn('VPH 추적 초기화 오류:', error));
 
       // vidIQ 방식의 감쇠 계수 계산 (최종 조정)
+      // vidIQ 역추론 기반 감쇠 계수 (강력한 시간 가중치)
+      // 역추론 분석: 2일 영상 (99,000 조회) → vidIQ VPH 52
+      // 기본 VPH = 99,000 / 48 = 2,062.5
+      // 필요 감쇠 = 52 / 2,062.5 = 0.0252 (2.52%)
       function getDecayFactor(daysSinceUpload) {
-        if (daysSinceUpload <= 1) return 1.0;      // 0-24시간: 100%
-        if (daysSinceUpload <= 3) return 0.55;     // 1-3일: 55%
-        if (daysSinceUpload <= 7) return 0.37;     // 3-7일: 37%
-        if (daysSinceUpload <= 14) return 0.25;    // 7-14일: 25% (vidIQ 정확 매칭)
-        if (daysSinceUpload <= 30) return 0.15;    // 14-30일: 15%
-        return 0.1;                                 // 30일 이상: 10%
+        if (daysSinceUpload <= 1) return 1.0;      // 0-24시간: 100% (신규 비디오)
+        if (daysSinceUpload <= 2) return 0.025;    // 1-2일: 2.5% (역추론값)
+        if (daysSinceUpload <= 3) return 0.015;    // 2-3일: 1.5%
+        if (daysSinceUpload <= 7) return 0.01;     // 3-7일: 1%
+        if (daysSinceUpload <= 14) return 0.005;   // 7-14일: 0.5%
+        if (daysSinceUpload <= 30) return 0.003;   // 14-30일: 0.3%
+        return 0.001;                               // 30일 이상: 0.1%
       }
 
       // 추정 VPH 계산 (동기, 빠른 반환) - 원본대로 숫자 반환 (호환성 유지)
