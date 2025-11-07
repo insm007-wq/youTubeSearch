@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube VPH 분석 도구</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            color: #333;
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        input[type="text"],
+        input[type="url"],
+        input[type="number"],
+        textarea {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+            font-family: inherit;
+            transition: border-color 0.3s;
+        }
+
+        #apiKey {
+            padding: 16px 15px;
+            font-size: 16px;
+            min-height: 60px;
+            font-family: monospace;
+            resize: vertical;
+        }
+
+        input:focus,
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            background-color: #f8f9ff;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+        }
+
+        button {
+            flex: 1;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-fetch {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-fetch:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-fetch:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .btn-reset {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .btn-reset:hover {
+            background: #e0e0e0;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            color: #667eea;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            display: none;
+            border-left: 4px solid #f5c6cb;
+        }
+
+        .success-message {
+            background: #d4edda;
+            color: #155724;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            display: none;
+            border-left: 4px solid #c3e6cb;
+        }
+
+        .result-section {
+            display: none;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .result-section.show {
+            display: block;
+        }
+
+        .video-info {
+            background: #f8f9ff;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .video-header {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .video-thumbnail {
+            width: 120px;
+            height: 68px;
+            border-radius: 6px;
+            object-fit: cover;
+            background: #e0e0e0;
+        }
+
+        .video-details {
+            flex: 1;
+        }
+
+        .video-title {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+
+        .video-channel {
+            color: #666;
+            font-size: 13px;
+            margin-bottom: 8px;
+        }
+
+        .video-meta {
+            display: flex;
+            gap: 15px;
+            font-size: 13px;
+            color: #999;
+        }
+
+        .calculation-section {
+            background: #fff3cd;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 4px solid #ffc107;
+        }
+
+        .calculation-title {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+
+        .result-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px;
+            margin-bottom: 10px;
+            background: white;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+
+        .result-label {
+            color: #666;
+            font-weight: 500;
+        }
+
+        .result-value {
+            color: #333;
+            font-weight: 700;
+        }
+
+        .result-value.highlight {
+            color: #764ba2;
+            font-size: 15px;
+        }
+
+        .comparison-section {
+            background: #e3f2fd;
+            border-radius: 8px;
+            padding: 20px;
+            border-left: 4px solid #2196F3;
+        }
+
+        .comparison-title {
+            font-weight: 600;
+            color: #1565c0;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+
+        .comparison-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            font-size: 13px;
+            border-bottom: 1px solid rgba(33, 150, 243, 0.2);
+        }
+
+        .comparison-row:last-child {
+            border-bottom: none;
+        }
+
+        .comparison-label {
+            color: #555;
+        }
+
+        .comparison-value {
+            font-weight: 600;
+            color: #1565c0;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .tab-btn {
+            padding: 12px 20px;
+            background: none;
+            border: none;
+            color: #999;
+            font-weight: 600;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+            font-size: 14px;
+        }
+
+        .tab-btn.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .info-note {
+            background: #e7f3ff;
+            border-left: 4px solid #2196F3;
+            padding: 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            color: #1565c0;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 YouTube VPH 분석 도구</h1>
+            <p>YouTube 영상 정보를 가져와 VPH를 계산하세요</p>
+        </div>
+
+        <div class="content">
+            <div class="tabs">
+                <button class="tab-btn active" onclick="switchTab(0)">📝 정보 입력</button>
+                <button class="tab-btn" onclick="switchTab(1)">📊 분석 결과</button>
+            </div>
+
+            <!-- 탭 1: 정보 입력 -->
+            <div class="tab-content active" id="tab0">
+                <div class="error-message" id="errorMessage"></div>
+
+                <div class="input-group">
+                    <label for="apiKey">YouTube API 키</label>
+                    <input type="password" id="apiKey" placeholder="YouTube Data API v3 키를 입력하세요">
+                </div>
+
+                <div class="input-group">
+                    <label for="youtubeUrl">YouTube URL</label>
+                    <input type="url" id="youtubeUrl" placeholder="https://www.youtube.com/watch?v=..." value="">
+                </div>
+
+                <div class="button-group">
+                    <button class="btn-fetch" onclick="fetchYouTubeInfo()">🔍 정보 가져오기</button>
+                    <button class="btn-reset" onclick="resetForm()">초기화</button>
+                </div>
+
+                <div class="loading" id="loading">
+                    <div class="spinner"></div>
+                    <p>YouTube 정보를 가져오는 중...</p>
+                </div>
+
+                <div class="info-note">
+                    ℹ️ <strong>API 키 필요:</strong> <a href="https://console.developers.google.com" target="_blank" style="color: #1565c0;">Google Cloud Console</a>에서 YouTube Data API v3 키를 발급받으세요.
+                </div>
+            </div>
+
+            <!-- 탭 2: 분석 결과 -->
+            <div class="tab-content" id="tab1">
+                <div class="success-message" id="successMessage"></div>
+
+                <div class="result-section" id="resultSection">
+                    <!-- 영상 정보 -->
+                    <div class="video-info">
+                        <div class="video-header">
+                            <img id="thumbnail" class="video-thumbnail" src="" alt="thumbnail">
+                            <div class="video-details">
+                                <div class="video-title" id="videoTitle">-</div>
+                                <div class="video-channel" id="channelTitle">-</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- VPH 계산 필요 정보 -->
+                    <div class="calculation-section">
+                        <div class="calculation-title">📊 VPH 계산 필요 정보</div>
+
+                        <div class="result-row">
+                            <span class="result-label">조회수</span>
+                            <span class="result-value" id="viewCountInfo">-</span>
+                        </div>
+
+                        <div class="result-row">
+                            <span class="result-label">업로드 시간</span>
+                            <span class="result-value" id="publishedAtInfo">-</span>
+                        </div>
+
+                        <div class="result-row">
+                            <span class="result-label">경과 시간 (시간)</span>
+                            <span class="result-value" id="hoursElapsed">-</span>
+                        </div>
+
+                        <div class="result-row">
+                            <span class="result-label">경과 일수</span>
+                            <span class="result-value" id="daysElapsed">-</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 현재 감쇠 계수 (youtube-search.html과 동일)
+        function getDecayFactor(daysSinceUpload) {
+            if (daysSinceUpload <= 0.2) return 1.0;    // 0-5시간: 100%
+            if (daysSinceUpload <= 0.6) return 0.93;   // 5-15시간: 93%
+            if (daysSinceUpload <= 1) return 1.0;      // 15-24시간: 100%
+            if (daysSinceUpload <= 2) return 0.47;     // 1-2일: 47%
+            if (daysSinceUpload <= 3) return 0.26;     // 2-3일: 26%
+            if (daysSinceUpload <= 7) return 0.30;     // 3-7일: 30%
+            if (daysSinceUpload <= 14) return 0.185;   // 7-14일: 18.5%
+            if (daysSinceUpload <= 30) return 0.26;    // 14-30일: 26%
+            return 0.11;                                // 30일 이상: 11%
+        }
+
+        function extractVideoId(url) {
+            try {
+                const urlObj = new URL(url);
+                return urlObj.searchParams.get('v');
+            } catch (e) {
+                return null;
+            }
+        }
+
+        async function fetchYouTubeInfo() {
+            const apiKey = document.getElementById('apiKey').value;
+            const youtubeUrl = document.getElementById('youtubeUrl').value;
+            const errorDiv = document.getElementById('errorMessage');
+
+            errorDiv.style.display = 'none';
+
+            if (!apiKey) {
+                showError('API 키를 입력하세요');
+                return;
+            }
+
+            if (!youtubeUrl) {
+                showError('YouTube URL을 입력하세요');
+                return;
+            }
+
+            const videoId = extractVideoId(youtubeUrl);
+            if (!videoId) {
+                showError('유효한 YouTube URL이 아닙니다');
+                return;
+            }
+
+            document.getElementById('loading').style.display = 'block';
+
+            try {
+                const response = await fetch(
+                    `https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics&id=${videoId}&key=${apiKey}`
+                );
+
+                const data = await response.json();
+
+                if (!data.items || data.items.length === 0) {
+                    showError('영상을 찾을 수 없습니다. API 키나 URL을 확인하세요.');
+                    document.getElementById('loading').style.display = 'none';
+                    return;
+                }
+
+                const video = data.items[0];
+                const snippet = video.snippet;
+                const statistics = video.statistics;
+
+                const viewCount = parseInt(statistics.viewCount) || 0;
+                const publishedAt = new Date(snippet.publishedAt);
+                const now = new Date();
+                const hoursElapsed = (now - publishedAt) / (1000 * 60 * 60);
+                const daysSinceUpload = hoursElapsed / 24;
+
+                // 결과 표시
+                displayResults({
+                    title: snippet.title,
+                    channel: snippet.channelTitle,
+                    viewCount: viewCount,
+                    thumbnail: snippet.thumbnails.medium.url,
+                    publishedAt: publishedAt,
+                    hoursElapsed: hoursElapsed,
+                    daysSinceUpload: daysSinceUpload
+                });
+
+                switchTab(1);
+                showSuccess('✅ 정보를 성공적으로 가져왔습니다!');
+                document.getElementById('loading').style.display = 'none';
+
+            } catch (error) {
+                showError('오류: ' + error.message);
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+
+        function displayResults(data) {
+            // 영상 정보
+            document.getElementById('thumbnail').src = data.thumbnail;
+            document.getElementById('videoTitle').textContent = data.title;
+            document.getElementById('channelTitle').textContent = data.channel;
+
+            // VPH 계산 필요 정보
+            document.getElementById('viewCountInfo').textContent = `${data.viewCount.toLocaleString()}회`;
+            document.getElementById('publishedAtInfo').textContent = data.publishedAt.toLocaleString('ko-KR');
+            document.getElementById('hoursElapsed').textContent = `${data.hoursElapsed.toFixed(2)} 시간`;
+            document.getElementById('daysElapsed').textContent = `${data.daysSinceUpload.toFixed(3)} 일`;
+
+            document.getElementById('resultSection').classList.add('show');
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+        }
+
+        function showSuccess(message) {
+            const successDiv = document.getElementById('successMessage');
+            successDiv.textContent = message;
+            successDiv.style.display = 'block';
+            setTimeout(() => {
+                successDiv.style.display = 'none';
+            }, 3000);
+        }
+
+        function resetForm() {
+            document.getElementById('apiKey').value = '';
+            document.getElementById('youtubeUrl').value = '';
+            document.getElementById('errorMessage').style.display = 'none';
+            document.getElementById('resultSection').classList.remove('show');
+            document.getElementById('youtubeUrl').focus();
+        }
+
+        function switchTab(tabIndex) {
+            document.querySelectorAll('.tab-btn').forEach((btn, idx) => {
+                btn.classList.toggle('active', idx === tabIndex);
+            });
+            document.querySelectorAll('.tab-content').forEach((content, idx) => {
+                content.classList.toggle('active', idx === tabIndex);
+            });
+        }
+
+        // Enter 키로 검색
+        document.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && document.getElementById('youtubeUrl') === document.activeElement) {
+                fetchYouTubeInfo();
+            }
+        });
+
+        window.onload = () => {
+            document.getElementById('youtubeUrl').focus();
+        };
+    </script>
+</body>
+</html>

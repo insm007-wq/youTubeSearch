@@ -2366,13 +2366,15 @@
       // 기본 VPH = 9,900 / 48 = 206.25
       // 필요 감쇠 = 46 / 206.25 = 0.2232 (22.32%)
       function getDecayFactor(daysSinceUpload) {
-        if (daysSinceUpload <= 1) return 1.0;      // 0-24시간: 100% (신규 비디오)
-        if (daysSinceUpload <= 2) return 0.22;     // 1-2일: 22% (역추론값, 9.9K 기준)
-        if (daysSinceUpload <= 3) return 0.15;     // 2-3일: 15%
-        if (daysSinceUpload <= 7) return 0.10;     // 3-7일: 10%
-        if (daysSinceUpload <= 14) return 0.05;    // 7-14일: 5%
-        if (daysSinceUpload <= 30) return 0.03;    // 14-30일: 3%
-        return 0.02;                                // 30일 이상: 2%
+        if (daysSinceUpload <= 0.2) return 1.0;    // 0-5시간: 100%
+        if (daysSinceUpload <= 0.6) return 0.93;   // 5-15시간: 93%
+        if (daysSinceUpload <= 1) return 1.0;      // 15-24시간: 100%
+        if (daysSinceUpload <= 2) return 0.47;     // 1-2일: 47%
+        if (daysSinceUpload <= 3) return 0.26;     // 2-3일: 26%
+        if (daysSinceUpload <= 7) return 0.30;     // 3-7일: 30%
+        if (daysSinceUpload <= 14) return 0.185;   // 7-14일: 18.5%
+        if (daysSinceUpload <= 30) return 0.26;    // 14-30일: 26%
+        return 0.11;                                // 30일 이상: 11%
       }
 
       // 추정 VPH 계산 (동기, 빠른 반환) - 원본대로 숫자 반환 (호환성 유지)
