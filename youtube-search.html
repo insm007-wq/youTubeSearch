@@ -2096,8 +2096,8 @@
             break;
           case "vph":
             sorted.sort((a, b) => {
-              const vphA = calculateVPH(parseInt(a.statistics.viewCount) || 0, a.snippet.publishedAt).value;
-              const vphB = calculateVPH(parseInt(b.statistics.viewCount) || 0, b.snippet.publishedAt).value;
+              const vphA = calculateVPH(parseInt(a.statistics.viewCount) || 0, a.snippet.publishedAt);
+              const vphB = calculateVPH(parseInt(b.statistics.viewCount) || 0, b.snippet.publishedAt);
               return vphB - vphA;
             });
             break;
@@ -2370,17 +2370,16 @@
         return 0.1;                                 // 30일 이상: 10%
       }
 
-      // 추정 VPH 계산 (동기, 빠른 반환, 신뢰도 낮음)
-      // 기존 감쇠 계수 방식 사용 (vidIQ 스타일)
+      // 추정 VPH 계산 (동기, 빠른 반환) - 원본대로 숫자 반환 (호환성 유지)
       function calculateVPH(viewCount, publishedAt) {
         try {
-          if (!publishedAt) return { value: 0, isTrusted: false };
+          if (!publishedAt) return 0;
           const now = new Date();
           const uploadDate = new Date(publishedAt);
           const hoursElapsed = (now - uploadDate) / (1000 * 60 * 60);
           const daysSinceUpload = hoursElapsed / 24;
 
-          if (hoursElapsed <= 0 || !isFinite(hoursElapsed)) return { value: 0, isTrusted: false };
+          if (hoursElapsed <= 0 || !isFinite(hoursElapsed)) return 0;
 
           // 기본 VPH = 조회수 / 경과 시간
           const baseVPH = viewCount / hoursElapsed;
@@ -2389,14 +2388,10 @@
           const decayFactor = getDecayFactor(daysSinceUpload);
           const adjustedVPH = baseVPH * decayFactor;
 
-          return {
-            value: isFinite(adjustedVPH) ? Math.round(adjustedVPH) : 0,
-            isTrusted: false,
-            source: 'estimated'
-          };
+          return isFinite(adjustedVPH) ? Math.round(adjustedVPH) : 0;
         } catch (error) {
           console.error('VPH 계산 오류:', error);
-          return { value: 0, isTrusted: false };
+          return 0;
         }
       }
 
@@ -2459,8 +2454,7 @@
           const viewCount = parseInt(video.statistics.viewCount) || 0;
           const channelStats = allChannelsData[video.snippet.channelId];
           const subscriberCount = channelStats ? parseInt(channelStats.subscriberCount) || 0 : 0;
-          const vphResult = calculateVPH(viewCount, video.snippet.publishedAt);
-          const vph = vphResult.value || 0;
+          const vph = calculateVPH(viewCount, video.snippet.publishedAt);
 
           totalViews += viewCount;
           totalVPH += vph;
@@ -2679,24 +2673,6 @@
           TABLE_BODY.appendChild(row);
         });
 
-        // 비동기: 정확한 VPH 조회 및 UI 업데이트 (24시간 데이터 수집 후)
-        if (showVPH) {
-          filtered.forEach(video => {
-            const videoId = video.id;
-            const viewCount = parseInt(video.statistics.viewCount) || 0;
-
-            // 비동기로 정확한 VPH 계산
-            calculateVPHAccurate(videoId, viewCount, video.snippet.publishedAt)
-              .then(vphResult => {
-                if (vphResult.isTrusted) {
-                  // VPH 값이 정확해졌으므로 UI 업데이트
-                  updateVPHDisplay(videoId, vphResult);
-                }
-              })
-              .catch(e => console.warn(`VPH 비동기 계산 오류 (${videoId}):`, e));
-          });
-        }
-
         // 댓글 버튼 이벤트 리스너
         document.querySelectorAll(".btn-view-comments").forEach((btn) => {
           btn.addEventListener("click", (e) => {
@@ -2768,16 +2744,14 @@
         const engagementRatioValue = calculateEngagementRatio(video);
         const engagementLevel = getEngagementLevel(engagementRatioValue);
         const duration = parseDuration(contentDetails.duration);
-        const vphResult = calculateVPH(viewCount, snippet.publishedAt);
-        const vph = vphResult.value || 0;
-        const vphTrusted = vphResult.isTrusted || false;
+        const vph = calculateVPH(viewCount, snippet.publishedAt);
 
         const viewCountText = formatNumber(viewCount);
         const subscriberText = subscriberCount > 0 ? formatNumber(subscriberCount) : "미공개";
         const ratioText = subscriberCount > 0 ? engagementRatioValue.toFixed(2) : "N/A";
         const durationText = formatDuration(duration);
         const vphText = formatNumber(vph);
-        const vphLabel = vphTrusted ? `⚡ VPH: ${vphText}` : `⚡ VPH: ${vphText} (추정)`;
+        const vphLabel = `⚡ VPH: ${vphText}`;
 
         let tagsHTML = "";
         if (tags.length > 0) {
@@ -2840,9 +2814,7 @@
         const engagementLevel = getEngagementLevel(engagementRatioValue);
         const duration = parseDuration(contentDetails.duration);
         const uploadDate = new Date(snippet.publishedAt).toLocaleDateString("ko-KR");
-        const vphResult = calculateVPH(viewCount, snippet.publishedAt);
-        const vph = vphResult.value || 0;
-        const vphTrusted = vphResult.isTrusted || false;
+        const vph = calculateVPH(viewCount, snippet.publishedAt);
 
         const viewCountText = formatNumber(viewCount);
         const subscriberText = subscriberCount > 0 ? formatNumber(subscriberCount) : "미공개";
@@ -2860,7 +2832,7 @@
                 <td>${ratioText}</td>
                 <td><span class="${badgeClass}">${engagementLevel}단계</span></td>
                 <td>${durationText}</td>
-                ${showVPH ? `<td title="${vphTrusted ? '정확함' : '추정치'}">${vphText}${vphTrusted ? '' : '*'}</td>` : ''}
+                ${showVPH ? `<td>${vphText}</td>` : ''}
                 <td>${uploadDate}</td>
                 <td><a href="${videoLink}" target="_blank" class="table-link">보기</a></td>
             `;
