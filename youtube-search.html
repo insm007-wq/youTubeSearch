@@ -2372,7 +2372,7 @@
         if (daysSinceUpload <= 7) return 0.01;     // 3-7일: 1%
         if (daysSinceUpload <= 14) return 0.005;   // 7-14일: 0.5%
         if (daysSinceUpload <= 30) return 0.003;   // 14-30일: 0.3%
-        return 0.001;                               // 30일 이상: 0.1%
+        return 0.002;                               // 30일 이상: 0.2% (개선: 0.001 → 0.002)
       }
 
       // 추정 VPH 계산 (동기, 빠른 반환) - 원본대로 숫자 반환 (호환성 유지)
