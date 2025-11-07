@@ -2371,6 +2371,7 @@
       }
 
       // 추정 VPH 계산 (동기, 빠른 반환, 신뢰도 낮음)
+      // 기존 감쇠 계수 방식 사용 (vidIQ 스타일)
       function calculateVPH(viewCount, publishedAt) {
         try {
           if (!publishedAt) return { value: 0, isTrusted: false };
@@ -2381,14 +2382,15 @@
 
           if (hoursElapsed <= 0 || !isFinite(hoursElapsed)) return { value: 0, isTrusted: false };
 
-          // 단순 평균 (최근 24시간 데이터 없을 때 사용)
-          // 최근 트렌드를 반영하기 위해 최근 시간들의 가중치를 높임
-          const hoursWeight = Math.max(1, Math.min(hoursElapsed / 24, 1)); // 0-1 사이의 값
-          const recentBias = Math.max(0.3, 1 - (daysSinceUpload * 0.1)); // 시간이 지날수록 감소
-          const estimatedVPH = (viewCount / hoursElapsed) * recentBias;
+          // 기본 VPH = 조회수 / 경과 시간
+          const baseVPH = viewCount / hoursElapsed;
+
+          // vidIQ 방식: 감쇠 계수 적용으로 최근 트렌드 반영
+          const decayFactor = getDecayFactor(daysSinceUpload);
+          const adjustedVPH = baseVPH * decayFactor;
 
           return {
-            value: isFinite(estimatedVPH) ? Math.round(estimatedVPH) : 0,
+            value: isFinite(adjustedVPH) ? Math.round(adjustedVPH) : 0,
             isTrusted: false,
             source: 'estimated'
           };
