@@ -1,5 +1,6 @@
 'use client'
 
+import TagAnalysis from '@/app/components/TagAnalysis/TagAnalysis'
 import './VideoCard.css'
 
 interface VideoCardProps {
@@ -12,6 +13,7 @@ interface VideoCardProps {
     subscriberCount: number
     duration?: string
     publishedAt?: string
+    tags?: string[]
   }
   showVPH?: boolean
   vph?: number
@@ -89,6 +91,7 @@ export default function VideoCard({ video, showVPH = false, vph }: VideoCardProp
     subscriberCount,
     duration,
     publishedAt,
+    tags,
   } = video
 
   const viewCountText = formatNumber(viewCount)
@@ -131,7 +134,7 @@ export default function VideoCard({ video, showVPH = false, vph }: VideoCardProp
           {showVPH && <div className="stat-item">{vphLabel}</div>}
         </div>
         <div className={badgeClass}>{engagementLevel}단계</div>
-        <div className="video-tags"></div>
+        <TagAnalysis tags={tags} title={title} />
         <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
           <button
             className="btn-view-channel"
@@ -151,21 +154,25 @@ export default function VideoCard({ video, showVPH = false, vph }: VideoCardProp
           >
             💬 댓글
           </button>
-          <a
-            href={videoLink}
-            target="_blank"
-            rel="noopener noreferrer"
+          <button
             className="video-link"
+            onClick={(e) => {
+              e.preventDefault()
+              window.open(videoLink, '_blank')
+            }}
             style={{
               flex: 1,
               textAlign: 'center',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
             }}
           >
             YouTube →
-          </a>
+          </button>
         </div>
       </div>
     </a>

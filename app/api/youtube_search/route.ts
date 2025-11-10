@@ -115,6 +115,7 @@ export async function GET(request: NextRequest) {
         duration: video.contentDetails?.duration,
         subscriberCount,
         thumbnail: video.snippet.thumbnails?.medium?.url,
+        tags: video.snippet?.tags || [],
       }
     }) || []
 

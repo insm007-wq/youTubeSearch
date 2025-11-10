@@ -1,6 +1,7 @@
 'use client'
 
 import VideoCard from '@/app/components/VideoCard/VideoCard'
+import TagAnalysisDashboard from '@/app/components/TagAnalysisDashboard/TagAnalysisDashboard'
 
 interface SearchResultsProps {
   results: any[]
@@ -68,6 +69,9 @@ export default function SearchResults({
           <div className="stat-value">{stats.videoCount}</div>
         </div>
       </div>
+
+      {/* 태그 분석 대시보드 */}
+      <TagAnalysisDashboard results={results} />
 
       {/* 결과 영역 */}
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', overflowY: 'auto' }}>
