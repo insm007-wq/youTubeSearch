@@ -11,19 +11,23 @@ export default function EngagementRatioFilter({
 }: EngagementRatioFilterProps) {
   const handleChange = (value: string) => {
     if (value === 'all') {
-      // If clicking 'all', select all or deselect all
+      // "전체" 클릭 시: 모든 단계 선택/해제
       if (selectedValues.includes('all')) {
+        // "전체"가 이미 선택되었으면 해제
         onChange([])
       } else {
-        onChange(['all', '1', '2', '3', '4', '5'])
+        // "전체"를 선택하면 모든 항목 선택
+        onChange(['all'])
       }
     } else {
-      // Remove 'all' if it exists when clicking specific options
+      // 특정 단계 선택 시: "전체" 제거하고 단계 토글
       let newValues = selectedValues.filter(v => v !== 'all')
 
       if (newValues.includes(value)) {
+        // 이미 선택된 항목 해제
         newValues = newValues.filter(v => v !== value)
       } else {
+        // 새로운 항목 선택
         newValues = [...newValues, value]
       }
 

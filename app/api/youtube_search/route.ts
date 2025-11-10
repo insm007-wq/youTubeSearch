@@ -5,8 +5,6 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const query = searchParams.get('q')
     const maxResults = searchParams.get('maxResults') || '20'
-    const uploadPeriod = searchParams.get('uploadPeriod') || 'any'
-    const videoDuration = searchParams.get('videoDuration') || 'any'
 
     // 검증
     if (!query) {
@@ -24,17 +22,6 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // 기간 필터 변환
-    const publishedAfterMap: Record<string, Date> = {
-      all: new Date('2005-01-01'),
-      '1month': new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
-      '2months': new Date(Date.now() - 60 * 24 * 60 * 60 * 1000),
-      '6months': new Date(Date.now() - 180 * 24 * 60 * 60 * 1000),
-      '1year': new Date(Date.now() - 365 * 24 * 60 * 60 * 1000),
-    }
-
-    const publishedAfter = publishedAfterMap[uploadPeriod as keyof typeof publishedAfterMap]?.toISOString()
-
     // YouTube API 호출
     const url = new URL('https://www.googleapis.com/youtube/v3/search')
     url.searchParams.append('key', apiKey)
@@ -43,14 +30,6 @@ export async function GET(request: NextRequest) {
     url.searchParams.append('part', 'snippet')
     url.searchParams.append('maxResults', maxResults)
     url.searchParams.append('order', 'relevance')
-
-    if (publishedAfter) {
-      url.searchParams.append('publishedAfter', publishedAfter)
-    }
-
-    if (videoDuration !== 'any') {
-      url.searchParams.append('videoDuration', videoDuration)
-    }
 
     const response = await fetch(url.toString())
 

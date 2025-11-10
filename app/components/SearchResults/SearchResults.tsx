@@ -1,6 +1,7 @@
 'use client'
 
 import VideoCard from '@/app/components/VideoCard/VideoCard'
+import ResultsTable from '@/app/components/ResultsTable/ResultsTable'
 import TagAnalysisDashboard from '@/app/components/TagAnalysisDashboard/TagAnalysisDashboard'
 
 interface SearchResultsProps {
@@ -8,6 +9,7 @@ interface SearchResultsProps {
   totalResults: number
   isLoading: boolean
   showVPH?: boolean
+  viewMode: 'card' | 'table'
 }
 
 export default function SearchResults({
@@ -15,6 +17,7 @@ export default function SearchResults({
   totalResults,
   isLoading,
   showVPH = false,
+  viewMode,
 }: SearchResultsProps) {
   // 통계 계산
   const stats = results.length > 0 ? {
@@ -83,7 +86,7 @@ export default function SearchResults({
           <div className="no-results">
             <p>왼쪽 필터에서 검색을 진행해주세요</p>
           </div>
-        ) : (
+        ) : viewMode === 'card' ? (
           <div style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
@@ -99,6 +102,8 @@ export default function SearchResults({
               />
             ))}
           </div>
+        ) : (
+          <ResultsTable results={results} showVPH={showVPH} />
         )}
       </div>
     </div>

@@ -15,8 +15,149 @@ export default function Search() {
   const [showVPH, setShowVPH] = useState(false)
   const [engagementRatios, setEngagementRatios] = useState<string[]>(['4', '5'])
   const [isLoading, setIsLoading] = useState(false)
-  const [results, setResults] = useState<any[]>([])
+  const [allResults, setAllResults] = useState<any[]>([])
   const [totalResults, setTotalResults] = useState(0)
+  const [viewMode, setViewMode] = useState<'card' | 'table'>('card')
+  const [sortBy, setSortBy] = useState('relevance')
+
+  // 기간 필터링 함수
+  const filterResultsByPeriod = (items: any[], period: string) => {
+    if (period === 'all') return items
+
+    const now = Date.now()
+    return items.filter((video) => {
+      const publishDate = new Date(video.publishedAt || '').getTime()
+      const daysAgo = (now - publishDate) / (1000 * 60 * 60 * 24)
+
+      if (period === '1month' && daysAgo > 30) return false
+      if (period === '2months' && daysAgo > 60) return false
+      if (period === '6months' && daysAgo > 180) return false
+      if (period === '1year' && daysAgo > 365) return false
+
+      return true
+    })
+  }
+
+  // Engagement 레벨 계산 함수
+  const getEngagementLevel = (ratio: number): number => {
+    if (ratio >= 3.0) return 5
+    if (ratio >= 1.4) return 4
+    if (ratio >= 0.6) return 3
+    if (ratio >= 0.2) return 2
+    return 1
+  }
+
+  // 기간, 길이, engagement ratio로 필터링하는 함수
+  const filterResults = (
+    items: any[],
+    period: string,
+    length: string,
+    ratios: string[]
+  ) => {
+    let filtered = filterResultsByPeriod(items, period)
+
+    // 길이 필터
+    if (length !== 'all') {
+      filtered = filtered.filter((video) => {
+        const durationStr = video.duration || ''
+        // ISO 8601 duration 파싱 (예: PT1H30M45S)
+        const match = durationStr.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/)
+        if (!match) return true
+
+        const hours = parseInt(match[1] || '0')
+        const minutes = parseInt(match[2] || '0')
+        const seconds = parseInt(match[3] || '0')
+        const totalSeconds = hours * 3600 + minutes * 60 + seconds
+
+        // 180초(3분)를 기준으로 필터
+        if (length === 'short' && totalSeconds > 180) return false
+        if (length === 'long' && totalSeconds <= 180) return false
+
+        return true
+      })
+    }
+
+    // Engagement ratio 필터
+    if (ratios.length > 0 && !ratios.includes('all')) {
+      filtered = filtered.filter((video) => {
+        const subscriberCount = video.subscriberCount || 0
+        const viewCount = video.viewCount || 0
+
+        if (subscriberCount === 0) return false
+
+        const ratio = viewCount / subscriberCount
+        const level = getEngagementLevel(ratio)
+
+        return ratios.includes(level.toString())
+      })
+    }
+
+    return filtered
+  }
+
+  // 정렬 함수
+  const sortResults = (items: any[], sortOption: string) => {
+    const sorted = [...items]
+
+    switch (sortOption) {
+      case 'viewCount':
+        sorted.sort((a, b) => (b.viewCount || 0) - (a.viewCount || 0))
+        break
+      case 'vph':
+        sorted.sort((a, b) => {
+          const vphA = a.subscriberCount > 0 ? a.viewCount / a.subscriberCount : 0
+          const vphB = b.subscriberCount > 0 ? b.viewCount / b.subscriberCount : 0
+          return vphB - vphA
+        })
+        break
+      case 'engagementRatio':
+        sorted.sort((a, b) => {
+          const ratioA = a.subscriberCount > 0 ? a.viewCount / a.subscriberCount : 0
+          const ratioB = b.subscriberCount > 0 ? b.viewCount / b.subscriberCount : 0
+          return ratioB - ratioA
+        })
+        break
+      case 'subscriberCount':
+        sorted.sort((a, b) => (b.subscriberCount || 0) - (a.subscriberCount || 0))
+        break
+      case 'duration':
+        sorted.sort((a, b) => {
+          const getDurationSeconds = (durationStr: string) => {
+            const match = durationStr.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/)
+            if (!match) return 0
+            const hours = parseInt(match[1] || '0')
+            const minutes = parseInt(match[2] || '0')
+            const seconds = parseInt(match[3] || '0')
+            return hours * 3600 + minutes * 60 + seconds
+          }
+          const durationA = getDurationSeconds(a.duration || '')
+          const durationB = getDurationSeconds(b.duration || '')
+          return durationB - durationA
+        })
+        break
+      case 'likeCount':
+        sorted.sort((a, b) => (b.likeCount || 0) - (a.likeCount || 0))
+        break
+      case 'publishedAt':
+        sorted.sort((a, b) => {
+          const dateA = new Date(a.publishedAt || '').getTime()
+          const dateB = new Date(b.publishedAt || '').getTime()
+          return dateB - dateA
+        })
+        break
+      case 'relevance':
+      default:
+        // relevance: 조회수 + 내림차순
+        sorted.sort((a, b) => (b.viewCount || 0) - (a.viewCount || 0))
+        break
+    }
+
+    return sorted
+  }
+
+  // 필터링된 결과 계산
+  let results = filterResults(allResults, uploadPeriod, videoLength, engagementRatios)
+  results = sortResults(results, sortBy)
 
   const handleSearch = async () => {
     if (!searchInput.trim()) {
@@ -28,9 +169,7 @@ export default function Search() {
     try {
       const params = new URLSearchParams({
         q: searchInput,
-        uploadPeriod,
-        videoDuration: videoLength === 'short' ? 'short' : videoLength === 'long' ? 'long' : 'any',
-        maxResults: '20',
+        maxResults: '50', // 더 많은 결과 가져오기
       })
 
       const response = await fetch(`/api/youtube_search?${params}`)
@@ -41,7 +180,7 @@ export default function Search() {
         return
       }
 
-      setResults(data.items || [])
+      setAllResults(data.items || [])
       setTotalResults(data.totalResults || 0)
     } catch (error) {
       console.error('검색 오류:', error)
@@ -67,16 +206,21 @@ export default function Search() {
           {/* 검색 섹션 */}
           <div className="search-section">
             <div className="search-label">검색어</div>
-            <div className="search-container">
-              <input
-                type="text"
-                className="search-input"
-                placeholder=""
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                onKeyPress={handleKeyPress}
-              />
-              <div className="search-history-dropdown" id="searchHistory"></div>
+            <div className="search-container-with-button">
+              <div className="search-container">
+                <input
+                  type="text"
+                  className="search-input"
+                  placeholder=""
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                />
+                <div className="search-history-dropdown" id="searchHistory"></div>
+              </div>
+              <button className="btn-search" onClick={handleSearch} disabled={isLoading}>
+                {isLoading ? '검색 중...' : '검색'}
+              </button>
             </div>
           </div>
 
@@ -108,13 +252,23 @@ export default function Search() {
             <div className="content-title">검색결과</div>
             <div className="controls-right">
               <div className="view-toggle">
-                <button className="view-btn active">📇 카드</button>
-                <button className="view-btn">📊 테이블</button>
+                <button
+                  className={`view-btn ${viewMode === 'card' ? 'active' : ''}`}
+                  onClick={() => setViewMode('card')}
+                >
+                  📇 카드
+                </button>
+                <button
+                  className={`view-btn ${viewMode === 'table' ? 'active' : ''}`}
+                  onClick={() => setViewMode('table')}
+                >
+                  📊 테이블
+                </button>
               </div>
-              <select className="sort-dropdown">
+              <select className="sort-dropdown" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
                 <option value="relevance">조회수 + 내림차순</option>
                 <option value="viewCount">조회수순</option>
-                <option value="vph" style={{ display: 'none' }}>VPH순 (높음)</option>
+                {showVPH && <option value="vph">VPH순 (높음)</option>}
                 <option value="engagementRatio">비율순 (높음)</option>
                 <option value="subscriberCount">구독자순</option>
                 <option value="duration">길이순 (길음)</option>
@@ -122,9 +276,6 @@ export default function Search() {
                 <option value="publishedAt">최신순</option>
               </select>
               <button className="btn-excel">📥 엑셀</button>
-              <button className="btn-search" onClick={handleSearch} disabled={isLoading}>
-                {isLoading ? '검색 중...' : '검색'}
-              </button>
             </div>
           </div>
 
@@ -133,6 +284,7 @@ export default function Search() {
             totalResults={totalResults}
             isLoading={isLoading}
             showVPH={showVPH}
+            viewMode={viewMode}
           />
         </div>
       </div>

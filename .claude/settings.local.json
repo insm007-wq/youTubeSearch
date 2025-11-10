@@ -3,7 +3,8 @@
     "allow": [
       "Bash(netstat:*)",
       "Bash(git push:*)",
-      "Bash(test:*)"
+      "Bash(test:*)",
+      "mcp__ide__getDiagnostics"
     ],
     "deny": [],
     "ask": []
