@@ -1,23 +1,7 @@
 {
   "permissions": {
     "allow": [
-      "WebSearch",
-      "WebFetch(domain:developers.google.com)",
-      "WebFetch(domain:support.vidiq.com)",
-      "WebFetch(domain:www.youtube.com)",
-      "Bash(git add:*)",
-      "Bash(git commit:*)",
-      "WebFetch(domain:api.vidiq.com)",
-      "WebFetch(domain:stackoverflow.com)",
-      "Bash(git checkout:*)",
-      "Bash(python3:*)",
-      "Bash(node:*)",
-      "Bash(dir:*)",
-      "Bash(findstr:*)",
-      "Bash(git -C \"D:\\project\\youTube-Search\" log --oneline -20)",
-      "Bash(npx create-next-app:*)",
-      "Bash(npm install)",
-      "Bash(npm run build)"
+      "Bash(netstat:*)"
     ],
     "deny": [],
     "ask": []

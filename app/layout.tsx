@@ -1,37 +1,26 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import "./globals.css";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+import type { Metadata } from 'next'
+import './globals.css'
 
 export const metadata: Metadata = {
-  title: "YouTube Search & VPH Analyzer",
-  description: "YouTube 영상 검색 및 VPH(Views Per Hour) 분석 도구",
-  icons: {
-    icon: "/favicon.ico",
-  },
-};
+  title: 'YouTube Search Analytics',
+  description: 'YouTube video search and analytics tool',
+}
 
 export default function RootLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+}: {
+  children: React.ReactNode
+}) {
   return (
-    <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+    <html lang="ko" suppressHydrationWarning>
+      <head>
+        {/* Preload fonts */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+      </head>
+      <body className="bg-white text-gray-900 dark:bg-zinc-950 dark:text-white">
         {children}
       </body>
     </html>
-  );
+  )
 }

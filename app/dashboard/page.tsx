@@ -1,5 +1,7 @@
-import SearchLayout from '@/app/search'
+'use client'
+
+import Search from './search'
 
 export default function DashboardPage() {
-  return <SearchLayout />
+  return <Search />
 }
