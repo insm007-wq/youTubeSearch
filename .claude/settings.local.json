@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(netstat:*)"
+      "Bash(netstat:*)",
+      "Bash(git push:*)",
+      "Bash(test:*)"
     ],
     "deny": [],
     "ask": []
