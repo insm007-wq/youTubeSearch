@@ -26,8 +26,8 @@ export default function LoginPage() {
           {/* Login Buttons */}
           <div className="space-y-4">
             {/* Google Login */}
-            <button
-              onClick={() => alert('Google 로그인은 Phase 2에서 구현됩니다')}
+            <a
+              href="/search"
               className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-white dark:bg-zinc-700 border border-gray-200 dark:border-zinc-600 rounded-lg hover:bg-gray-50 dark:hover:bg-zinc-600 transition-colors"
             >
               <svg
@@ -43,11 +43,11 @@ export default function LoginPage() {
               <span className="text-gray-900 dark:text-white font-medium">
                 Google로 로그인
               </span>
-            </button>
+            </a>
 
             {/* Kakao Login */}
-            <button
-              onClick={() => alert('카카오 로그인은 Phase 2에서 구현됩니다')}
+            <a
+              href="/search"
               className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-[#FEE500] hover:bg-[#FDD835] rounded-lg transition-colors"
             >
               <svg
@@ -60,16 +60,16 @@ export default function LoginPage() {
               <span className="font-medium">
                 카카오로 로그인
               </span>
-            </button>
+            </a>
 
             {/* Naver Login */}
-            <button
-              onClick={() => alert('네이버 로그인은 Phase 2에서 구현됩니다')}
+            <a
+              href="/search"
               className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-[#00C73C] hover:bg-[#00B830] rounded-lg transition-colors text-white font-medium"
             >
               <span className="font-bold text-lg">N</span>
               <span>네이버로 로그인</span>
-            </button>
+            </a>
           </div>
 
           {/* Info */}
