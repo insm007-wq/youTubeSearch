@@ -1,12 +1,19 @@
 'use client'
 
 import { useState } from 'react'
+import SearchResults from '@/app/components/SearchResults/SearchResults'
+import PeriodFilter from '@/app/components/Filters/PeriodFilter/PeriodFilter'
+import VideoLengthFilter from '@/app/components/Filters/VideoLengthFilter/VideoLengthFilter'
+import VPHCheckbox from '@/app/components/Filters/VPHCheckbox/VPHCheckbox'
+import EngagementRatioFilter from '@/app/components/Filters/EngagementRatioFilter/EngagementRatioFilter'
 import './search.css'
 
 export default function Search() {
   const [searchInput, setSearchInput] = useState('')
   const [uploadPeriod, setUploadPeriod] = useState('all')
   const [videoLength, setVideoLength] = useState('all')
+  const [showVPH, setShowVPH] = useState(false)
+  const [engagementRatios, setEngagementRatios] = useState<string[]>(['4', '5'])
   const [isLoading, setIsLoading] = useState(false)
   const [results, setResults] = useState<any[]>([])
   const [totalResults, setTotalResults] = useState(0)
@@ -85,137 +92,13 @@ export default function Search() {
 
           {/* 필터 섹션 */}
           <div className="filters-wrapper">
-            {/* 기간 필터 */}
-            <div className="filter-section">
-              <div className="filter-title">기간 필터</div>
-              <div className="filter-options">
-                <label className="filter-option">
-                  <input
-                    type="radio"
-                    name="uploadPeriod"
-                    value="all"
-                    checked={uploadPeriod === 'all'}
-                    onChange={(e) => setUploadPeriod(e.target.value)}
-                  />
-                  <label>전체</label>
-                </label>
-                <label className="filter-option">
-                  <input
-                    type="radio"
-                    name="uploadPeriod"
-                    value="1month"
-                    checked={uploadPeriod === '1month'}
-                    onChange={(e) => setUploadPeriod(e.target.value)}
-                  />
-                  <label>1개월</label>
-                </label>
-                <label className="filter-option">
-                  <input
-                    type="radio"
-                    name="uploadPeriod"
-                    value="2months"
-                    checked={uploadPeriod === '2months'}
-                    onChange={(e) => setUploadPeriod(e.target.value)}
-                  />
-                  <label>2개월</label>
-                </label>
-                <label className="filter-option">
-                  <input
-                    type="radio"
-                    name="uploadPeriod"
-                    value="6months"
-                    checked={uploadPeriod === '6months'}
-                    onChange={(e) => setUploadPeriod(e.target.value)}
-                  />
-                  <label>6개월</label>
-                </label>
-                <label className="filter-option">
-                  <input
-                    type="radio"
-                    name="uploadPeriod"
-                    value="1year"
-                    checked={uploadPeriod === '1year'}
-                    onChange={(e) => setUploadPeriod(e.target.value)}
-                  />
-                  <label>1년</label>
-                </label>
-              </div>
-              <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #e5e5e5' }}>
-                <label className="filter-option">
-                  <input type="checkbox" id="showVPH" />
-                  <label>VPH 표시</label>
-                </label>
-              </div>
-            </div>
-
-            {/* 길이 필터 */}
-            <div className="filter-section">
-              <div className="filter-title">길이 필터</div>
-              <div className="filter-options">
-                <label className="filter-option">
-                  <input
-                    type="radio"
-                    name="videoLength"
-                    value="all"
-                    checked={videoLength === 'all'}
-                    onChange={(e) => setVideoLength(e.target.value)}
-                  />
-                  <label>전체</label>
-                </label>
-                <label className="filter-option">
-                  <input
-                    type="radio"
-                    name="videoLength"
-                    value="short"
-                    checked={videoLength === 'short'}
-                    onChange={(e) => setVideoLength(e.target.value)}
-                  />
-                  <label>숏폼(≤3분)</label>
-                </label>
-                <label className="filter-option">
-                  <input
-                    type="radio"
-                    name="videoLength"
-                    value="long"
-                    checked={videoLength === 'long'}
-                    onChange={(e) => setVideoLength(e.target.value)}
-                  />
-                  <label>롱폼(&gt;3분)</label>
-                </label>
-              </div>
-            </div>
-
-            {/* 구독자 대비 조회수 비율 필터 */}
-            <div className="engagement-section">
-              <div className="engagement-title">구독자 대비 조회수 비율 단계(다중선택)</div>
-              <div className="engagement-info">조회수/구독자 비율이 높을수록 채널의 실제 영향력이 큼</div>
-              <div className="engagement-options">
-                <label className="filter-option">
-                  <input type="checkbox" name="engagementRatio" value="all" />
-                  <label>전체</label>
-                </label>
-                <label className="filter-option">
-                  <input type="checkbox" name="engagementRatio" value="1" />
-                  <label>1단계 (&lt;0.2)</label>
-                </label>
-                <label className="filter-option">
-                  <input type="checkbox" name="engagementRatio" value="2" />
-                  <label>2단계 (0.2~0.6)</label>
-                </label>
-                <label className="filter-option">
-                  <input type="checkbox" name="engagementRatio" value="3" />
-                  <label>3단계 (0.6~1.4)</label>
-                </label>
-                <label className="filter-option">
-                  <input type="checkbox" name="engagementRatio" value="4" defaultChecked />
-                  <label>4단계 (1.4~3.0)</label>
-                </label>
-                <label className="filter-option">
-                  <input type="checkbox" name="engagementRatio" value="5" defaultChecked />
-                  <label>5단계 (≥3.0)</label>
-                </label>
-              </div>
-            </div>
+            <PeriodFilter value={uploadPeriod} onChange={setUploadPeriod} />
+            <VideoLengthFilter value={videoLength} onChange={setVideoLength} />
+            <VPHCheckbox checked={showVPH} onChange={setShowVPH} />
+            <EngagementRatioFilter
+              selectedValues={engagementRatios}
+              onChange={setEngagementRatios}
+            />
           </div>
         </div>
 
@@ -245,112 +128,12 @@ export default function Search() {
             </div>
           </div>
 
-          {/* 결과 개수 */}
-          <p className="results-count">총 {totalResults}개의 영상</p>
-
-          {/* 통계 대시보드 */}
-          <div className="statistics-dashboard">
-            <div className="stat-card views">
-              <div className="stat-label">총 조회수</div>
-              <div className="stat-value">0</div>
-            </div>
-            <div className="stat-card subscribers">
-              <div className="stat-label">평균 구독자</div>
-              <div className="stat-value">0</div>
-            </div>
-            <div className="stat-card ratio">
-              <div className="stat-label">평균 비율</div>
-              <div className="stat-value">0</div>
-            </div>
-            <div className="stat-card count">
-              <div className="stat-label">영상 개수</div>
-              <div className="stat-value">0</div>
-            </div>
-          </div>
-
-          {/* 결과 영역 */}
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', overflowY: 'auto' }}>
-            {results.length === 0 ? (
-              <div className="no-results">
-                <p>왼쪽 필터에서 검색을 진행해주세요</p>
-              </div>
-            ) : (
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-                gap: '20px',
-                width: '100%',
-                padding: '20px',
-              }}>
-                {results.map((video) => (
-                  <a
-                    key={video.id}
-                    href={`https://www.youtube.com/watch?v=${video.id}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{
-                      textDecoration: 'none',
-                      color: 'inherit',
-                      border: '1px solid #e5e5e5',
-                      borderRadius: '8px',
-                      overflow: 'hidden',
-                      boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-                      transition: 'transform 0.2s, box-shadow 0.2s',
-                      cursor: 'pointer',
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.transform = 'translateY(-4px)'
-                      e.currentTarget.style.boxShadow = '0 8px 16px rgba(0,0,0,0.2)'
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.transform = 'translateY(0)'
-                      e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)'
-                    }}
-                  >
-                    <img
-                      src={video.thumbnail}
-                      alt={video.title}
-                      style={{
-                        width: '100%',
-                        height: '180px',
-                        objectFit: 'cover',
-                      }}
-                    />
-                    <div style={{ padding: '12px' }}>
-                      <h3 style={{
-                        margin: '0 0 8px 0',
-                        fontSize: '14px',
-                        fontWeight: '600',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        display: '-webkit-box',
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: 'vertical',
-                      }}>
-                        {video.title}
-                      </h3>
-                      <p style={{
-                        margin: '0 0 8px 0',
-                        fontSize: '12px',
-                        color: '#666',
-                      }}>
-                        {video.channelTitle}
-                      </p>
-                      <div style={{
-                        display: 'flex',
-                        gap: '12px',
-                        fontSize: '12px',
-                        color: '#999',
-                      }}>
-                        <span>조회: {(video.viewCount / 1000000).toFixed(1)}M</span>
-                        <span>구독: {(video.subscriberCount / 1000).toFixed(0)}K</span>
-                      </div>
-                    </div>
-                  </a>
-                ))}
-              </div>
-            )}
-          </div>
+          <SearchResults
+            results={results}
+            totalResults={totalResults}
+            isLoading={isLoading}
+            showVPH={showVPH}
+          />
         </div>
       </div>
     </>
