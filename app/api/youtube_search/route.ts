@@ -87,6 +87,7 @@ export async function GET(request: NextRequest) {
         id: video.id,
         title: video.snippet.title,
         description: video.snippet.description,
+        channelId: video.snippet.channelId,
         channelTitle: video.snippet.channelTitle,
         publishedAt: video.snippet.publishedAt,
         viewCount,

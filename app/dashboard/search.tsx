@@ -6,19 +6,52 @@ import PeriodFilter from '@/app/components/Filters/PeriodFilter/PeriodFilter'
 import VideoLengthFilter from '@/app/components/Filters/VideoLengthFilter/VideoLengthFilter'
 import VPHCheckbox from '@/app/components/Filters/VPHCheckbox/VPHCheckbox'
 import EngagementRatioFilter from '@/app/components/Filters/EngagementRatioFilter/EngagementRatioFilter'
+import CommentsModal from '@/app/components/CommentsModal/CommentsModal'
+import ChannelModal from '@/app/components/ChannelModal/ChannelModal'
 import './search.css'
+
+interface Comment {
+  author: string
+  text: string
+  likes: number
+  replies: number
+}
 
 export default function Search() {
   const [searchInput, setSearchInput] = useState('')
   const [uploadPeriod, setUploadPeriod] = useState('all')
   const [videoLength, setVideoLength] = useState('all')
-  const [showVPH, setShowVPH] = useState(false)
+  const [showVPH, setShowVPH] = useState(true)
   const [engagementRatios, setEngagementRatios] = useState<string[]>(['4', '5'])
   const [isLoading, setIsLoading] = useState(false)
   const [allResults, setAllResults] = useState<any[]>([])
   const [totalResults, setTotalResults] = useState(0)
   const [viewMode, setViewMode] = useState<'card' | 'table'>('card')
   const [sortBy, setSortBy] = useState('relevance')
+
+  // 댓글 모달 상태
+  const [showCommentsModal, setShowCommentsModal] = useState(false)
+  const [commentsModalData, setCommentsModalData] = useState({
+    videoTitle: '',
+    comments: [] as Comment[],
+    totalReplies: 0,
+    totalLikes: 0,
+    isLoading: false,
+  })
+
+  // 채널 모달 상태
+  const [showChannelModal, setShowChannelModal] = useState(false)
+  const [channelModalData, setChannelModalData] = useState({
+    channelTitle: '',
+    channelDescription: '',
+    viewCount: 0,
+    subscriberCount: false,
+    subscriberCountValue: 0,
+    videoCount: 0,
+    customUrl: '',
+    channelId: '',
+    isLoading: false,
+  })
 
   // 기간 필터링 함수
   const filterResultsByPeriod = (items: any[], period: string) => {
@@ -159,6 +192,82 @@ export default function Search() {
   let results = filterResults(allResults, uploadPeriod, videoLength, engagementRatios)
   results = sortResults(results, sortBy)
 
+  // 엑셀 다운로드 함수
+  const handleExcelDownload = () => {
+    if (results.length === 0) {
+      alert('검색 결과가 없습니다')
+      return
+    }
+
+    // CSV 헤더
+    const csvHeader = ['제목', '채널명', '조회수', '구독자', '조회수/구독자', '단계', '영상길이', '업로드일', '태그', 'YouTube링크']
+    const csvRows: string[][] = []
+
+    // 데이터 행 생성
+    results.forEach((video) => {
+      const title = video.title
+      const channel = video.channelTitle
+      const viewCount = video.viewCount || 0
+      const subscriberCount = video.subscriberCount || 0
+      const ratio = subscriberCount > 0 ? (viewCount / subscriberCount).toFixed(2) : 'N/A'
+      const level = getEngagementLevel(subscriberCount > 0 ? viewCount / subscriberCount : 0)
+
+      // 길이 포맷팅
+      let durationText = '-'
+      if (video.duration) {
+        const match = video.duration.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/)
+        if (match) {
+          const hours = parseInt(match[1] || '0')
+          const minutes = parseInt(match[2] || '0')
+          const seconds = parseInt(match[3] || '0')
+          if (hours > 0) {
+            durationText = `${hours}시간 ${minutes}분`
+          } else if (minutes > 0) {
+            durationText = `${minutes}분 ${seconds}초`
+          } else {
+            durationText = `${seconds}초`
+          }
+        }
+      }
+
+      // 업로드 날짜 포맷팅
+      const uploadDate = new Date(video.publishedAt || '').toLocaleDateString('ko-KR')
+
+      // 태그
+      const tags = video.tags ? video.tags.join(';') : ''
+
+      // YouTube 링크
+      const videoLink = `https://www.youtube.com/watch?v=${video.id}`
+
+      csvRows.push([
+        `"${title.replace(/"/g, '""')}"`,
+        `"${channel.replace(/"/g, '""')}"`,
+        viewCount.toString(),
+        subscriberCount.toString(),
+        ratio,
+        level.toString(),
+        durationText,
+        uploadDate,
+        `"${tags.replace(/"/g, '""')}"`,
+        videoLink,
+      ])
+    })
+
+    // CSV 문자열 생성
+    const csv = [csvHeader.join(','), ...csvRows.map((row) => row.join(','))].join('\n')
+
+    // 다운로드
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    const url = URL.createObjectURL(blob)
+    link.setAttribute('href', url)
+    link.setAttribute('download', `youtube-search-${new Date().toISOString().split('T')[0]}.csv`)
+    link.style.visibility = 'hidden'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
   const handleSearch = async () => {
     if (!searchInput.trim()) {
       alert('검색어를 입력해주세요')
@@ -193,6 +302,80 @@ export default function Search() {
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       handleSearch()
+    }
+  }
+
+  // 댓글 조회 함수
+  const handleCommentsClick = async (videoId: string, videoTitle: string) => {
+    setCommentsModalData((prev) => ({
+      ...prev,
+      isLoading: true,
+      videoTitle,
+    }))
+    setShowCommentsModal(true)
+
+    try {
+      const response = await fetch(
+        `/api/youtube_comments?videoId=${videoId}`
+      )
+      const data = await response.json()
+
+      if (!response.ok) {
+        alert(data.error || '댓글을 불러올 수 없습니다')
+        setCommentsModalData((prev) => ({ ...prev, isLoading: false }))
+        return
+      }
+
+      setCommentsModalData((prev) => ({
+        ...prev,
+        comments: data.comments,
+        totalReplies: data.totalReplies,
+        totalLikes: data.totalLikes,
+        isLoading: false,
+      }))
+    } catch (error) {
+      console.error('댓글 조회 오류:', error)
+      alert('댓글 조회 중 오류가 발생했습니다')
+      setCommentsModalData((prev) => ({ ...prev, isLoading: false }))
+    }
+  }
+
+  // 채널 조회 함수
+  const handleChannelClick = async (channelId: string, channelTitle: string) => {
+    setChannelModalData((prev) => ({
+      ...prev,
+      isLoading: true,
+      channelTitle,
+      channelId,
+    }))
+    setShowChannelModal(true)
+
+    try {
+      const response = await fetch(
+        `/api/youtube_channel?channelId=${channelId}`
+      )
+      const data = await response.json()
+
+      if (!response.ok) {
+        alert(data.error || '채널 정보를 불러올 수 없습니다')
+        setChannelModalData((prev) => ({ ...prev, isLoading: false }))
+        return
+      }
+
+      setChannelModalData((prev) => ({
+        ...prev,
+        channelDescription: data.description,
+        viewCount: data.viewCount,
+        subscriberCount: data.hiddenSubscriberCount,
+        subscriberCountValue: data.subscriberCount,
+        videoCount: data.videoCount,
+        customUrl: data.customUrl,
+        isLoading: false,
+      }))
+    } catch (error) {
+      console.error('채널 조회 오류:', error)
+      alert('채널 정보 조회 중 오류가 발생했습니다')
+      setChannelModalData((prev) => ({ ...prev, isLoading: false }))
     }
   }
 
@@ -275,7 +458,7 @@ export default function Search() {
                 <option value="likeCount">좋아요순</option>
                 <option value="publishedAt">최신순</option>
               </select>
-              <button className="btn-excel">📥 엑셀</button>
+              <button className="btn-excel" onClick={handleExcelDownload}>📥 엑셀</button>
             </div>
           </div>
 
@@ -285,9 +468,37 @@ export default function Search() {
             isLoading={isLoading}
             showVPH={showVPH}
             viewMode={viewMode}
+            onChannelClick={handleChannelClick}
+            onCommentsClick={handleCommentsClick}
           />
         </div>
       </div>
+
+      {/* 댓글 분석 모달 */}
+      <CommentsModal
+        isOpen={showCommentsModal}
+        videoTitle={commentsModalData.videoTitle}
+        comments={commentsModalData.comments}
+        totalReplies={commentsModalData.totalReplies}
+        totalLikes={commentsModalData.totalLikes}
+        isLoading={commentsModalData.isLoading}
+        onClose={() => setShowCommentsModal(false)}
+      />
+
+      {/* 채널 분석 모달 */}
+      <ChannelModal
+        isOpen={showChannelModal}
+        channelTitle={channelModalData.channelTitle}
+        channelDescription={channelModalData.channelDescription}
+        viewCount={channelModalData.viewCount}
+        subscriberCount={channelModalData.subscriberCount}
+        subscriberCountValue={channelModalData.subscriberCountValue}
+        videoCount={channelModalData.videoCount}
+        customUrl={channelModalData.customUrl}
+        channelId={channelModalData.channelId}
+        isLoading={channelModalData.isLoading}
+        onClose={() => setShowChannelModal(false)}
+      />
     </>
   )
 }

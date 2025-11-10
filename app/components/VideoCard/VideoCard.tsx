@@ -14,9 +14,12 @@ interface VideoCardProps {
     duration?: string
     publishedAt?: string
     tags?: string[]
+    channelId?: string
   }
   showVPH?: boolean
   vph?: number
+  onChannelClick?: (channelId: string, channelTitle: string) => void
+  onCommentsClick?: (videoId: string, videoTitle: string) => void
 }
 
 // 숫자 포맷팅 함수
@@ -81,7 +84,13 @@ const calculateVPH = (viewCount: number, publishedAt: string): number => {
   return hours > 0 ? viewCount / hours : 0
 }
 
-export default function VideoCard({ video, showVPH = false, vph }: VideoCardProps) {
+export default function VideoCard({
+  video,
+  showVPH = false,
+  vph,
+  onChannelClick,
+  onCommentsClick
+}: VideoCardProps) {
   const {
     id,
     title,
@@ -92,6 +101,7 @@ export default function VideoCard({ video, showVPH = false, vph }: VideoCardProp
     duration,
     publishedAt,
     tags,
+    channelId,
   } = video
 
   const viewCountText = formatNumber(viewCount)
@@ -140,7 +150,7 @@ export default function VideoCard({ video, showVPH = false, vph }: VideoCardProp
             className="btn-view-channel"
             onClick={(e) => {
               e.preventDefault()
-              window.open(`https://www.youtube.com/channel/${id}`, '_blank')
+              onChannelClick?.(channelId || id, channelTitle)
             }}
           >
             🎥 채널
@@ -149,7 +159,7 @@ export default function VideoCard({ video, showVPH = false, vph }: VideoCardProp
             className="btn-view-comments"
             onClick={(e) => {
               e.preventDefault()
-              // 댓글 기능은 나중에 구현
+              onCommentsClick?.(id, title)
             }}
           >
             💬 댓글

@@ -10,6 +10,8 @@ interface SearchResultsProps {
   isLoading: boolean
   showVPH?: boolean
   viewMode: 'card' | 'table'
+  onChannelClick?: (channelId: string, channelTitle: string) => void
+  onCommentsClick?: (videoId: string, videoTitle: string) => void
 }
 
 export default function SearchResults({
@@ -18,6 +20,8 @@ export default function SearchResults({
   isLoading,
   showVPH = false,
   viewMode,
+  onChannelClick,
+  onCommentsClick,
 }: SearchResultsProps) {
   // 통계 계산
   const stats = results.length > 0 ? {
@@ -99,6 +103,8 @@ export default function SearchResults({
                 key={video.id}
                 video={video}
                 showVPH={showVPH}
+                onChannelClick={onChannelClick}
+                onCommentsClick={onCommentsClick}
               />
             ))}
           </div>
