@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import SearchResults from "@/app/components/SearchResults/SearchResults";
 import PeriodFilter from "@/app/components/Filters/PeriodFilter/PeriodFilter";
 import VideoLengthFilter from "@/app/components/Filters/VideoLengthFilter/VideoLengthFilter";
@@ -8,6 +8,10 @@ import VPHCheckbox from "@/app/components/Filters/VPHCheckbox/VPHCheckbox";
 import EngagementRatioFilter from "@/app/components/Filters/EngagementRatioFilter/EngagementRatioFilter";
 import CommentsModal from "@/app/components/CommentsModal/CommentsModal";
 import ChannelModal from "@/app/components/ChannelModal/ChannelModal";
+import SavedSearches from "@/app/components/SavedSearches/SavedSearches";
+import { getEngagementLevel } from "@/lib/engagementUtils";
+import { isShortVideo, isLongVideo } from "@/lib/durationUtils";
+import { getDaysAgo } from "@/lib/dateUtils";
 import "./search.css";
 
 interface Comment {
@@ -260,9 +264,14 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
     return sorted;
   };
 
-  // 필터링된 결과 계산
-  let results = filterResults(allResults, uploadPeriod, videoLength, engagementRatios);
-  results = sortResults(results, sortBy);
+  // 필터링된 결과 계산 (메모이제이션)
+  const results = useMemo(
+    () => {
+      let filtered = filterResults(allResults, uploadPeriod, videoLength, engagementRatios);
+      return sortResults(filtered, sortBy);
+    },
+    [allResults, uploadPeriod, videoLength, engagementRatios, sortBy]
+  );
 
   // 엑셀 다운로드 함수
   const handleExcelDownload = () => {
@@ -340,7 +349,7 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
     document.body.removeChild(link);
   };
 
-  const handleSearch = async () => {
+  const handleSearch = useCallback(async () => {
     if (!searchInput.trim()) {
       alert("검색어를 입력해주세요");
       return;
@@ -350,7 +359,7 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
     try {
       const params = new URLSearchParams({
         q: searchInput,
-        maxResults: "50", // 더 많은 결과 가져오기
+        maxResults: "50",
       });
 
       const response = await fetch(`/api/youtube_search?${params}`);
@@ -369,7 +378,7 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [searchInput]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
@@ -377,8 +386,34 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
     }
   };
 
+  // 저장된 검색 로드
+  const handleLoadSavedSearch = useCallback(async (query: string) => {
+    setIsLoading(true);
+    try {
+      const params = new URLSearchParams({
+        q: query,
+        maxResults: "50",
+      });
+      const response = await fetch(`/api/youtube_search?${params}`);
+      const data = await response.json();
+
+      if (!response.ok) {
+        alert(`검색 실패: ${data.error || "알 수 없는 오류"}`);
+        return;
+      }
+
+      setAllResults(data.items || []);
+      setTotalResults(data.totalResults || 0);
+    } catch (error) {
+      console.error("검색 오류:", error);
+      alert("검색 중 오류가 발생했습니다");
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
   // 댓글 조회 함수
-  const handleCommentsClick = async (videoId: string, videoTitle: string) => {
+  const handleCommentsClick = useCallback(async (videoId: string, videoTitle: string) => {
     setCommentsModalData((prev) => ({
       ...prev,
       isLoading: true,
@@ -408,10 +443,10 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
       alert("댓글 조회 중 오류가 발생했습니다");
       setCommentsModalData((prev) => ({ ...prev, isLoading: false }));
     }
-  };
+  }, []);
 
   // 채널 조회 함수
-  const handleChannelClick = async (channelId: string, channelTitle: string) => {
+  const handleChannelClick = useCallback(async (channelId: string, channelTitle: string) => {
     setChannelModalData((prev) => ({
       ...prev,
       isLoading: true,
@@ -445,7 +480,7 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
       alert("채널 정보 조회 중 오류가 발생했습니다");
       setChannelModalData((prev) => ({ ...prev, isLoading: false }));
     }
-  };
+  }, []);
 
   return (
     <>
@@ -476,14 +511,9 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
           </div>
 
           {/* 저장된 검색 섹션 */}
-          <div className="saved-searches-section">
-            <div className="saved-searches-title">💾 저장된 검색</div>
-            <div className="saved-searches-controls">
-              <input type="text" className="saved-search-name-input" placeholder="검색 이름 입력" />
-              <button className="btn-save-search">저장</button>
-            </div>
-            <div className="saved-searches-list" id="savedSearchesList"></div>
-          </div>
+          <SavedSearches
+            onSearchLoad={handleLoadSavedSearch}
+          />
 
           {/* 필터 섹션 */}
           <div className="filters-wrapper">
