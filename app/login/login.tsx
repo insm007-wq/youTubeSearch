@@ -54,6 +54,7 @@ export default function Login() {
 
       {/* 배경 요소 */}
       <div className="bg-circle bg-circle-blue"></div>
+      <div className="bg-circle bg-circle-red"></div>
     </div>
   )
 }
