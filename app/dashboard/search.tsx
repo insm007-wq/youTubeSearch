@@ -38,6 +38,57 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const profileDropdownRef = useRef<HTMLDivElement>(null);
 
+  // 사이드바 너비 조정
+  const [sidebarWidth, setSidebarWidth] = useState<number>(1000);
+  const [isResizing, setIsResizing] = useState(false);
+  const resizeRef = useRef<HTMLDivElement>(null);
+
+  // 저장된 너비 복원
+  useEffect(() => {
+    const savedWidth = localStorage.getItem("youtube-scout-sidebar-width");
+    if (savedWidth) {
+      setSidebarWidth(parseInt(savedWidth, 10));
+    }
+  }, []);
+
+  // 드래그로 너비 조정
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizing) return;
+
+      const newWidth = e.clientX;
+      const minWidth = 300;
+      const maxWidth = 1000;
+
+      if (newWidth >= minWidth && newWidth <= maxWidth) {
+        setSidebarWidth(newWidth);
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+    };
+
+    if (isResizing) {
+      document.addEventListener("mousemove", handleMouseMove);
+      document.addEventListener("mouseup", handleMouseUp);
+      document.body.style.cursor = "col-resize";
+      document.body.style.userSelect = "none";
+    }
+
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+      document.body.style.cursor = "auto";
+      document.body.style.userSelect = "auto";
+    };
+  }, [isResizing]);
+
+  // 너비 변경 시 localStorage에 저장
+  useEffect(() => {
+    localStorage.setItem("youtube-scout-sidebar-width", sidebarWidth.toString());
+  }, [sidebarWidth]);
+
   // 프로필 드롭다운 닫기 (클릭 외부 감지)
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -400,7 +451,7 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
     <>
       <div className="main-container">
         {/* 왼쪽 패널 */}
-        <div className="sidebar">
+        <div className="sidebar" style={{ width: `${sidebarWidth}px` }}>
           <div className="sidebar-title">유튜브 스카우트</div>
 
           {/* 검색 섹션 */}
@@ -442,6 +493,13 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
             <EngagementRatioFilter selectedValues={engagementRatios} onChange={setEngagementRatios} />
           </div>
         </div>
+
+        {/* 리사이저 */}
+        <div
+          ref={resizeRef}
+          className="sidebar-resizer"
+          onMouseDown={() => setIsResizing(true)}
+        ></div>
 
         {/* 오른쪽 컨텐츠 영역 */}
         <div className="content">

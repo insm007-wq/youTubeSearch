@@ -15,6 +15,22 @@
   border-right: 1px solid #e5e5e5;
   overflow-y: auto;
   max-height: 100vh;
+  flex-shrink: 0;
+  transition: width 0.1s ease-out;
+}
+
+/* 사이드바 리사이저 */
+.sidebar-resizer {
+  width: 4px;
+  cursor: col-resize;
+  background-color: #e5e5e5;
+  flex-shrink: 0;
+  transition: background-color 0.2s ease;
+  user-select: none;
+}
+
+.sidebar-resizer:hover {
+  background-color: #999;
 }
 
 .sidebar-title {
