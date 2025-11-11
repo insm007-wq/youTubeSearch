@@ -4,7 +4,14 @@
       "Bash(netstat:*)",
       "Bash(git push:*)",
       "Bash(test:*)",
-      "mcp__ide__getDiagnostics"
+      "mcp__ide__getDiagnostics",
+      "Bash(dir:*)",
+      "Bash(tree:*)",
+      "WebSearch",
+      "WebFetch(domain:support.vidiq.com)",
+      "WebFetch(domain:vidiq.com)",
+      "Bash(npm run build:*)",
+      "WebFetch(domain:stackoverflow.com)"
     ],
     "deny": [],
     "ask": []
