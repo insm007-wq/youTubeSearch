@@ -17,16 +17,14 @@ interface Comment {
   replies: number;
 }
 
-interface SearchProps {
-  user?: {
-    name?: string | null;
-    email?: string | null;
-    image?: string | null;
-  };
-  signOut?: (options: any) => Promise<void>;
+interface User {
+  id?: string;
+  name?: string;
+  email?: string;
+  image?: string;
 }
 
-export default function Search({ user, signOut }: SearchProps) {
+export default function Search({ user, signOut }: { user?: User; signOut?: (options?: any) => void }) {
   const [searchInput, setSearchInput] = useState("");
   const [uploadPeriod, setUploadPeriod] = useState("all");
   const [videoLength, setVideoLength] = useState("all");
@@ -39,6 +37,23 @@ export default function Search({ user, signOut }: SearchProps) {
   const [sortBy, setSortBy] = useState("relevance");
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const profileDropdownRef = useRef<HTMLDivElement>(null);
+
+  // 프로필 드롭다운 닫기 (클릭 외부 감지)
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (profileDropdownRef.current && !profileDropdownRef.current.contains(event.target as Node)) {
+        setProfileDropdownOpen(false);
+      }
+    };
+
+    if (profileDropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [profileDropdownOpen]);
 
   // 댓글 모달 상태
   const [showCommentsModal, setShowCommentsModal] = useState(false);
@@ -63,22 +78,6 @@ export default function Search({ user, signOut }: SearchProps) {
     channelId: "",
     isLoading: false,
   });
-
-  // 프로필 드롭다운 외부 클릭 감지
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (profileDropdownRef.current && !profileDropdownRef.current.contains(event.target as Node)) {
-        setProfileDropdownOpen(false);
-      }
-    }
-
-    if (profileDropdownOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-      return () => {
-        document.removeEventListener("mousedown", handleClickOutside);
-      };
-    }
-  }, [profileDropdownOpen]);
 
   // 기간 필터링 함수
   const filterResultsByPeriod = (items: any[], period: string) => {
@@ -321,7 +320,7 @@ export default function Search({ user, signOut }: SearchProps) {
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
       handleSearch();
     }
@@ -415,7 +414,7 @@ export default function Search({ user, signOut }: SearchProps) {
                   placeholder=""
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
-                  onKeyPress={handleKeyPress}
+                  onKeyDown={handleKeyDown}
                 />
                 <div className="search-history-dropdown" id="searchHistory"></div>
               </div>
