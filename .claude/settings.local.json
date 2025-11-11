@@ -23,7 +23,9 @@
       "Bash(iconv:*)",
       "Bash(wmic process where name=\"node.exe\" delete /nointeractive)",
       "Bash(xargs -I {} taskkill /PID {} /F)",
-      "Bash(cmd /c taskkill /PID 11808 /F)"
+      "Bash(cmd /c taskkill /PID 11808 /F)",
+      "Bash(git checkout:*)",
+      "WebFetch(domain:github.com)"
     ],
     "deny": [],
     "ask": []

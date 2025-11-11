@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import SearchResults from "@/app/components/SearchResults/SearchResults";
 import PeriodFilter from "@/app/components/Filters/PeriodFilter/PeriodFilter";
 import VideoLengthFilter from "@/app/components/Filters/VideoLengthFilter/VideoLengthFilter";
@@ -17,7 +17,16 @@ interface Comment {
   replies: number;
 }
 
-export default function Search() {
+interface SearchProps {
+  user?: {
+    name?: string | null;
+    email?: string | null;
+    image?: string | null;
+  };
+  signOut?: (options: any) => Promise<void>;
+}
+
+export default function Search({ user, signOut }: SearchProps) {
   const [searchInput, setSearchInput] = useState("");
   const [uploadPeriod, setUploadPeriod] = useState("all");
   const [videoLength, setVideoLength] = useState("all");
@@ -28,6 +37,8 @@ export default function Search() {
   const [totalResults, setTotalResults] = useState(0);
   const [viewMode, setViewMode] = useState<"card" | "table">("card");
   const [sortBy, setSortBy] = useState("relevance");
+  const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
+  const profileDropdownRef = useRef<HTMLDivElement>(null);
 
   // 댓글 모달 상태
   const [showCommentsModal, setShowCommentsModal] = useState(false);
@@ -52,6 +63,22 @@ export default function Search() {
     channelId: "",
     isLoading: false,
   });
+
+  // 프로필 드롭다운 외부 클릭 감지
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (profileDropdownRef.current && !profileDropdownRef.current.contains(event.target as Node)) {
+        setProfileDropdownOpen(false);
+      }
+    }
+
+    if (profileDropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => {
+        document.removeEventListener("mousedown", handleClickOutside);
+      };
+    }
+  }, [profileDropdownOpen]);
 
   // 기간 필터링 함수
   const filterResultsByPeriod = (items: any[], period: string) => {
@@ -443,6 +470,46 @@ export default function Search() {
               <button className="btn-excel" onClick={handleExcelDownload}>
                 📥 엑셀
               </button>
+
+              {/* 프로필 드롭다운 */}
+              <div className="profile-dropdown-container" ref={profileDropdownRef}>
+                <div className="profile-divider">|</div>
+                <button
+                  className="profile-avatar-btn"
+                  onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
+                  title="프로필 메뉴"
+                >
+                  {user?.image ? (
+                    <img
+                      src={user.image}
+                      alt={user?.name || "User"}
+                      className="profile-avatar"
+                    />
+                  ) : (
+                    <div className="profile-avatar-fallback">
+                      {user?.name?.charAt(0)?.toUpperCase() || "U"}
+                    </div>
+                  )}
+                </button>
+
+                {profileDropdownOpen && (
+                  <div className="profile-dropdown-menu">
+                    {/* 프로필 정보 */}
+                    <div className="profile-dropdown-header">
+                      <div className="profile-dropdown-name">{user?.name || "사용자"}</div>
+                      <div className="profile-dropdown-email">{user?.email}</div>
+                    </div>
+
+                    {/* 로그아웃 */}
+                    <button
+                      className="profile-dropdown-logout"
+                      onClick={() => signOut?.({ redirectTo: "/" })}
+                    >
+                      🚪 로그아웃
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 

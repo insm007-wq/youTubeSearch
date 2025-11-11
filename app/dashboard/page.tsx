@@ -29,42 +29,7 @@ export default function DashboardPage() {
 
   return (
     <div>
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: '1rem',
-        borderBottom: '1px solid #e5e7eb'
-      }}>
-        <div>
-          {session.user?.image && (
-            <img
-              src={session.user.image}
-              alt={session.user.name || 'User'}
-              style={{
-                width: '40px',
-                height: '40px',
-                borderRadius: '50%',
-                marginRight: '0.5rem'
-              }}
-            />
-          )}
-          <span>{session.user?.name || session.user?.email}</span>
-        </div>
-        <button
-          onClick={() => signOut({ redirectTo: '/login' })}
-          style={{
-            padding: '0.5rem 1rem',
-            backgroundColor: '#f3f4f6',
-            border: '1px solid #d1d5db',
-            borderRadius: '0.5rem',
-            cursor: 'pointer'
-          }}
-        >
-          로그아웃
-        </button>
-      </div>
-      <Search />
+      <Search user={session.user} signOut={signOut} />
     </div>
   )
 }

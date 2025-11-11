@@ -95,6 +95,16 @@ export default function Login() {
             </button>
           </div>
 
+          {/* Terms Agreement */}
+          <div className="login-terms">
+            <p className="login-terms-text">
+              로그인을 진행하면
+              <Link href="/terms" className="login-terms-link">이용약관</Link> 및
+              <Link href="/privacy" className="login-terms-link">개인정보처리방침</Link>에
+              동의하는 것으로 간주됩니다
+            </p>
+          </div>
+
           {/* Info */}
           <div className="login-info">
             <p className="login-info-text">첫 로그인 시 계정이 자동으로 생성됩니다</p>
