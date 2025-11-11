@@ -11,7 +11,19 @@
       "WebFetch(domain:support.vidiq.com)",
       "WebFetch(domain:vidiq.com)",
       "Bash(npm run build:*)",
-      "WebFetch(domain:stackoverflow.com)"
+      "WebFetch(domain:stackoverflow.com)",
+      "WebFetch(domain:authjs.dev)",
+      "Bash(npm install:*)",
+      "Bash(mongod:*)",
+      "Bash(mongo --version:*)",
+      "Bash(where:*)",
+      "Bash(cat:*)",
+      "Bash(findstr:*)",
+      "Bash(taskkill:*)",
+      "Bash(iconv:*)",
+      "Bash(wmic process where name=\"node.exe\" delete /nointeractive)",
+      "Bash(xargs -I {} taskkill /PID {} /F)",
+      "Bash(cmd /c taskkill /PID 11808 /F)"
     ],
     "deny": [],
     "ask": []
