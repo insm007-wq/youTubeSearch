@@ -1,17 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { auth } from '@/auth'
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url)
-    const query = searchParams.get('q')
-    const maxResults = searchParams.get('maxResults') || '20'
-
-    // 검증
-    if (!query) {
+    // ✅ 인증 확인 (로그인 필수)
+    const session = await auth()
+    if (!session) {
       return NextResponse.json(
-        { error: '검색어를 입력해주세요' },
+        { error: '인증이 필요합니다. 로그인해주세요.' },
+        { status: 401 }
+      )
+    }
+
+    const { searchParams } = new URL(request.url)
+    const query = searchParams.get('q')?.trim()
+    let maxResults = parseInt(searchParams.get('maxResults') || '20')
+
+    // ✅ 입력값 검증
+    if (!query || query.length < 1 || query.length > 100) {
+      return NextResponse.json(
+        { error: '검색어는 1-100자 사이여야 합니다' },
         { status: 400 }
       )
+    }
+
+    // ✅ maxResults 범위 검증 (1-50)
+    if (isNaN(maxResults) || maxResults < 1 || maxResults > 50) {
+      maxResults = 20
     }
 
     const apiKey = process.env.YOUTUBE_API_KEY
@@ -22,14 +37,14 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // YouTube API 호출
+    // ✅ YouTube API 호출 (URL 순서 개선: 매개변수를 먼저 설정하고 key는 마지막에)
     const url = new URL('https://www.googleapis.com/youtube/v3/search')
-    url.searchParams.append('key', apiKey)
+    url.searchParams.append('part', 'snippet')
     url.searchParams.append('q', query)
     url.searchParams.append('type', 'video')
-    url.searchParams.append('part', 'snippet')
-    url.searchParams.append('maxResults', maxResults)
+    url.searchParams.append('maxResults', maxResults.toString())
     url.searchParams.append('order', 'relevance')
+    url.searchParams.append('key', apiKey)
 
     const response = await fetch(url.toString())
 
@@ -53,11 +68,11 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // 비디오 상세 정보 조회 (조회수, 좋아요 등)
+    // ✅ 비디오 상세 정보 조회 (조회수, 좋아요 등)
     const videoDetailsUrl = new URL('https://www.googleapis.com/youtube/v3/videos')
-    videoDetailsUrl.searchParams.append('key', apiKey)
-    videoDetailsUrl.searchParams.append('id', videoIds)
     videoDetailsUrl.searchParams.append('part', 'statistics,contentDetails,snippet')
+    videoDetailsUrl.searchParams.append('id', videoIds)
+    videoDetailsUrl.searchParams.append('key', apiKey)
 
     const videoDetailsResponse = await fetch(videoDetailsUrl.toString())
     const videoDetailsData = await videoDetailsResponse.json()
@@ -68,9 +83,9 @@ export async function GET(request: NextRequest) {
 
     if (channelIds) {
       const channelUrl = new URL('https://www.googleapis.com/youtube/v3/channels')
-      channelUrl.searchParams.append('key', apiKey)
-      channelUrl.searchParams.append('id', channelIds)
       channelUrl.searchParams.append('part', 'statistics')
+      channelUrl.searchParams.append('id', channelIds)
+      channelUrl.searchParams.append('key', apiKey)
 
       const channelResponse = await fetch(channelUrl.toString())
       channelData = await channelResponse.json()

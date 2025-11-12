@@ -1,15 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { auth } from '@/auth'
 
 const YOUTUBE_API_URL = 'https://www.googleapis.com/youtube/v3'
 
 export async function GET(request: NextRequest) {
+  // ✅ 인증 확인 (로그인 필수)
+  const session = await auth()
+  if (!session) {
+    return NextResponse.json(
+      { error: '인증이 필요합니다. 로그인해주세요.' },
+      { status: 401 }
+    )
+  }
+
   const { searchParams } = new URL(request.url)
-  const channelId = searchParams.get('channelId')
+  const channelId = searchParams.get('channelId')?.trim()
   const apiKey = process.env.YOUTUBE_API_KEY
 
-  if (!channelId) {
+  // ✅ 입력값 검증
+  if (!channelId || channelId.length < 1 || channelId.length > 50) {
     return NextResponse.json(
-      { error: '채널 ID가 필요합니다' },
+      { error: '올바른 채널 ID가 필요합니다' },
       { status: 400 }
     )
   }
@@ -22,15 +33,18 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const response = await fetch(
-      `${YOUTUBE_API_URL}/channels?part=snippet,statistics,brandingSettings&id=${channelId}&key=${apiKey}`,
-      {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      }
-    )
+    // ✅ URLSearchParams 사용 (API 키 안전하게 처리)
+    const url = new URL(`${YOUTUBE_API_URL}/channels`)
+    url.searchParams.append('part', 'snippet,statistics,brandingSettings')
+    url.searchParams.append('id', channelId)
+    url.searchParams.append('key', apiKey)
+
+    const response = await fetch(url.toString(), {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
 
     if (!response.ok) {
       return NextResponse.json(

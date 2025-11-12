@@ -13,22 +13,30 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      allowDangerousEmailAccountLinking: true,
     }),
     Kakao({
       clientId: process.env.AUTH_KAKAO_ID,
       clientSecret: process.env.AUTH_KAKAO_SECRET,
-      allowDangerousEmailAccountLinking: true,
     }),
     Naver({
       clientId: process.env.AUTH_NAVER_ID,
       clientSecret: process.env.AUTH_NAVER_SECRET,
-      allowDangerousEmailAccountLinking: true,
     }),
   ],
   session: {
     strategy: 'jwt',
-    maxAge: 30 * 24 * 60 * 60, // 30 days
+    maxAge: 7 * 24 * 60 * 60, // 7 days (권장)
+  },
+  cookies: {
+    sessionToken: {
+      name: 'authjs.session-token',
+      options: {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 7 * 24 * 60 * 60,
+      },
+    },
   },
   callbacks: {
     async jwt({ token, user, account }) {

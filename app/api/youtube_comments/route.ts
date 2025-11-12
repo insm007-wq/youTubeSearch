@@ -1,15 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { auth } from '@/auth'
 
 const YOUTUBE_API_URL = 'https://www.googleapis.com/youtube/v3'
 
 export async function GET(request: NextRequest) {
+  // ✅ 인증 확인 (로그인 필수)
+  const session = await auth()
+  if (!session) {
+    return NextResponse.json(
+      { error: '인증이 필요합니다. 로그인해주세요.' },
+      { status: 401 }
+    )
+  }
+
   const { searchParams } = new URL(request.url)
-  const videoId = searchParams.get('videoId')
+  const videoId = searchParams.get('videoId')?.trim()
   const apiKey = process.env.YOUTUBE_API_KEY
 
-  if (!videoId) {
+  // ✅ 입력값 검증
+  if (!videoId || videoId.length < 1 || videoId.length > 50) {
     return NextResponse.json(
-      { error: '비디오 ID가 필요합니다' },
+      { error: '올바른 비디오 ID가 필요합니다' },
       { status: 400 }
     )
   }
@@ -22,15 +33,20 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const response = await fetch(
-      `${YOUTUBE_API_URL}/commentThreads?part=snippet&videoId=${videoId}&maxResults=100&textFormat=plainText&key=${apiKey}`,
-      {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      }
-    )
+    // ✅ URLSearchParams 사용 (API 키 안전하게 처리)
+    const url = new URL(`${YOUTUBE_API_URL}/commentThreads`)
+    url.searchParams.append('part', 'snippet')
+    url.searchParams.append('videoId', videoId)
+    url.searchParams.append('maxResults', '100')
+    url.searchParams.append('textFormat', 'plainText')
+    url.searchParams.append('key', apiKey)
+
+    const response = await fetch(url.toString(), {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
 
     if (!response.ok) {
       return NextResponse.json(
