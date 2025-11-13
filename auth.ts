@@ -7,8 +7,8 @@ import clientPromise from './lib/db'
 
 export const runtime = 'nodejs'
 
-// 기본 NextAuth 설정
-const authConfig = {
+// Vercel 빌드 타임에 adapter를 포함하지 않고, 런타임에만 포함
+const authConfig: any = {
   providers: [
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID,
@@ -24,7 +24,7 @@ const authConfig = {
     }),
   ],
   session: {
-    strategy: 'jwt' as const,
+    strategy: 'jwt',
     maxAge: 7 * 24 * 60 * 60, // 7 days
   },
   cookies: {
@@ -33,7 +33,7 @@ const authConfig = {
       options: {
         httpOnly: true,
         secure: false,
-        sameSite: 'lax' as const,
+        sameSite: 'lax',
         maxAge: 7 * 24 * 60 * 60,
       },
     },
@@ -63,12 +63,11 @@ const authConfig = {
     error: '/login',
   },
   trustHost: true,
-} as const
-
-// Vercel 빌드 타임에 adapter를 포함하지 않고, 런타임에만 포함
-const finalAuthConfig = {
-  ...authConfig,
-  ...(process.env.MONGODB_URI && { adapter: MongoDBAdapter(clientPromise) }),
 }
 
-export const { handlers, auth, signIn, signOut } = NextAuth(finalAuthConfig)
+// MongoDB Adapter를 런타임에만 추가
+if (process.env.MONGODB_URI) {
+  authConfig.adapter = MongoDBAdapter(clientPromise)
+}
+
+export const { handlers, auth, signIn, signOut } = NextAuth(authConfig)
