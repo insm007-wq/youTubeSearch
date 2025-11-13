@@ -7,8 +7,8 @@ import clientPromise from './lib/db'
 
 export const runtime = 'nodejs'
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
-  adapter: MongoDBAdapter(clientPromise),
+// 기본 NextAuth 설정
+const authConfig = {
   providers: [
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID,
@@ -24,22 +24,22 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   session: {
-    strategy: 'jwt',
-    maxAge: 7 * 24 * 60 * 60, // 7 days (권장)
+    strategy: 'jwt' as const,
+    maxAge: 7 * 24 * 60 * 60, // 7 days
   },
   cookies: {
     sessionToken: {
       name: 'authjs.session-token',
       options: {
         httpOnly: true,
-        secure: false,  // ✅ 모든 환경에서 쿠키 전송 (미들웨어 인식 수정)
-        sameSite: 'lax',
+        secure: false,
+        sameSite: 'lax' as const,
         maxAge: 7 * 24 * 60 * 60,
       },
     },
   },
   callbacks: {
-    async jwt({ token, user, account }) {
+    async jwt({ token, user, account }: any) {
       if (user) {
         token.id = user.id
         token.email = user.email
@@ -48,7 +48,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
       return token
     },
-    async session({ session, token }) {
+    async session({ session, token }: any) {
       if (session.user) {
         session.user.id = token.id as string
         session.user.image = token.image as string
@@ -63,4 +63,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     error: '/login',
   },
   trustHost: true,
-})
+} as const
+
+// Vercel 빌드 타임에 adapter를 포함하지 않고, 런타임에만 포함
+const finalAuthConfig = {
+  ...authConfig,
+  ...(process.env.MONGODB_URI && { adapter: MongoDBAdapter(clientPromise) }),
+}
+
+export const { handlers, auth, signIn, signOut } = NextAuth(finalAuthConfig)
