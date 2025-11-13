@@ -1,38 +1,26 @@
-/* Bold + Gradient 스타일 */
+/* Dark + Premium 스타일 */
 
-/* 그래디언트 배경 */
-.boldGradientBg {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #4facfe 75%, #00f2fe 100%);
-  background-size: 400% 400%;
-  animation: gradientShift 8s ease infinite;
+/* 다크 배경 */
+.darkPremiumBg {
+  background: linear-gradient(135deg, #0f0f0f 0%, #1a1a1a 50%, #0a0a0a 100%);
+  position: relative;
 }
 
-@keyframes gradientShift {
-  0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
-}
-
-/* Bold 그래디언트 텍스트 */
-.boldGradientText {
-  background: linear-gradient(90deg, #ffffff 0%, #e0e7ff 50%, #fecaca 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  text-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+.darkPremiumBg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(circle at 20% 50%, rgba(217, 119, 6, 0.05) 0%, transparent 50%),
+    radial-gradient(circle at 80% 80%, rgba(217, 119, 6, 0.03) 0%, transparent 50%);
+  pointer-events: none;
 }
 
 /* 페이드인 애니메이션 */
-@keyframes fadeInUp {
+@keyframes fadeInDown {
   from {
     opacity: 0;
-    transform: translateY(40px);
+    transform: translateY(-30px);
   }
   to {
     opacity: 1;
@@ -40,64 +28,103 @@
   }
 }
 
-.fadeInUp {
-  animation: fadeInUp 0.8s ease-out;
+.fadeInDown {
+  animation: fadeInDown 0.8s ease-out;
 }
 
-/* 기능 카드 배경색 */
-.featureCard1 {
-  background: linear-gradient(135deg, rgba(139, 92, 246, 0.3), rgba(168, 85, 247, 0.2));
+/* 금색 텍스트 */
+.goldText {
+  color: #d97706;
+  font-weight: 700;
 }
 
-.featureCard2 {
-  background: linear-gradient(135deg, rgba(236, 72, 153, 0.3), rgba(244, 114, 182, 0.2));
+/* 프리미엄 배지 */
+.premiumBadge {
+  background: rgba(31, 41, 55, 0.8);
+  border-color: rgba(217, 119, 6, 0.3);
+  backdrop-filter: blur(10px);
 }
 
-.featureCard3 {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.3), rgba(96, 165, 250, 0.2));
+/* 프리미엄 제목 */
+.premiumTitle {
+  background: linear-gradient(135deg, #ffffff 0%, #f3e8ff 50%, #fef3c7 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+}
+
+/* 금색 라인 */
+.goldLine {
+  background: linear-gradient(90deg, transparent, #d97706, transparent);
+  box-shadow: 0 0 20px rgba(217, 119, 6, 0.4);
+}
+
+/* 프리미엄 카드들 */
+.premiumCard1 {
+  background: linear-gradient(135deg, rgba(31, 41, 55, 0.8), rgba(17, 24, 39, 0.8));
+}
+
+.premiumCard2 {
+  background: linear-gradient(135deg, rgba(17, 24, 39, 0.8), rgba(31, 41, 55, 0.8));
+}
+
+.premiumCard3 {
+  background: linear-gradient(135deg, rgba(24, 32, 47, 0.8), rgba(17, 24, 39, 0.8));
+}
+
+/* 금색 글로우 */
+.goldGlow {
+  filter: drop-shadow(0 0 15px rgba(217, 119, 6, 0.4));
+}
+
+/* 프리미엄 피처 섹션 */
+.premiumFeature {
+  background: linear-gradient(135deg, rgba(31, 41, 55, 0.5), rgba(17, 24, 39, 0.5));
+  backdrop-filter: blur(10px);
 }
 
 /* CTA 버튼 */
-.ctaButton {
-  background: linear-gradient(135deg, #ffffff, #f0f9ff);
-  color: #1e293b;
+.premiumCta {
+  background: linear-gradient(135deg, #d97706, #b45309);
+  box-shadow: 0 0 30px rgba(217, 119, 6, 0.3);
+  transition: all 0.3s cubic-bezier(0.23, 1, 0.320, 1);
   font-weight: 700;
   letter-spacing: 0.5px;
-  box-shadow: 0 20px 40px rgba(255, 255, 255, 0.2);
-  transition: all 0.3s cubic-bezier(0.23, 1, 0.320, 1);
 }
 
-.ctaButton:hover {
+.premiumCta:hover {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  box-shadow: 0 0 50px rgba(217, 119, 6, 0.5);
   transform: translateY(-3px);
-  box-shadow: 0 30px 60px rgba(255, 255, 255, 0.3);
-  background: linear-gradient(135deg, #f0f9ff, #ffffff);
 }
 
-/* 배경 블롭 애니메이션 */
-@keyframes moveBlob1 {
+/* 배경 글로우 */
+@keyframes premiumGlow1 {
   0%, 100% {
     transform: translate(0, 0);
   }
   50% {
-    transform: translate(30px, -50px);
+    transform: translate(20px, -30px);
   }
 }
 
-@keyframes moveBlob2 {
+@keyframes premiumGlow2 {
   0%, 100% {
     transform: translate(0, 0);
   }
   50% {
-    transform: translate(-30px, 50px);
+    transform: translate(-20px, 30px);
   }
 }
 
-.bgBlob1 {
-  background: rgba(255, 200, 124, 0.5);
-  animation: moveBlob1 8s ease-in-out infinite;
+.premiumGlow1 {
+  background: rgba(217, 119, 6, 0.3);
+  animation: premiumGlow1 8s ease-in-out infinite;
 }
 
-.bgBlob2 {
-  background: rgba(120, 200, 255, 0.5);
-  animation: moveBlob2 8s ease-in-out infinite;
+.premiumGlow2 {
+  background: rgba(217, 119, 6, 0.2);
+  animation: premiumGlow2 8s ease-in-out infinite;
 }
