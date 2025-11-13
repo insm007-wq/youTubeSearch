@@ -32,7 +32,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       name: 'authjs.session-token',
       options: {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
+        secure: false,  // ✅ 모든 환경에서 쿠키 전송 (미들웨어 인식 수정)
         sameSite: 'lax',
         maxAge: 7 * 24 * 60 * 60,
       },
