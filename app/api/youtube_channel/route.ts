@@ -1,17 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/auth'
 
 const YOUTUBE_API_URL = 'https://www.googleapis.com/youtube/v3'
 
 export async function GET(request: NextRequest) {
-  // ✅ 인증 확인 (로그인 필수)
-  const session = await auth()
-  if (!session) {
-    return NextResponse.json(
-      { error: '인증이 필요합니다. 로그인해주세요.' },
-      { status: 401 }
-    )
-  }
+  // ✅ 인증: 미들웨어에서 이미 확인됨 (이중 체크 제거)
 
   const { searchParams } = new URL(request.url)
   const channelId = searchParams.get('channelId')?.trim()
