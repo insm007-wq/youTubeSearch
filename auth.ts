@@ -2,13 +2,10 @@ import NextAuth from 'next-auth'
 import Google from 'next-auth/providers/google'
 import Kakao from 'next-auth/providers/kakao'
 import Naver from 'next-auth/providers/naver'
-import { MongoDBAdapter } from '@auth/mongodb-adapter'
-import clientPromise from './lib/db'
 
 export const runtime = 'nodejs'
 
-// Vercel 빌드 타임에 adapter를 포함하지 않고, 런타임에만 포함
-const authConfig: any = {
+export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID,
@@ -63,11 +60,4 @@ const authConfig: any = {
     error: '/login',
   },
   trustHost: true,
-}
-
-// MongoDB Adapter를 런타임에만 추가
-if (process.env.MONGODB_URI) {
-  authConfig.adapter = MongoDBAdapter(clientPromise)
-}
-
-export const { handlers, auth, signIn, signOut } = NextAuth(authConfig)
+})
