@@ -1,122 +1,92 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { BarChart3, TrendingUp, Download } from "lucide-react";
 import styles from "./page.module.css";
 
 export default function Home() {
-  const [hoveredCard, setHoveredCard] = useState<number | null>(null);
-
   return (
-    <div className={`min-h-screen ${styles.interactiveBg} flex flex-col items-center justify-center px-6 py-16 relative overflow-hidden`}>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-950 dark:via-slate-900 dark:to-black flex flex-col items-center justify-center px-4 py-12">
       {/* 메인 콘텐츠 */}
-      <div className={`text-center max-w-4xl w-full ${styles.slideInUp}`}>
-        {/* 작은 태그 */}
-        <div className="mb-8">
-          <span className={`inline-block px-4 py-2 rounded-full border ${styles.interactiveBadge}`}>
-            ⚡ 동적 분석 플랫폼
-          </span>
+      <div className={`text-center max-w-3xl ${styles.animateFadeInUp}`}>
+        {/* 로고/제목 */}
+        <div className="mb-6">
+          <h1 className="text-6xl md:text-7xl font-bold bg-gradient-to-r from-sky-600 to-violet-600 bg-clip-text text-transparent mb-4 tracking-tight">
+            유튜브 스카우트
+          </h1>
+          <div className="h-1.5 w-24 bg-gradient-to-r from-sky-500 to-violet-500 mx-auto rounded-full"></div>
         </div>
 
-        {/* 메인 제목 */}
-        <h1 className={`text-7xl md:text-8xl font-black mb-8 leading-tight tracking-tighter ${styles.interactiveTitle}`}>
-          YouTube<br />Mastery
-        </h1>
-
-        {/* 서브 텍스트 */}
-        <p className="text-xl md:text-2xl text-gray-300 mb-16 max-w-2xl mx-auto font-light leading-relaxed">
-          실시간 인터랙티브 분석으로 데이터를 시각화하고 즉시 활용하세요
+        {/* 부제목 */}
+        <p className="text-2xl md:text-2xl font-semibold text-slate-900 dark:text-slate-100 mb-3">YouTube 영상 분석의 새로운 기준</p>
+        <p className="text-lg text-slate-600 dark:text-slate-300 mb-16 leading-relaxed font-medium">
+          고급 검색 필터와 실시간 통계로 콘텐츠 트렌드를 빠르게 파악하세요
         </p>
 
-        {/* 기능 그리드 - Interactive */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-24">
-          {[
-            { icon: "🎯", title: "정밀한 검색", desc: "실시간 필터링으로 즉시 결과 확인" },
-            { icon: "📊", title: "실시간 분석", desc: "라이브 데이터 시각화 대시보드" },
-            { icon: "🚀", title: "성과 추적", desc: "인터랙티브 그래프와 차트" }
-          ].map((item, idx) => (
-            <div
-              key={idx}
-              className={`${styles.interactiveCard} rounded-xl p-10 cursor-pointer relative group`}
-              onMouseEnter={() => setHoveredCard(idx)}
-              onMouseLeave={() => setHoveredCard(null)}
-              style={{
-                transform: hoveredCard === idx ? "translateY(-10px) scale(1.05)" : "translateY(0) scale(1)",
-                transition: "all 0.4s cubic-bezier(0.23, 1, 0.320, 1)"
-              }}
-            >
-              {/* 카드 배경 효과 */}
-              <div className={`absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 ${styles.cardGradient}`}></div>
-
-              {/* 카드 내용 */}
-              <div className="relative z-10">
-                <div className={`text-6xl mb-6 inline-block transition-transform duration-500 ${styles.iconBounce}`} style={{
-                  transform: hoveredCard === idx ? "scale(1.2) rotate(10deg)" : "scale(1) rotate(0deg)"
-                }}>
-                  {item.icon}
-                </div>
-                <h3 className="text-2xl font-bold text-white mb-3">{item.title}</h3>
-                <p className="text-gray-400 leading-relaxed">{item.desc}</p>
-              </div>
-
-              {/* 호버 라인 */}
-              <div className={`absolute bottom-0 left-0 h-1 bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-500 rounded-full transition-all duration-500 ${styles.hoverLine}`} style={{
-                width: hoveredCard === idx ? "100%" : "0%"
-              }}></div>
+        {/* 주요 기능 카드 */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
+          {/* 기능 1 */}
+          <div className={`${styles.glassCard} rounded-2xl p-8 hover:shadow-2xl transition-all duration-300 hover:scale-105 group`}>
+            <div className={`inline-block mb-4 group-hover:${styles.animateFloat} text-sky-600 dark:text-sky-400`}>
+              <BarChart3 size={48} strokeWidth={1.5} />
             </div>
-          ))}
-        </div>
+            <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-3">정밀한 검색</h3>
+            <p className="text-slate-600 dark:text-slate-400 text-sm leading-relaxed font-medium">
+              기간, 영상 길이, 구독자 비율별로 원하는 콘텐츠를 정확하게 찾으세요
+            </p>
+          </div>
 
-        {/* 인터랙티브 통계 */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-24">
-          {[
-            { number: "10M+", label: "데이터 포인트", delay: 0 },
-            { number: "0.5s", label: "응답 시간", delay: 100 },
-            { number: "99.9%", label: "정확도", delay: 200 },
-            { number: "24/7", label: "실시간", delay: 300 }
-          ].map((stat, idx) => (
-            <div key={idx} className={`text-center ${styles.statItem}`} style={{ animationDelay: `${stat.delay}ms` }}>
-              <div className={`text-4xl md:text-5xl font-black mb-2 ${styles.interactiveNumber}`}>
-                {stat.number}
-              </div>
-              <p className="text-gray-400 text-sm">{stat.label}</p>
+          {/* 기능 2 */}
+          <div className={`${styles.glassCard} rounded-2xl p-8 hover:shadow-2xl transition-all duration-300 hover:scale-105 group`}>
+            <div className={`inline-block mb-4 group-hover:${styles.animateFloat} text-violet-600 dark:text-violet-400`}>
+              <TrendingUp size={48} strokeWidth={1.5} />
             </div>
-          ))}
+            <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-3">심층 분석</h3>
+            <p className="text-slate-600 dark:text-slate-400 text-sm leading-relaxed font-medium">
+              조회수, 구독자, 참여율 등 주요 지표를 한눈에 파악하고 비교하세요
+            </p>
+          </div>
+
+          {/* 기능 3 */}
+          <div className={`${styles.glassCard} rounded-2xl p-8 hover:shadow-2xl transition-all duration-300 hover:scale-105 group`}>
+            <div className={`inline-block mb-4 group-hover:${styles.animateFloat} text-indigo-600 dark:text-indigo-400`}>
+              <Download size={48} strokeWidth={1.5} />
+            </div>
+            <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-3">데이터 내보내기</h3>
+            <p className="text-slate-600 dark:text-slate-400 text-sm leading-relaxed font-medium">
+              분석 결과를 엑셀로 저장하고 검색을 저장하여 재사용하세요
+            </p>
+          </div>
         </div>
 
         {/* CTA 섹션 */}
-        <div className="flex flex-col items-center gap-8">
+        <div className="space-y-6">
+          {/* 시작하기 버튼 */}
           <Link
             href="/dashboard"
-            className={`group relative inline-block text-white font-bold py-4 px-16 rounded-lg text-lg no-underline ${styles.interactiveCta}`}
+            className="inline-block bg-gradient-to-r from-sky-500 to-violet-600 hover:from-sky-600 hover:to-violet-700 text-white font-bold py-4 px-16 rounded-xl text-lg transition-all duration-300 shadow-lg hover:shadow-2xl hover:-translate-y-1 no-underline"
           >
-            <span className="relative z-10 flex items-center gap-2">
-              지금 시작하기
-              <span className="inline-block transition-transform duration-300 group-hover:translate-x-1">→</span>
-            </span>
+            지금 시작하기
           </Link>
 
-          <p className="text-gray-400 text-sm">
-            관심 있으신가요?{" "}
+          {/* 로그인 링크 */}
+          <p className="text-slate-600 dark:text-slate-400 font-medium">
+            이미 계정이 있나요?{" "}
             <Link
               href="/login"
-              className={`font-semibold transition-all duration-300 hover:gap-1 ${styles.interactiveLink}`}
+              className="text-sky-600 dark:text-sky-400 hover:text-sky-700 dark:hover:text-sky-300 font-semibold transition-colors"
             >
-              데모 보기
+              로그인
             </Link>
           </p>
         </div>
       </div>
 
-      {/* 배경 효과 - 움직이는 요소들 */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none -z-10">
-        <div className={`absolute top-20 left-10 w-72 h-72 rounded-full mix-blend-screen filter blur-3xl opacity-20 ${styles.bgMove1}`}></div>
-        <div className={`absolute bottom-20 right-10 w-72 h-72 rounded-full mix-blend-screen filter blur-3xl opacity-20 ${styles.bgMove2}`}></div>
-        <div className={`absolute top-1/2 right-1/4 w-96 h-96 rounded-full mix-blend-screen filter blur-3xl opacity-10 ${styles.bgMove3}`}></div>
+      {/* 하단 배경 장식 */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute bottom-0 left-0 w-96 h-96 bg-sky-300 dark:bg-sky-900 rounded-full mix-blend-multiply filter blur-3xl opacity-10 -z-10"></div>
+        <div className="absolute top-0 right-0 w-96 h-96 bg-violet-300 dark:bg-violet-900 rounded-full mix-blend-multiply filter blur-3xl opacity-10 -z-10"></div>
       </div>
-
-      {/* 그리드 배경 */}
-      <div className={`absolute inset-0 ${styles.gridBg}`}></div>
     </div>
   );
 }
