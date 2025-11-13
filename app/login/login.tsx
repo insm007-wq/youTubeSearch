@@ -31,7 +31,7 @@ export default function Login() {
         {/* Login Card */}
         <div className="login-card">
           <h1 className="login-title">로그인</h1>
-          <p className="login-subtitle">원하는 계정으로 로그인하세요</p>
+          <p className="login-subtitle">YouTube Scout에 로그인</p>
 
           {error && (
             <div style={{
