@@ -1,0 +1,25 @@
+{
+  "name": "YouTube Scout",
+  "short_name": "YouTube Scout",
+  "description": "YouTube 영상 분석의 새로운 기준 - 고급 검색 필터와 실시간 통계로 콘텐츠 트렌드를 파악하세요",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "theme_color": "#000000",
+  "background_color": "#ffffff",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
