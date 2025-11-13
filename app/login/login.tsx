@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { signIn } from 'next-auth/react'
 import { useState } from 'react'
+import { ArrowLeft } from 'lucide-react'
 import './login.css'
 
 export default function Login() {
@@ -25,7 +26,8 @@ export default function Login() {
       <div className="login-content">
         {/* Back Link */}
         <Link href="/" className="back-link">
-          ← 뒤로가기
+          <ArrowLeft size={18} strokeWidth={2} />
+          <span>뒤로가기</span>
         </Link>
 
         {/* Login Card */}
@@ -34,14 +36,7 @@ export default function Login() {
           <p className="login-subtitle">YouTube Scout에 로그인</p>
 
           {error && (
-            <div style={{
-              backgroundColor: '#fee5e5',
-              color: '#cc0000',
-              padding: '0.75rem',
-              borderRadius: '0.5rem',
-              marginBottom: '1.5rem',
-              fontSize: '0.875rem'
-            }}>
+            <div className="login-error">
               {error}
             </div>
           )}
