@@ -43,7 +43,7 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
   const profileDropdownRef = useRef<HTMLDivElement>(null);
 
   // 사이드바 너비 조정
-  const [sidebarWidth, setSidebarWidth] = useState<number>(1000);
+  const [sidebarWidth, setSidebarWidth] = useState<number>(800);
   const [isResizing, setIsResizing] = useState(false);
   const resizeRef = useRef<HTMLDivElement>(null);
 

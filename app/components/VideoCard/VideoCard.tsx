@@ -1,6 +1,7 @@
 'use client'
 
 import TagAnalysis from '@/app/components/TagAnalysis/TagAnalysis'
+import { Eye, Users, TrendingUp, Zap, Play, MessageCircle, LinkIcon } from 'lucide-react'
 import './VideoCard.css'
 
 interface VideoCardProps {
@@ -136,12 +137,26 @@ export default function VideoCard({
         <div className="video-title">{title}</div>
         <div className="video-channel">{channelTitle}</div>
         <div className="video-stats">
-          <div className="stat-item">👁️ {viewCountText}</div>
-          <div className="stat-item">📺 {subscriberText}</div>
+          <div className="stat-item">
+            <Eye size={16} style={{ display: 'inline', marginRight: '4px' }} />
+            {viewCountText}
+          </div>
+          <div className="stat-item">
+            <Users size={16} style={{ display: 'inline', marginRight: '4px' }} />
+            {subscriberText}
+          </div>
         </div>
         <div className="video-stats">
-          <div className="stat-item">📊 {ratioText}</div>
-          {showVPH && <div className="stat-item">{vphLabel}</div>}
+          <div className="stat-item">
+            <TrendingUp size={16} style={{ display: 'inline', marginRight: '4px' }} />
+            {ratioText}
+          </div>
+          {showVPH && (
+            <div className="stat-item">
+              <Zap size={16} style={{ display: 'inline', marginRight: '4px' }} />
+              VPH: {vphText}
+            </div>
+          )}
         </div>
         <div className={badgeClass}>{engagementLevel}단계</div>
         <TagAnalysis tags={tags} title={title} />
@@ -153,7 +168,8 @@ export default function VideoCard({
               onChannelClick?.(channelId || id, channelTitle)
             }}
           >
-            🎥 채널
+            <Play size={16} style={{ display: 'inline', marginRight: '4px' }} />
+            채널
           </button>
           <button
             className="btn-view-comments"
@@ -162,7 +178,8 @@ export default function VideoCard({
               onCommentsClick?.(id, title)
             }}
           >
-            💬 댓글
+            <MessageCircle size={16} style={{ display: 'inline', marginRight: '4px' }} />
+            댓글
           </button>
           <button
             className="video-link"
@@ -181,7 +198,8 @@ export default function VideoCard({
               cursor: 'pointer',
             }}
           >
-            YouTube →
+            <LinkIcon size={16} style={{ display: 'inline', marginRight: '4px' }} />
+            YouTube
           </button>
         </div>
       </div>
