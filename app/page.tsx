@@ -1,10 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { BarChart3, TrendingUp, Download } from "lucide-react";
 import styles from "./page.module.css";
 
 export default function Home() {
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-950 dark:via-slate-900 dark:to-black flex flex-col items-center justify-center px-4 py-12">
       {/* 메인 콘텐츠 */}
@@ -26,8 +29,17 @@ export default function Home() {
         {/* 주요 기능 카드 */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
           {/* 기능 1 */}
-          <div className={`${styles.glassCard} rounded-2xl p-8 hover:shadow-2xl transition-all duration-300 hover:scale-105 group`}>
-            <div className={`inline-block mb-4 group-hover:${styles.animateFloat} text-sky-600 dark:text-sky-400`}>
+          <div
+            className={`${styles.glassCard} rounded-2xl p-8 hover:shadow-2xl transition-all duration-300 hover:scale-105 group relative`}
+            onMouseEnter={() => setHoveredIndex(0)}
+            onMouseLeave={() => setHoveredIndex(null)}
+          >
+            <div className={`${styles.cardGlow} rounded-2xl`} style={{
+              background: hoveredIndex === 0 ? 'radial-gradient(circle at center, rgba(14, 165, 233, 0.3), transparent 70%)' : 'transparent'
+            }}></div>
+            <div className={`inline-block mb-4 group-hover:${styles.animateFloat} transition-all duration-300`} style={{
+              color: hoveredIndex === 0 ? 'rgb(14, 165, 233)' : 'rgb(2, 132, 199)'
+            }}>
               <BarChart3 size={48} strokeWidth={1.5} />
             </div>
             <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-3">정밀한 검색</h3>
@@ -37,8 +49,17 @@ export default function Home() {
           </div>
 
           {/* 기능 2 */}
-          <div className={`${styles.glassCard} rounded-2xl p-8 hover:shadow-2xl transition-all duration-300 hover:scale-105 group`}>
-            <div className={`inline-block mb-4 group-hover:${styles.animateFloat} text-violet-600 dark:text-violet-400`}>
+          <div
+            className={`${styles.glassCard} rounded-2xl p-8 hover:shadow-2xl transition-all duration-300 hover:scale-105 group relative`}
+            onMouseEnter={() => setHoveredIndex(1)}
+            onMouseLeave={() => setHoveredIndex(null)}
+          >
+            <div className={`${styles.cardGlow} rounded-2xl`} style={{
+              background: hoveredIndex === 1 ? 'radial-gradient(circle at center, rgba(147, 51, 234, 0.3), transparent 70%)' : 'transparent'
+            }}></div>
+            <div className={`inline-block mb-4 group-hover:${styles.animateFloat} transition-all duration-300`} style={{
+              color: hoveredIndex === 1 ? 'rgb(147, 51, 234)' : 'rgb(109, 40, 217)'
+            }}>
               <TrendingUp size={48} strokeWidth={1.5} />
             </div>
             <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-3">심층 분석</h3>
@@ -48,8 +69,17 @@ export default function Home() {
           </div>
 
           {/* 기능 3 */}
-          <div className={`${styles.glassCard} rounded-2xl p-8 hover:shadow-2xl transition-all duration-300 hover:scale-105 group`}>
-            <div className={`inline-block mb-4 group-hover:${styles.animateFloat} text-indigo-600 dark:text-indigo-400`}>
+          <div
+            className={`${styles.glassCard} rounded-2xl p-8 hover:shadow-2xl transition-all duration-300 hover:scale-105 group relative`}
+            onMouseEnter={() => setHoveredIndex(2)}
+            onMouseLeave={() => setHoveredIndex(null)}
+          >
+            <div className={`${styles.cardGlow} rounded-2xl`} style={{
+              background: hoveredIndex === 2 ? 'radial-gradient(circle at center, rgba(79, 70, 229, 0.3), transparent 70%)' : 'transparent'
+            }}></div>
+            <div className={`inline-block mb-4 group-hover:${styles.animateFloat} transition-all duration-300`} style={{
+              color: hoveredIndex === 2 ? 'rgb(79, 70, 229)' : 'rgb(67, 56, 202)'
+            }}>
               <Download size={48} strokeWidth={1.5} />
             </div>
             <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-3">데이터 내보내기</h3>
@@ -84,8 +114,8 @@ export default function Home() {
 
       {/* 하단 배경 장식 */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute bottom-0 left-0 w-96 h-96 bg-sky-300 dark:bg-sky-900 rounded-full mix-blend-multiply filter blur-3xl opacity-10 -z-10"></div>
-        <div className="absolute top-0 right-0 w-96 h-96 bg-violet-300 dark:bg-violet-900 rounded-full mix-blend-multiply filter blur-3xl opacity-10 -z-10"></div>
+        <div className={`absolute bottom-0 left-0 w-96 h-96 bg-sky-300 dark:bg-sky-900 rounded-full mix-blend-multiply filter blur-3xl opacity-10 -z-10 ${styles.bgAnimated}`}></div>
+        <div className={`absolute top-0 right-0 w-96 h-96 bg-violet-300 dark:bg-violet-900 rounded-full mix-blend-multiply filter blur-3xl opacity-10 -z-10 ${styles.bgAnimated}`} style={{ animationDelay: '-3s' }}></div>
       </div>
     </div>
   );
