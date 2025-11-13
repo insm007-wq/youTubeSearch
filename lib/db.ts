@@ -1,13 +1,13 @@
 import { MongoClient } from 'mongodb'
 
+if (!process.env.MONGODB_URI) {
+  throw new Error('Please define MONGODB_URI in .env.local')
+}
+
 const uri = process.env.MONGODB_URI
 let client: MongoClient | null = null
 
 const clientPromise = (async () => {
-  if (!uri) {
-    throw new Error('Please define MONGODB_URI environment variable')
-  }
-
   if (!client) {
     client = new MongoClient(uri, {
       retryWrites: true,
