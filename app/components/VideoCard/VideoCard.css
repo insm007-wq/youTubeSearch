@@ -48,6 +48,7 @@
   flex-direction: column;
   flex: 1;
   gap: 4px;
+  overflow-y: auto;
 }
 
 /* Title */
@@ -138,6 +139,15 @@
 .engagement-5 {
   background-color: #ccffee;
   color: #009999;
+}
+
+/* Buttons Container */
+.video-buttons {
+  display: flex;
+  gap: 3px;
+  margin-top: auto;
+  padding-top: 8px;
+  flex-shrink: 0;
 }
 
 /* Buttons */

@@ -1,6 +1,7 @@
 'use client'
 
 import TagAnalysis from '@/app/components/TagAnalysis/TagAnalysis'
+import { Tooltip } from '@/app/components/ui/Tooltip'
 import { Eye, Users, TrendingUp, Zap, Play, MessageCircle, LinkIcon } from 'lucide-react'
 import './VideoCard.css'
 
@@ -137,30 +138,66 @@ export default function VideoCard({
         <div className="video-title">{title}</div>
         <div className="video-channel">{channelTitle}</div>
         <div className="video-stats">
-          <div className="stat-item">
-            <Eye size={16} style={{ display: 'inline', marginRight: '4px' }} />
-            {viewCountText}
-          </div>
-          <div className="stat-item">
-            <Users size={16} style={{ display: 'inline', marginRight: '4px' }} />
-            {subscriberText}
-          </div>
+          <Tooltip
+            content="영상의 총 조회수"
+            placement="top"
+            variant="glassmorphic"
+          >
+            <div className="stat-item">
+              <Eye size={16} style={{ display: 'inline', marginRight: '4px' }} />
+              {viewCountText}
+            </div>
+          </Tooltip>
+          <Tooltip
+            content="채널의 총 구독자 수"
+            placement="top"
+            variant="glassmorphic"
+          >
+            <div className="stat-item">
+              <Users size={16} style={{ display: 'inline', marginRight: '4px' }} />
+              {subscriberText}
+            </div>
+          </Tooltip>
         </div>
         <div className="video-stats">
-          <div className="stat-item">
-            <TrendingUp size={16} style={{ display: 'inline', marginRight: '4px' }} />
-            {ratioText}
-          </div>
-          {showVPH && (
+          <Tooltip
+            content="조회수/구독자 비율"
+            placement="top"
+            variant="glassmorphic"
+          >
             <div className="stat-item">
-              <Zap size={16} style={{ display: 'inline', marginRight: '4px' }} />
-              VPH: {vphText}
+              <TrendingUp size={16} style={{ display: 'inline', marginRight: '4px' }} />
+              {ratioText}
             </div>
+          </Tooltip>
+          {showVPH && (
+            <Tooltip
+              content="시간당 조회수"
+              placement="top"
+              variant="glassmorphic"
+            >
+              <div className="stat-item">
+                <Zap size={16} style={{ display: 'inline', marginRight: '4px' }} />
+                VPH: {vphText}
+              </div>
+            </Tooltip>
           )}
         </div>
-        <div className={badgeClass}>{engagementLevel}단계</div>
+        <Tooltip
+          content={
+            engagementLevel === 1 ? "참여율 매우 낮음 (0.2배 미만)" :
+            engagementLevel === 2 ? "참여율 낮음 (0.2~0.6배)" :
+            engagementLevel === 3 ? "참여율 보통 (0.6~1.4배)" :
+            engagementLevel === 4 ? "참여율 높음 (1.4~3.0배)" :
+            "참여율 매우 높음 (3.0배+, 바이럴)"
+          }
+          placement="top"
+          variant="glassmorphic"
+        >
+          <div className={badgeClass}>{engagementLevel}단계</div>
+        </Tooltip>
         <TagAnalysis tags={tags} title={title} />
-        <div style={{ display: 'flex', gap: '3px', marginTop: '4px', minWidth: 0 }}>
+        <div className="video-buttons">
           <button
             className="btn-view-channel"
             onClick={(e) => {
