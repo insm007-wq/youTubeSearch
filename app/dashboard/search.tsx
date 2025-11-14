@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { AnimatePresence } from "framer-motion";
+import { LayoutGrid, Table2, Download } from "lucide-react";
 import SearchResults from "@/app/components/SearchResults/SearchResults";
 import PeriodFilter from "@/app/components/Filters/PeriodFilter/PeriodFilter";
 import VideoLengthFilter from "@/app/components/Filters/VideoLengthFilter/VideoLengthFilter";
@@ -588,10 +589,12 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
             <div className="controls-right">
               <div className="view-toggle">
                 <button className={`view-btn ${viewMode === "card" ? "active" : ""}`} onClick={() => setViewMode("card")}>
-                  📇 카드
+                  <LayoutGrid size={16} style={{ display: "inline", marginRight: "4px" }} />
+                  카드
                 </button>
                 <button className={`view-btn ${viewMode === "table" ? "active" : ""}`} onClick={() => setViewMode("table")}>
-                  📊 테이블
+                  <Table2 size={16} style={{ display: "inline", marginRight: "4px" }} />
+                  테이블
                 </button>
               </div>
               <select className="sort-dropdown" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
@@ -605,7 +608,8 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
                 <option value="publishedAt">최신순</option>
               </select>
               <button className="btn-excel" onClick={handleExcelDownload}>
-                📥 엑셀
+                <Download size={16} style={{ display: "inline", marginRight: "4px" }} />
+                엑셀
               </button>
 
               {/* 프로필 드롭다운 */}

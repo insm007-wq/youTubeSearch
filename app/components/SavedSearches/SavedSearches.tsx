@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { BookmarkPlus } from 'lucide-react';
 import './SavedSearches.css';
 
 interface SavedSearch {
@@ -90,7 +91,10 @@ export default function SavedSearches({ onSearchLoad }: SavedSearchesProps) {
 
   return (
     <div className="saved-searches-section">
-      <div className="saved-searches-title">💾 저장된 검색 ({savedSearches.length}/{MAX_SAVED_SEARCHES})</div>
+      <div className="saved-searches-title">
+        <BookmarkPlus size={16} style={{ display: "inline", marginRight: "6px" }} />
+        저장된 검색 ({savedSearches.length}/{MAX_SAVED_SEARCHES})
+      </div>
       <div className="saved-searches-controls">
         <input
           type="text"
