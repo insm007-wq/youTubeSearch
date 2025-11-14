@@ -115,9 +115,9 @@ export async function checkApiUsage(
  * 사용자의 API 사용량을 1 증가시킴 (최적화됨: 1번의 DB 쿼리)
  * @param userId - 사용자 ID
  * @param email - 사용자 이메일
- * @returns 업데이트된 사용량
+ * @returns 업데이트된 전체 사용량 정보 (DB 재조회 불필요)
  */
-export async function incrementApiUsage(userId: string, email: string): Promise<number> {
+export async function incrementApiUsage(userId: string, email: string): Promise<ApiUsageResponse> {
   try {
     if (!userId || !email) {
       throw new Error('userId와 email은 필수입니다')
@@ -155,8 +155,20 @@ export async function incrementApiUsage(userId: string, email: string): Promise<
     )
 
     const updatedCount = result?.count ?? 1
+    const remaining = Math.max(0, DAILY_LIMIT - updatedCount)
+    const allowed = updatedCount < DAILY_LIMIT
 
-    return updatedCount
+    // 내일 자정의 시간 계산
+    const tomorrow = new Date(new Date(today).getTime() + 24 * 60 * 60 * 1000)
+    const resetTime = `${tomorrow.toISOString().split('T')[0]}T00:00:00Z`
+
+    return {
+      allowed,
+      used: updatedCount,
+      remaining,
+      limit: DAILY_LIMIT,
+      resetTime
+    }
   } catch (error) {
     console.error('❌ API 사용량 업데이트 에러:', {
       userId,

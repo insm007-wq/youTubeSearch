@@ -136,11 +136,8 @@ export async function GET(request: NextRequest) {
       }
     }) || []
 
-    // ✅ API 사용량 증가
-    await incrementApiUsage(userId, userEmail)
-
-    // ✅ 최신 사용량 정보 조회
-    const updatedUsage = await checkApiUsage(userId, userEmail)
+    // ✅ API 사용량 증가 (최적화: incrementApiUsage에서 전체 사용량 정보 반환하므로 재조회 불필요)
+    const updatedUsage = await incrementApiUsage(userId, userEmail)
 
     return NextResponse.json({
       items,
