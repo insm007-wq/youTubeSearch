@@ -6,16 +6,6 @@ import { upsertUser } from './lib/userLimits'
 
 export const runtime = 'nodejs'
 
-// 환경변수 검증 (배포 환경)
-if (process.env.NODE_ENV === 'production') {
-  if (!process.env.NEXTAUTH_SECRET) {
-    console.error('❌ NEXTAUTH_SECRET이 설정되지 않았습니다')
-  }
-  if (!process.env.MONGODB_URI) {
-    console.error('❌ MONGODB_URI이 설정되지 않았습니다')
-  }
-}
-
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
     Google({
