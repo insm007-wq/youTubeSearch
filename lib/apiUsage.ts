@@ -1,8 +1,9 @@
 import { connectToDatabase } from './mongodb'
 import { ObjectId } from 'mongodb'
+import { getUserDailyLimit } from './userLimits'
 
-// 환경변수에서 설정, 기본값 20
-const DAILY_LIMIT = parseInt(process.env.API_DAILY_LIMIT || '20', 10)
+// 환경변수에서 설정, 기본값 20 (사용자가 설정하지 않았을 때 사용)
+const DEFAULT_DAILY_LIMIT = parseInt(process.env.API_DAILY_LIMIT || '20', 10)
 
 interface ApiUsageRecord {
   _id?: ObjectId
@@ -34,34 +35,6 @@ function getTodayDate(): string {
 }
 
 /**
- * MongoDB 인덱스 생성 (최초 1회만 필요)
- * 서버 시작 시 자동으로 호출됨
- */
-export async function ensureApiUsageIndexes() {
-  try {
-    const { db } = await connectToDatabase()
-    const usageCollection = db.collection<ApiUsageRecord>('api_usage')
-
-    // userId + date 복합 인덱스 생성 (없으면 무시)
-    await usageCollection.createIndex(
-      { userId: 1, date: 1 },
-      { unique: true, sparse: true }
-    )
-
-    // 검색 성능을 위한 인덱스
-    await usageCollection.createIndex({ userId: 1, date: -1 })
-
-    console.log('✓ API 사용량 인덱스 생성 완료')
-  } catch (error) {
-    if ((error as any).code === 48) {
-      // 인덱스 이미 존재 (정상)
-      return
-    }
-    console.error('⚠️ API 사용량 인덱스 생성 실패:', error)
-  }
-}
-
-/**
  * 사용자의 오늘 API 사용량을 확인
  * @param userId - 사용자 ID
  * @param email - 사용자 이메일
@@ -81,6 +54,9 @@ export async function checkApiUsage(
 
     const usageCollection = db.collection<ApiUsageRecord>('api_usage')
 
+    // 사용자의 일일 제한 조회 (DB에서 가져오기)
+    const dailyLimit = await getUserDailyLimit(userId)
+
     // 오늘의 기록만 조회 (생성하지 않음)
     const usageRecord = await usageCollection.findOne({
       userId,
@@ -88,8 +64,8 @@ export async function checkApiUsage(
     })
 
     const used = usageRecord?.count ?? 0
-    const remaining = Math.max(0, DAILY_LIMIT - used)
-    const allowed = used < DAILY_LIMIT
+    const remaining = Math.max(0, dailyLimit - used)
+    const allowed = used < dailyLimit
 
     // 내일 자정의 시간 계산
     const tomorrow = new Date(new Date(today).getTime() + 24 * 60 * 60 * 1000)
@@ -99,7 +75,7 @@ export async function checkApiUsage(
       allowed,
       used,
       remaining,
-      limit: DAILY_LIMIT,
+      limit: dailyLimit,
       resetTime
     }
   } catch (error) {
@@ -128,6 +104,9 @@ export async function incrementApiUsage(userId: string, email: string): Promise<
 
     const usageCollection = db.collection<ApiUsageRecord>('api_usage')
 
+    // 사용자의 일일 제한 조회 (DB에서 가져오기)
+    const dailyLimit = await getUserDailyLimit(userId)
+
     // findOneAndUpdate: 한 번의 쿼리로 처리 (가장 안전한 패턴)
     // 1. 기존 문서면 count +1, updatedAt 업데이트
     // 2. 없는 문서면 count는 자동으로 1 생성
@@ -155,8 +134,8 @@ export async function incrementApiUsage(userId: string, email: string): Promise<
     )
 
     const updatedCount = result?.count ?? 1
-    const remaining = Math.max(0, DAILY_LIMIT - updatedCount)
-    const allowed = updatedCount < DAILY_LIMIT
+    const remaining = Math.max(0, dailyLimit - updatedCount)
+    const allowed = updatedCount < dailyLimit
 
     // 내일 자정의 시간 계산
     const tomorrow = new Date(new Date(today).getTime() + 24 * 60 * 60 * 1000)
@@ -166,7 +145,7 @@ export async function incrementApiUsage(userId: string, email: string): Promise<
       allowed,
       used: updatedCount,
       remaining,
-      limit: DAILY_LIMIT,
+      limit: dailyLimit,
       resetTime
     }
   } catch (error) {
@@ -229,6 +208,10 @@ export async function getTodayUsage(userId: string) {
     const today = getTodayDate()
 
     const usageCollection = db.collection<ApiUsageRecord>('api_usage')
+
+    // 사용자의 일일 제한 조회
+    const dailyLimit = await getUserDailyLimit(userId)
+
     const record = await usageCollection.findOne({
       userId,
       date: today
@@ -238,8 +221,8 @@ export async function getTodayUsage(userId: string) {
 
     return {
       used,
-      remaining: Math.max(0, DAILY_LIMIT - used),
-      limit: DAILY_LIMIT
+      remaining: Math.max(0, dailyLimit - used),
+      limit: dailyLimit
     }
   } catch (error) {
     console.error('❌ 오늘 사용량 조회 에러:', {
@@ -318,7 +301,7 @@ export async function getGlobalStats() {
       totalSearches: todayStats[0]?.totalSearches ?? 0,
       totalUsers: todayStats[0]?.totalUsers ?? 0,
       avgPerUser: Math.round((todayStats[0]?.avgPerUser ?? 0) * 100) / 100,
-      limit: DAILY_LIMIT
+      defaultLimit: DEFAULT_DAILY_LIMIT
     }
   } catch (error) {
     console.error('❌ 전역 통계 조회 에러:', error)

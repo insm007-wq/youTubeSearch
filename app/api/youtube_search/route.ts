@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/auth'
 import { checkApiUsage, incrementApiUsage } from '@/lib/apiUsage'
+import { incrementUserUsage } from '@/lib/userLimits'
 
 export async function GET(request: NextRequest) {
   try {
@@ -138,6 +139,13 @@ export async function GET(request: NextRequest) {
 
     // ✅ API 사용량 증가 (최적화: incrementApiUsage에서 전체 사용량 정보 반환하므로 재조회 불필요)
     const updatedUsage = await incrementApiUsage(userId, userEmail)
+
+    // ✅ users 컬렉션 업데이트 (todayUsed, remaining)
+    try {
+      await incrementUserUsage(userId)
+    } catch (err) {
+      console.warn('⚠️ users 컬렉션 업데이트 실패 (비중요):', err)
+    }
 
     return NextResponse.json({
       items,
