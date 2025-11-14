@@ -124,16 +124,16 @@ export default function VideoCard({
   const videoLink = `https://www.youtube.com/watch?v=${id}`
 
   return (
-    <a
-      href={videoLink}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="video-card"
-    >
-      <div style={{ position: 'relative' }}>
+    <div className="video-card">
+      <a
+        href={videoLink}
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{ position: 'relative', textDecoration: 'none' }}
+      >
         <img src={thumbnail} alt={title} className="video-thumbnail" />
         <div className="video-duration">{durationText}</div>
-      </div>
+      </a>
       <div className="video-info">
         <div className="video-title">{title}</div>
         <div className="video-channel">{channelTitle}</div>
@@ -230,6 +230,6 @@ export default function VideoCard({
           </button>
         </div>
       </div>
-    </a>
+    </div>
   )
 }

@@ -1,8 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { auth } from '@/auth'
+import { checkApiUsage, incrementApiUsage } from '@/lib/apiUsage'
 
 export async function GET(request: NextRequest) {
   try {
-    // ✅ 인증: 미들웨어에서 이미 확인됨 (이중 체크 제거)
+    // ✅ 인증 확인 및 사용자 정보 추출
+    const session = await auth()
+    if (!session?.user) {
+      return NextResponse.json(
+        { error: '인증이 필요합니다. 로그인해주세요.' },
+        { status: 401 }
+      )
+    }
+
+    const userId = session.user.id || session.user.email || 'unknown'
+    const userEmail = session.user.email || 'unknown@example.com'
+
+    // ✅ API 사용량 확인
+    const usageCheck = await checkApiUsage(userId, userEmail)
+    if (!usageCheck.allowed) {
+      return NextResponse.json(
+        {
+          error: '일일 검색 횟수 제한 초과',
+          message: `오늘 검색 가능한 횟수(${usageCheck.limit}회)를 모두 사용했습니다`,
+          apiUsageToday: {
+            used: usageCheck.used,
+            limit: usageCheck.limit,
+            remaining: usageCheck.remaining
+          },
+          resetTime: usageCheck.resetTime
+        },
+        { status: 429 }
+      )
+    }
 
     const { searchParams } = new URL(request.url)
     const query = searchParams.get('q')?.trim()
@@ -106,14 +136,35 @@ export async function GET(request: NextRequest) {
       }
     }) || []
 
+    // ✅ API 사용량 증가
+    await incrementApiUsage(userId, userEmail)
+
+    // ✅ 최신 사용량 정보 조회
+    const updatedUsage = await checkApiUsage(userId, userEmail)
+
     return NextResponse.json({
       items,
       totalResults: data.pageInfo?.totalResults || 0,
+      apiUsageToday: {
+        used: updatedUsage.used,
+        limit: updatedUsage.limit,
+        remaining: updatedUsage.remaining
+      }
     })
   } catch (error) {
-    console.error('YouTube API 에러:', error)
+    console.error('❌ YouTube 검색 API 에러:', error)
+
+    // 상세 에러 로깅
+    if (error instanceof Error) {
+      console.error('에러 메시지:', error.message)
+      console.error('에러 스택:', error.stack)
+    }
+
     return NextResponse.json(
-      { error: '서버 에러가 발생했습니다' },
+      {
+        error: '서버 에러가 발생했습니다',
+        details: error instanceof Error ? error.message : '알 수 없는 에러'
+      },
       { status: 500 }
     )
   }
