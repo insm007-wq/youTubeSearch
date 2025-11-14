@@ -81,7 +81,7 @@ export default function SearchResults({
       <TagAnalysisDashboard results={results} />
 
       {/* 결과 영역 */}
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', overflowY: 'auto' }}>
+      <div style={{ flex: 1, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', overflowY: 'auto' }}>
         {isLoading ? (
           <div className="no-results">
             <p>검색 중...</p>
@@ -97,6 +97,7 @@ export default function SearchResults({
             gap: '12px',
             width: '100%',
             padding: '20px',
+            alignContent: 'flex-start',
           }}>
             {results.map((video) => (
               <VideoCard
