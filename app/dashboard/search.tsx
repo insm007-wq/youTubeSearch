@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { AnimatePresence } from "framer-motion";
 import SearchResults from "@/app/components/SearchResults/SearchResults";
 import PeriodFilter from "@/app/components/Filters/PeriodFilter/PeriodFilter";
 import VideoLengthFilter from "@/app/components/Filters/VideoLengthFilter/VideoLengthFilter";
@@ -9,6 +10,7 @@ import EngagementRatioFilter from "@/app/components/Filters/EngagementRatioFilte
 import CommentsModal from "@/app/components/CommentsModal/CommentsModal";
 import ChannelModal from "@/app/components/ChannelModal/ChannelModal";
 import SavedSearches from "@/app/components/SavedSearches/SavedSearches";
+import ApiLimitBanner from "@/app/components/ApiLimitBanner/ApiLimitBanner";
 import { getEngagementLevel } from "@/lib/engagementUtils";
 import { isShortVideo, isLongVideo } from "@/lib/durationUtils";
 import { getDaysAgo } from "@/lib/dateUtils";
@@ -28,6 +30,14 @@ interface User {
   image?: string | null;
 }
 
+interface ApiLimitError {
+  message: string;
+  used: number;
+  limit: number;
+  remaining: number;
+  resetTime: string;
+}
+
 export default function Search({ user, signOut }: { user?: User; signOut?: (options?: any) => void }) {
   const [searchInput, setSearchInput] = useState("");
   const [uploadPeriod, setUploadPeriod] = useState("all");
@@ -40,6 +50,7 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
   const [viewMode, setViewMode] = useState<"card" | "table">("card");
   const [sortBy, setSortBy] = useState("relevance");
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
+  const [apiLimitError, setApiLimitError] = useState<ApiLimitError | null>(null);
   const profileDropdownRef = useRef<HTMLDivElement>(null);
 
   // 사이드바 너비 조정
@@ -356,6 +367,7 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
     }
 
     setIsLoading(true);
+    setApiLimitError(null); // 새 검색 시 이전 에러 제거
     try {
       const params = new URLSearchParams({
         q: searchInput,
@@ -366,6 +378,19 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
       const data = await response.json();
 
       if (!response.ok) {
+        // 429 에러: API 사용 제한 초과
+        if (response.status === 429) {
+          setApiLimitError({
+            message: data.message,
+            used: data.apiUsageToday.used,
+            limit: data.apiUsageToday.limit,
+            remaining: data.apiUsageToday.remaining,
+            resetTime: data.resetTime,
+          });
+          return;
+        }
+
+        // 기타 에러
         alert(`검색 실패: ${data.error || "알 수 없는 오류"}`);
         return;
       }
@@ -508,6 +533,18 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
                 {isLoading ? "검색 중..." : "검색"}
               </button>
             </div>
+
+            {/* API 사용 제한 배너 */}
+            <AnimatePresence>
+              {apiLimitError && (
+                <ApiLimitBanner
+                  used={apiLimitError.used}
+                  limit={apiLimitError.limit}
+                  resetTime={apiLimitError.resetTime}
+                  onClose={() => setApiLimitError(null)}
+                />
+              )}
+            </AnimatePresence>
           </div>
 
           {/* 저장된 검색 섹션 */}
