@@ -6,6 +6,16 @@ import { upsertUser } from './lib/userLimits'
 
 export const runtime = 'nodejs'
 
+// 환경변수 검증 (배포 환경)
+if (process.env.NODE_ENV === 'production') {
+  if (!process.env.NEXTAUTH_SECRET) {
+    console.error('❌ NEXTAUTH_SECRET이 설정되지 않았습니다')
+  }
+  if (!process.env.MONGODB_URI) {
+    console.error('❌ MONGODB_URI이 설정되지 않았습니다')
+  }
+}
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
     Google({
@@ -85,6 +95,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           if (error instanceof Error) {
             console.error('에러 메시지:', error.message)
             console.error('에러 스택:', error.stack)
+          } else {
+            console.error('알 수 없는 에러:', JSON.stringify(error))
           }
           // 저장 실패해도 로그인은 진행
         }
