@@ -13,6 +13,9 @@ interface User {
   locale?: string
   isActive: boolean
   dailyLimit: number
+  todayUsed: number
+  remaining: number
+  lastResetDate: string
   isDeactivated: boolean
   lastLogin: Date
   createdAt: Date
