@@ -516,22 +516,24 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
 
           {/* 검색 섹션 */}
           <div className="search-section">
-            <div className="search-label">검색어</div>
-            <div className="search-container-with-button">
-              <div className="search-container">
-                <input
-                  type="text"
-                  className="search-input"
-                  placeholder=""
-                  value={searchInput}
-                  onChange={(e) => setSearchInput(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                />
-                <div className="search-history-dropdown" id="searchHistory"></div>
+            <div className="search-input-wrapper">
+              <div className="search-label">검색어</div>
+              <div className="search-container-with-button">
+                <div className="search-container">
+                  <input
+                    type="text"
+                    className="search-input"
+                    placeholder=""
+                    value={searchInput}
+                    onChange={(e) => setSearchInput(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                  />
+                  <div className="search-history-dropdown" id="searchHistory"></div>
+                </div>
+                <button className="btn-search" onClick={handleSearch} disabled={isLoading}>
+                  {isLoading ? "검색 중..." : "검색"}
+                </button>
               </div>
-              <button className="btn-search" onClick={handleSearch} disabled={isLoading}>
-                {isLoading ? "검색 중..." : "검색"}
-              </button>
             </div>
 
             {/* API 사용 제한 배너 */}
