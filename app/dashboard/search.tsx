@@ -5,7 +5,6 @@ import { AnimatePresence } from "framer-motion";
 import SearchResults from "@/app/components/SearchResults/SearchResults";
 import PeriodFilter from "@/app/components/Filters/PeriodFilter/PeriodFilter";
 import VideoLengthFilter from "@/app/components/Filters/VideoLengthFilter/VideoLengthFilter";
-import VPHCheckbox from "@/app/components/Filters/VPHCheckbox/VPHCheckbox";
 import EngagementRatioFilter from "@/app/components/Filters/EngagementRatioFilter/EngagementRatioFilter";
 import CommentsModal from "@/app/components/CommentsModal/CommentsModal";
 import ChannelModal from "@/app/components/ChannelModal/ChannelModal";
@@ -42,7 +41,6 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
   const [searchInput, setSearchInput] = useState("");
   const [uploadPeriod, setUploadPeriod] = useState("all");
   const [videoLength, setVideoLength] = useState("all");
-  const [showVPH, setShowVPH] = useState(true);
   const [engagementRatios, setEngagementRatios] = useState<string[]>(["4", "5"]);
   const [isLoading, setIsLoading] = useState(false);
   const [allResults, setAllResults] = useState<any[]>([]);
@@ -558,7 +556,6 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
           <div className="filters-wrapper">
             <PeriodFilter value={uploadPeriod} onChange={setUploadPeriod} />
             <VideoLengthFilter value={videoLength} onChange={setVideoLength} />
-            <VPHCheckbox checked={showVPH} onChange={setShowVPH} />
             <EngagementRatioFilter selectedValues={engagementRatios} onChange={setEngagementRatios} />
           </div>
         </div>
@@ -586,7 +583,7 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
               <select className="sort-dropdown" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
                 <option value="relevance">조회수 + 내림차순</option>
                 <option value="viewCount">조회수순</option>
-                {showVPH && <option value="vph">VPH순 (높음)</option>}
+                <option value="vph">VPH순 (높음)</option>
                 <option value="engagementRatio">비율순 (높음)</option>
                 <option value="subscriberCount">구독자순</option>
                 <option value="duration">길이순 (길음)</option>
@@ -643,7 +640,7 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
             results={results}
             totalResults={totalResults}
             isLoading={isLoading}
-            showVPH={showVPH}
+            showVPH={true}
             viewMode={viewMode}
             onChannelClick={handleChannelClick}
             onCommentsClick={handleCommentsClick}
