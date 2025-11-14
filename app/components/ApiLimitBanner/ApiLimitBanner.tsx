@@ -59,7 +59,7 @@ export default function ApiLimitBanner({
           </div>
 
           <div className="reset-info">
-            <span className="reset-label">내일 자정 초기화</span>
+            <span className="reset-label">내일 다시 시도해주세요</span>
           </div>
         </div>
 
