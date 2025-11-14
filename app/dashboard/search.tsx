@@ -412,6 +412,7 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
   // 저장된 검색 로드
   const handleLoadSavedSearch = useCallback(async (query: string) => {
     setIsLoading(true);
+    setApiLimitError(null); // 새 검색 시 이전 에러 제거
     try {
       const params = new URLSearchParams({
         q: query,
@@ -421,6 +422,19 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
       const data = await response.json();
 
       if (!response.ok) {
+        // 429 에러: API 사용 제한 초과
+        if (response.status === 429) {
+          setApiLimitError({
+            message: data.message,
+            used: data.apiUsageToday.used,
+            limit: data.apiUsageToday.limit,
+            remaining: data.apiUsageToday.remaining,
+            resetTime: data.resetTime,
+          });
+          return;
+        }
+
+        // 기타 에러
         alert(`검색 실패: ${data.error || "알 수 없는 오류"}`);
         return;
       }
