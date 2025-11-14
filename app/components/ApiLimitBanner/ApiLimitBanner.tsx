@@ -17,13 +17,8 @@ export default function ApiLimitBanner({
   resetTime,
   onClose
 }: ApiLimitBannerProps) {
-  // resetTime에서 시간 추출 (예: "2024-11-15T00:00:00Z")
-  const resetDate = new Date(resetTime)
-  const resetTimeStr = resetDate.toLocaleTimeString('ko-KR', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false
-  })
+  // resetTime은 KST 자정 (00:00)에 초기화됨
+  // UTC→KST 변환으로 09:00으로 표시되는 버그가 있어서 "자정"으로 하드코딩
 
   const progressPercent = (used / limit) * 100
 
@@ -64,9 +59,7 @@ export default function ApiLimitBanner({
           </div>
 
           <div className="reset-info">
-            <span className="reset-label">내일</span>
-            <span className="reset-time">{resetTimeStr}</span>
-            <span className="reset-label">초기화</span>
+            <span className="reset-label">내일 자정 초기화</span>
           </div>
         </div>
 
