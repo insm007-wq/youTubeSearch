@@ -129,9 +129,9 @@ export async function incrementApiUsage(userId: string, email: string): Promise<
     const usageCollection = db.collection<ApiUsageRecord>('api_usage')
 
     // findOneAndUpdate: 한 번의 쿼리로 처리 (가장 안전한 패턴)
-    // 1. 기존 문서면 count +1
+    // 1. 기존 문서면 count +1, updatedAt 업데이트
     // 2. 없는 문서면 count는 자동으로 1 생성
-    // 3. $setOnInsert에서 count를 제외하여 ConflictingUpdateOperators 에러 방지
+    // 3. $setOnInsert에서는 updatedAt을 제외하여 ConflictingUpdateOperators 에러 방지
     const result = await usageCollection.findOneAndUpdate(
       {
         userId,
@@ -145,8 +145,7 @@ export async function incrementApiUsage(userId: string, email: string): Promise<
           email,
           date: today,
           lastReset: new Date(),
-          createdAt: new Date(),
-          updatedAt: new Date()
+          createdAt: new Date()
         }
       },
       {
