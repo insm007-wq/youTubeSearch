@@ -160,7 +160,7 @@ export default function VideoCard({
         </div>
         <div className={badgeClass}>{engagementLevel}단계</div>
         <TagAnalysis tags={tags} title={title} />
-        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: '3px', marginTop: '4px', minWidth: 0 }}>
           <button
             className="btn-view-channel"
             onClick={(e) => {
@@ -168,7 +168,7 @@ export default function VideoCard({
               onChannelClick?.(channelId || id, channelTitle)
             }}
           >
-            <Play size={16} style={{ display: 'inline', marginRight: '4px' }} />
+            <Play size={12} style={{ flexShrink: 0 }} />
             채널
           </button>
           <button
@@ -178,28 +178,18 @@ export default function VideoCard({
               onCommentsClick?.(id, title)
             }}
           >
-            <MessageCircle size={16} style={{ display: 'inline', marginRight: '4px' }} />
+            <MessageCircle size={12} style={{ flexShrink: 0 }} />
             댓글
           </button>
           <button
-            className="video-link"
+            className="btn-view-link"
             onClick={(e) => {
               e.preventDefault()
               window.open(videoLink, '_blank')
             }}
-            style={{
-              flex: 1,
-              textAlign: 'center',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-            }}
           >
-            <LinkIcon size={16} style={{ display: 'inline', marginRight: '4px' }} />
-            YouTube
+            <LinkIcon size={12} style={{ flexShrink: 0 }} />
+            바로가기
           </button>
         </div>
       </div>

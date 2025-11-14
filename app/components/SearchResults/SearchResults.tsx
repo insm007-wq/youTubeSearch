@@ -93,7 +93,7 @@ export default function SearchResults({
         ) : viewMode === 'card' ? (
           <div style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))',
             gap: '12px',
             width: '100%',
             padding: '20px',

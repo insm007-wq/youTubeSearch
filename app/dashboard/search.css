@@ -38,6 +38,8 @@
   font-weight: 700;
   margin-bottom: 30px;
   color: #000;
+  line-height: 1;
+  height: auto;
 }
 
 /* API 키 섹션 */
