@@ -37,8 +37,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
   callbacks: {
     async jwt({ token, user, account }: any) {
+      // OAuth provider의 영구적인 고유 ID 사용 (로그인할 때마다 동일)
+      if (account?.providerAccountId) {
+        token.id = `${account.provider}:${account.providerAccountId}`
+      }
       if (user) {
-        token.id = user.id
         token.email = user.email
         token.name = user.name
         token.image = user.image
