@@ -39,46 +39,44 @@ export default function ApiLimitBanner({
     >
       <div className="banner-header">
         <div className="banner-title">
-          <AlertTriangle size={20} className="banner-icon" />
+          <AlertTriangle size={18} className="banner-icon" />
           <span>일일 검색 횟수 제한 초과</span>
         </div>
+
+        <div className="banner-content">
+          <div className="usage-info">
+            <span className="usage-label">오늘 사용:</span>
+            <span className="usage-count">
+              {used}/{limit}회
+            </span>
+          </div>
+
+          <div className="progress-container">
+            <div className="progress-bar">
+              <motion.div
+                className="progress-fill"
+                initial={{ width: 0 }}
+                animate={{ width: `${progressPercent}%` }}
+                transition={{ duration: 0.6, ease: 'easeOut' }}
+              />
+            </div>
+            <span className="progress-percent">{Math.round(progressPercent)}%</span>
+          </div>
+
+          <div className="reset-info">
+            <span className="reset-label">내일</span>
+            <span className="reset-time">{resetTimeStr}</span>
+            <span className="reset-label">초기화</span>
+          </div>
+        </div>
+
         <button
           className="banner-close"
           onClick={onClose}
           aria-label="닫기"
         >
-          <X size={20} />
+          <X size={18} />
         </button>
-      </div>
-
-      <div className="banner-content">
-        <div className="usage-info">
-          <span className="usage-label">오늘 사용:</span>
-          <span className="usage-count">
-            {used}/{limit}회
-          </span>
-        </div>
-
-        <div className="progress-container">
-          <div className="progress-bar">
-            <motion.div
-              className="progress-fill"
-              initial={{ width: 0 }}
-              animate={{ width: `${progressPercent}%` }}
-              transition={{ duration: 0.6, ease: 'easeOut' }}
-            />
-          </div>
-          <span className="progress-percent">{Math.round(progressPercent)}%</span>
-        </div>
-
-        <div className="reset-info">
-          <span className="reset-label">
-            다음 초기화:
-          </span>
-          <span className="reset-time">
-            내일 {resetTimeStr}
-          </span>
-        </div>
       </div>
     </motion.div>
   )
