@@ -105,6 +105,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.image = token.image as string
         session.user.name = token.name as string
         session.user.email = token.email as string
+        // provider 정보 추가 (OAuth 제공자별 색상 표시용)
+        session.user.provider = token.id?.split(':')[0] || undefined
       }
       return session
     },
