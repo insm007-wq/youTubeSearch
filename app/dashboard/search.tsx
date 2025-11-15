@@ -28,6 +28,7 @@ interface User {
   name?: string | null;
   email?: string | null;
   image?: string | null;
+  provider?: string;
 }
 
 interface ApiLimitError {
@@ -48,6 +49,18 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
   const [totalResults, setTotalResults] = useState(0);
   const [viewMode, setViewMode] = useState<"card" | "table">("card");
   const [sortBy, setSortBy] = useState("relevance");
+
+  // OAuth 제공자별 색상 매핑
+  const getProviderColor = (providerId?: string): string => {
+    if (!providerId) return "#667eea";
+    const provider = providerId.split(":")[0].toLowerCase();
+    const colorMap: { [key: string]: string } = {
+      google: "#4285f4",      // 구글 블루
+      kakao: "#fee500",       // 카카오 옐로우
+      naver: "#00c73c",       // 네이버 그린
+    };
+    return colorMap[provider] || "#667eea";
+  };
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [apiLimitError, setApiLimitError] = useState<ApiLimitError | null>(null);
   const profileDropdownRef = useRef<HTMLDivElement>(null);
@@ -619,6 +632,7 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
                   className="profile-avatar-btn"
                   onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
                   title="프로필 메뉴"
+                  style={{ borderColor: getProviderColor(user?.id) }}
                 >
                   {user?.image ? (
                     <img
@@ -627,7 +641,10 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
                       className="profile-avatar"
                     />
                   ) : (
-                    <div className="profile-avatar-fallback">
+                    <div
+                      className="profile-avatar-fallback"
+                      style={{ background: getProviderColor(user?.id) }}
+                    >
                       {user?.name?.charAt(0)?.toUpperCase() || "U"}
                     </div>
                   )}
