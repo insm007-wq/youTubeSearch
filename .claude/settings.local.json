@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(powershell -Command \"Get-ChildItem -Path ''D:\\project\\youTube-Search\\app'' -Filter ''*login*'' -Recurse | Select-Object FullName\")"
+      "Bash(openssl rand:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\n수정: NextAuth secret 환경변수 설정 추가\n\n베셀 배포 환경에서 NEXTAUTH_SECRET 환경변수가 인식되지 않는 문제를 해결했습니다.\nauth.ts에 secret 필드를 명시적으로 추가하여 NextAuth.js가 런타임에 환경변수를 읽을 수 있도록 수정했습니다.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")"
     ],
     "deny": [],
     "ask": []

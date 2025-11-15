@@ -8,6 +8,8 @@ export const runtime = 'nodejs'
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   secret: process.env.NEXTAUTH_SECRET,
+  trustHost: true,
+  basePath: '/api/auth',
   providers: [
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID,
@@ -113,5 +115,4 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     signIn: '/login',
     error: '/login',
   },
-  trustHost: true,
 })
