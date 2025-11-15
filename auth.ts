@@ -6,8 +6,18 @@ import { upsertUser } from './lib/userLimits'
 
 export const runtime = 'nodejs'
 
+// 디버깅: 환경변수 확인
+console.log('[auth] NODE_ENV:', process.env.NODE_ENV)
+console.log('[auth] NEXTAUTH_SECRET exists:', !!process.env.NEXTAUTH_SECRET)
+console.log('[auth] NEXTAUTH_SECRET length:', process.env.NEXTAUTH_SECRET?.length)
+
+const secret = process.env.NEXTAUTH_SECRET
+if (!secret && process.env.NODE_ENV === 'production') {
+  console.error('[auth] ERROR: NEXTAUTH_SECRET is not defined in production!')
+}
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  secret: process.env.NEXTAUTH_SECRET || (process.env.NODE_ENV === 'production' ? undefined : 'dev-secret-key-not-for-production'),
+  secret: secret,
   trustHost: true,
   basePath: '/api/auth',
   providers: [
