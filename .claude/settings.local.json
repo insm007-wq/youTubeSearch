@@ -3,7 +3,17 @@
     "allow": [
       "Bash(openssl rand:*)",
       "Bash(git add:*)",
-      "Bash(git commit -m \"$(cat <<''EOF''\n수정: NextAuth secret 환경변수 설정 추가\n\n베셀 배포 환경에서 NEXTAUTH_SECRET 환경변수가 인식되지 않는 문제를 해결했습니다.\nauth.ts에 secret 필드를 명시적으로 추가하여 NextAuth.js가 런타임에 환경변수를 읽을 수 있도록 수정했습니다.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")"
+      "Bash(git commit -m \"$(cat <<''EOF''\n수정: NextAuth secret 환경변수 설정 추가\n\n베셀 배포 환경에서 NEXTAUTH_SECRET 환경변수가 인식되지 않는 문제를 해결했습니다.\nauth.ts에 secret 필드를 명시적으로 추가하여 NextAuth.js가 런타임에 환경변수를 읽을 수 있도록 수정했습니다.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git push:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\n수정: NextAuth 베셀 배포 설정 추가\n\nbasePath와 trustHost를 명시적으로 설정하여 베셀 환경에서 세션 API 엔드포인트 인식 문제를 해결했습니다.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git commit -m \"$(cat <<''EOF''\n수정: NextAuth secret 빌드 타임 에러 해결\n\n빌드 중 NEXTAUTH_SECRET이 없으면 에러가 발생하는 문제를 해결했습니다.\n프로덕션 환경에서는 환경변수에서 secret을 읽고, 개발 환경에서는 임시값을 사용하도록 수정했습니다.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git commit -m \"$(cat <<''EOF''\n디버깅: NextAuth secret 환경변수 로깅 추가\n\n베셀에서 NEXTAUTH_SECRET 환경변수가 제대로 전달되는지 확인하기 위해 디버깅 로그를 추가했습니다.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(node:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\n수정: 프로덕션 환경 설정 파일 추가\n\n베셀 배포 시 NEXTAUTH_SECRET 환경변수가 인식되지 않는 문제를 해결하기 위해\n.env.production 파일을 추가했습니다. 베셀이 빌드 중에 이 파일을 읽어 환경변수를 설정합니다.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git commit --amend -m \"$(cat <<''EOF''\n수정: 프로덕션 환경 설정 파일 추가 (템플릿)\n\n.env.production 파일을 추가했습니다. 실제 값은 베셀 대시보드의 Environment Variables에서 설정해야 합니다.\n이 파일은 환경변수 구조를 명확히 하기 위한 템플릿입니다.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git commit:*)",
+      "Bash(git checkout:*)",
+      "Bash(git check-ignore:*)"
     ],
     "deny": [],
     "ask": []

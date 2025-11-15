@@ -86,12 +86,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             locale
           )
         } catch (error) {
-          console.error('❌ 사용자 정보 저장 실패:', error)
-          if (error instanceof Error) {
-            console.error('에러 메시지:', error.message)
-            console.error('에러 스택:', error.stack)
-          } else {
-            console.error('알 수 없는 에러:', JSON.stringify(error))
+          if (process.env.NODE_ENV !== 'production') {
+            console.error('사용자 정보 저장 실패:', error instanceof Error ? error.message : error)
           }
           // 저장 실패해도 로그인은 진행
         }
