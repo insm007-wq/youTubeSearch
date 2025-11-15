@@ -40,21 +40,15 @@ export async function upsertUser(
   emailVerified?: boolean,
   locale?: string
 ): Promise<User> {
-  console.log('🔵 upsertUser 호출됨:', { userId, email, provider })
-
   const { db } = await connectToDatabase()
-  console.log('✓ MongoDB 연결됨')
 
   const collection = getUsersCollection(db)
-  console.log('✓ users 컬렉션 획득')
 
   // 인덱스 생성 (중복 방지)
   await collection.createIndex({ userId: 1 }, { unique: true })
   await collection.createIndex({ email: 1 })
 
   const now = new Date()
-
-  console.log('📝 DB 업데이트 시작...')
 
   const result = await collection.findOneAndUpdate(
     { userId },
@@ -83,8 +77,6 @@ export async function upsertUser(
     },
     { upsert: true, returnDocument: 'after' }
   )
-
-  console.log('✅ DB 업데이트 완료:', result)
 
   return result!
 }
