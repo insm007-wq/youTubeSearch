@@ -7,7 +7,7 @@ import { upsertUser } from './lib/userLimits'
 export const runtime = 'nodejs'
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  secret: process.env.NEXTAUTH_SECRET,
+  secret: process.env.NEXTAUTH_SECRET || (process.env.NODE_ENV === 'production' ? undefined : 'dev-secret-key-not-for-production'),
   trustHost: true,
   basePath: '/api/auth',
   providers: [
