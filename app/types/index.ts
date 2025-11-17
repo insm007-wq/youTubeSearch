@@ -12,6 +12,9 @@ export interface YouTubeVideo {
   commentCount: number
   subscriberCount?: number
   duration?: string
+  categoryId?: string
+  categoryName?: string
+  categoryIcon?: string
 }
 
 /**

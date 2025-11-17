@@ -3,6 +3,48 @@ import { auth } from '@/auth'
 import { checkApiUsage, incrementApiUsage } from '@/lib/apiUsage'
 import { incrementUserUsage } from '@/lib/userLimits'
 
+// YouTube 카테고리 ID 매핑 (lucide-react 아이콘명)
+const YOUTUBE_CATEGORIES: Record<string, { name: string; icon: string }> = {
+  '1': { name: '영화', icon: 'Film' },
+  '2': { name: '자동차', icon: 'Car' },
+  '10': { name: '음악', icon: 'Music' },
+  '15': { name: '애완동물', icon: 'PawPrint' },
+  '17': { name: '스포츠', icon: 'Trophy' },
+  '18': { name: '단편영화', icon: 'Film' },
+  '19': { name: '여행', icon: 'Plane' },
+  '20': { name: '게임', icon: 'Gamepad2' },
+  '21': { name: '블로깅', icon: 'Video' },
+  '22': { name: '내용', icon: 'Tv' },
+  '23': { name: '광고', icon: 'Megaphone' },
+  '24': { name: '클래식', icon: 'Music' },
+  '25': { name: '코미디', icon: 'Smile' },
+  '26': { name: '뉴스', icon: 'Newspaper' },
+  '27': { name: '쇼핑', icon: 'ShoppingBag' },
+  '28': { name: '기술', icon: 'Cpu' },
+  '29': { name: 'B-영화', icon: 'Film' },
+  '30': { name: '뮤직비디오', icon: 'Music' },
+  '31': { name: '영화 예고편', icon: 'Clapperboard' },
+  '32': { name: '이벤트', icon: 'Calendar' },
+  '33': { name: '영상', icon: 'Video' },
+  '34': { name: '영상', icon: 'Video' },
+  '35': { name: '영상', icon: 'Video' },
+  '36': { name: '영상', icon: 'Video' },
+  '37': { name: '영상', icon: 'Video' },
+  '38': { name: '영상', icon: 'Video' },
+  '39': { name: '영상', icon: 'Video' },
+  '40': { name: '영상', icon: 'Video' },
+  '41': { name: '교육', icon: 'BookOpen' },
+  '42': { name: '과학기술', icon: 'Microscope' },
+  '43': { name: '소재', icon: 'Palette' },
+  '44': { name: '단편영화', icon: 'Film' },
+  '45': { name: '트레일러', icon: 'PlayCircle' },
+  '46': { name: '팟캐스트', icon: 'Mic2' },
+}
+
+function getCategoryInfo(categoryId: string) {
+  return YOUTUBE_CATEGORIES[categoryId] || { name: '기타', icon: 'Video' }
+}
+
 export async function GET(request: NextRequest) {
   try {
     // ✅ 인증 확인 및 사용자 정보 추출
@@ -91,9 +133,9 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // ✅ 비디오 상세 정보 조회 (조회수, 좋아요 등)
+    // ✅ 비디오 상세 정보 조회 (조회수, 좋아요, 카테고리 등)
     const videoDetailsUrl = new URL('https://www.googleapis.com/youtube/v3/videos')
-    videoDetailsUrl.searchParams.append('part', 'statistics,contentDetails,snippet')
+    videoDetailsUrl.searchParams.append('part', 'statistics,contentDetails,snippet,topicDetails')
     videoDetailsUrl.searchParams.append('id', videoIds)
     videoDetailsUrl.searchParams.append('key', apiKey)
 
@@ -120,6 +162,8 @@ export async function GET(request: NextRequest) {
       const subscriberCount = parseInt(channelInfo?.statistics?.subscriberCount || '0')
       const viewCount = parseInt(video.statistics?.viewCount || '0')
       const likeCount = parseInt(video.statistics?.likeCount || '0')
+      const categoryId = video.snippet?.categoryId || ''
+      const categoryInfo = getCategoryInfo(categoryId)
 
       return {
         id: video.id,
@@ -134,6 +178,9 @@ export async function GET(request: NextRequest) {
         subscriberCount,
         thumbnail: video.snippet.thumbnails?.medium?.url,
         tags: video.snippet?.tags || [],
+        categoryId,
+        categoryName: categoryInfo.name,
+        categoryIcon: categoryInfo.icon,
       }
     }) || []
 
