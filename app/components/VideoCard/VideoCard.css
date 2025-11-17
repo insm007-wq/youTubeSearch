@@ -67,7 +67,8 @@
 /* Channel */
 .video-channel {
   font-size: 11px;
-  color: #666;
+  color: #4caf50;
+  font-weight: 600;
   margin-bottom: 0;
 }
 
