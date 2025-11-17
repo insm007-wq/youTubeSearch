@@ -38,7 +38,7 @@ export default function EngagementRatioFilter({
   return (
     <div className="engagement-section">
       <div className="engagement-title">구독자 대비 조회수 비율 단계(다중선택)</div>
-      <div className="engagement-info">조회수/구독자 비율이 높을수록 채널의 실제 영향력이 큼</div>
+      <div className="engagement-title">조회수/구독자 비율이 높을수록 채널의 실제 영향력이 큼</div>
       <div className="engagement-options">
         <label className="filter-option">
           <input

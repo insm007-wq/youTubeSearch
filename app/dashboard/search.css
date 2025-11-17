@@ -272,6 +272,13 @@
   letter-spacing: 0.5px;
 }
 
+.engagement-section .engagement-title:nth-of-type(2) {
+  color: #999 !important;
+  text-transform: none !important;
+  font-weight: 600 !important;
+  letter-spacing: normal !important;
+}
+
 .engagement-info {
   font-size: 11px;
   color: #999;

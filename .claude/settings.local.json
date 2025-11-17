@@ -13,7 +13,11 @@
       "Bash(git commit --amend -m \"$(cat <<''EOF''\n수정: 프로덕션 환경 설정 파일 추가 (템플릿)\n\n.env.production 파일을 추가했습니다. 실제 값은 베셀 대시보드의 Environment Variables에서 설정해야 합니다.\n이 파일은 환경변수 구조를 명확히 하기 위한 템플릿입니다.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
       "Bash(git commit:*)",
       "Bash(git checkout:*)",
-      "Bash(git check-ignore:*)"
+      "Bash(git check-ignore:*)",
+      "Bash(dir:*)",
+      "Bash(nul)",
+      "Bash(npm run build:*)",
+      "Bash(cat:*)"
     ],
     "deny": [],
     "ask": []
