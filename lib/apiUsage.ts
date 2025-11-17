@@ -67,6 +67,8 @@ export async function checkApiUsage(
     const remaining = Math.max(0, dailyLimit - used)
     const allowed = used < dailyLimit
 
+    console.log(`📋 checkApiUsage - userId: ${userId}, date: ${today}, used: ${used}, dailyLimit: ${dailyLimit}, allowed: ${allowed}`)
+
     // 내일 자정의 시간 계산
     const tomorrow = new Date(new Date(today).getTime() + 24 * 60 * 60 * 1000)
     const resetTime = `${tomorrow.toISOString().split('T')[0]}T00:00:00Z`
