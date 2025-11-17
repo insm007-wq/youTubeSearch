@@ -59,8 +59,11 @@ export async function GET(request: NextRequest) {
     const userId = session.user.id || session.user.email || 'unknown'
     const userEmail = session.user.email || 'unknown@example.com'
 
+    console.log(`🔍 검색 API 호출 - userId: ${userId}, email: ${userEmail}`)
+
     // ✅ API 사용량 확인
     const usageCheck = await checkApiUsage(userId, userEmail)
+    console.log(`📊 사용량 확인 - used: ${usageCheck.used}, limit: ${usageCheck.limit}, allowed: ${usageCheck.allowed}`)
     if (!usageCheck.allowed) {
       return NextResponse.json(
         {
