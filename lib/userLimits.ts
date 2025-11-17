@@ -67,9 +67,9 @@ export async function upsertUser(
         provider: provider || 'unknown',
         providerId: providerId || 'unknown',
         isActive: true, // 기본값: 활성
-        dailyLimit: 20, // 기본값: 20회
+        dailyLimit: 15, // 기본값: 15회
         todayUsed: 0, // 기본값: 0 (오늘 사용한 횟수)
-        remaining: 20, // 기본값: 20 (남은 횟수)
+        remaining: 15, // 기본값: 15 (남은 횟수)
         lastResetDate: new Date().toISOString().split('T')[0], // YYYY-MM-DD
         isDeactivated: false, // 기본값: 활성화
         createdAt: now,
@@ -91,7 +91,7 @@ export async function getUserDailyLimit(userId: string): Promise<number> {
   const collection = getUsersCollection(db)
 
   const user = await collection.findOne({ userId })
-  return user?.dailyLimit ?? 20 // 기본값: 20
+  return user?.dailyLimit ?? 15 // 기본값: 15
 }
 
 /**
