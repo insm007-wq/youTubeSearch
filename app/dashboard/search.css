@@ -113,7 +113,7 @@
 .search-input-wrapper {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 16px;
 }
 
 .search-label {
@@ -125,16 +125,16 @@
 
 .search-input {
   width: 100%;
-  padding: 12px 14px;
+  padding: 8px 12px;
   border: 1px solid #ddd;
   border-radius: 4px;
-  font-size: 14px;
+  font-size: 13px;
   position: relative;
 }
 
 .search-container-with-button {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   align-items: stretch;
   flex: 1;
 }
@@ -400,14 +400,14 @@
 .btn-search {
   background-color: #ff4757;
   color: white;
-  padding: 12px 24px;
+  padding: 8px 18px;
   font-size: 13px;
   font-weight: 600;
   border: none;
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.2s ease;
-  min-width: 80px;
+  min-width: 68px;
   white-space: nowrap;
 }
 

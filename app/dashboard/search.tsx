@@ -84,7 +84,7 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
       if (!isResizing) return;
 
       const newWidth = e.clientX;
-      const minWidth = 400;
+      const minWidth = 420;
       const maxWidth = 1000;
 
       if (newWidth >= minWidth && newWidth <= maxWidth) {
