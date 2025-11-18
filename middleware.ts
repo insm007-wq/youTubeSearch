@@ -2,8 +2,7 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 export function middleware(req: NextRequest) {
-  // ✅ NextAuth 세션 쿠키 확인 (edge runtime compatible)
-  // authjs.session-token은 NextAuth가 생성한 JWT 토큰으로, 유효하지 않거나 만료된 토큰은 자동으로 제거됨
+  // ✅ 세션 쿠키 존재 여부 확인 (로그인 상태 확인)
   const sessionToken = req.cookies.get('authjs.session-token')?.value ||
                       req.cookies.get('__Secure-authjs.session-token')?.value
 
