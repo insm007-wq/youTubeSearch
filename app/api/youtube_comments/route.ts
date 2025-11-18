@@ -1,9 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { auth } from '@/auth'
+import { checkApiUsage } from '@/lib/apiUsage'
 
 const YOUTUBE_API_URL = 'https://www.googleapis.com/youtube/v3'
 
 export async function GET(request: NextRequest) {
-  // ✅ 인증: 미들웨어에서 이미 확인됨 (이중 체크 제거)
+  // ✅ 인증 확인 및 비활성화 체크
+  const session = await auth()
+  if (!session?.user) {
+    return NextResponse.json(
+      { error: '인증이 필요합니다. 로그인해주세요.' },
+      { status: 401 }
+    )
+  }
+
+  const userId = session.user.id || session.user.email || 'unknown'
+  const userEmail = session.user.email || 'unknown@example.com'
+
+  // ✅ 비활성화 사용자 체크
+  try {
+    const usageCheck = await checkApiUsage(userId, userEmail)
+    if (usageCheck.deactivated) {
+      return NextResponse.json(
+        {
+          error: '계정이 비활성화되었습니다',
+          message: '더 이상 서비스를 이용할 수 없습니다. 관리자에게 문의하세요.',
+          deactivated: true
+        },
+        { status: 403 }
+      )
+    }
+  } catch (error) {
+    console.error('❌ 비활성화 체크 에러:', error)
+    // 에러가 발생해도 진행
+  }
 
   const { searchParams } = new URL(request.url)
   const videoId = searchParams.get('videoId')?.trim()
