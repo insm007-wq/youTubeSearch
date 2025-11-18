@@ -292,6 +292,42 @@
   gap: 10px;
 }
 
+/* 단기/장기 라디오 버튼 선택자 */
+.period-type-selector {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+  align-items: center;
+}
+
+.period-type-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 13px;
+  font-weight: 500;
+  color: #666;
+  transition: color 0.2s ease;
+}
+
+.period-type-option:hover {
+  color: #333;
+}
+
+.period-type-option input[type="radio"] {
+  cursor: pointer;
+  accent-color: #4caf50;
+  width: 16px;
+  height: 16px;
+}
+
+.period-type-option input[type="radio"]:checked + span {
+  color: #4caf50;
+  font-weight: 600;
+}
+
 /* 오른쪽 컨텐츠 영역 */
 .content {
   flex: 1;

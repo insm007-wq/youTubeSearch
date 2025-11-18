@@ -42,7 +42,7 @@ interface ApiLimitError {
 
 export default function Search({ user, signOut }: { user?: User; signOut?: (options?: any) => void }) {
   const [searchInput, setSearchInput] = useState("");
-  const [uploadPeriod, setUploadPeriod] = useState("all");
+  const [uploadPeriod, setUploadPeriod] = useState("7days");
   const [videoLength, setVideoLength] = useState("all");
   const [engagementRatios, setEngagementRatios] = useState<string[]>(["4", "5"]);
   const [isLoading, setIsLoading] = useState(false);
@@ -167,6 +167,13 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
       const publishDate = new Date(video.publishedAt || "").getTime();
       const daysAgo = (now - publishDate) / (1000 * 60 * 60 * 24);
 
+      // 단기 필터
+      if (period === "3days" && daysAgo > 3) return false;
+      if (period === "5days" && daysAgo > 5) return false;
+      if (period === "7days" && daysAgo > 7) return false;
+      if (period === "10days" && daysAgo > 10) return false;
+
+      // 장기 필터
       if (period === "1month" && daysAgo > 30) return false;
       if (period === "2months" && daysAgo > 60) return false;
       if (period === "6months" && daysAgo > 180) return false;
