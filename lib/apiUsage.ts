@@ -22,6 +22,7 @@ interface ApiUsageResponse {
   remaining: number
   limit: number
   resetTime: string
+  deactivated?: boolean // 사용자가 비활성화된 경우 true
 }
 
 /**
@@ -38,7 +39,7 @@ function getTodayDate(): string {
  * 사용자의 오늘 API 사용량을 확인
  * @param userId - 사용자 ID
  * @param email - 사용자 이메일
- * @returns { allowed, used, remaining, limit, resetTime }
+ * @returns { allowed, used, remaining, limit, resetTime, deactivated }
  */
 export async function checkApiUsage(
   userId: string,
@@ -53,9 +54,16 @@ export async function checkApiUsage(
     const today = getTodayDate()
 
     const usageCollection = db.collection<ApiUsageRecord>('api_usage')
+    const userLimitsCollection = db.collection('user_limits')
 
-    // 사용자의 일일 제한 조회 (DB에서 가져오기)
-    const dailyLimit = await getUserDailyLimit(userId)
+    // user_limits 컬렉션에서 사용자 정보 조회 (isDeactivated 포함)
+    // user_limits는 관리앱에서 관리하는 컬렉션
+    // 이메일을 프라이머리 키로 사용 (관리앱과 일관성)
+    const userLimit = await userLimitsCollection.findOne({ email })
+    const isDeactivated = userLimit?.isDeactivated ?? false
+    const dailyLimit = userLimit?.dailyLimit ?? 15
+
+    console.log(`🔍 user_limits 조회 - email: ${email}, isDeactivated: ${isDeactivated}, dailyLimit: ${dailyLimit}`)
 
     // 오늘의 기록만 조회 (생성하지 않음)
     const usageRecord = await usageCollection.findOne({
@@ -65,7 +73,10 @@ export async function checkApiUsage(
 
     const used = usageRecord?.count ?? 0
     const remaining = Math.max(0, dailyLimit - used)
-    const allowed = used < dailyLimit
+    // 비활성화 상태이면 allowed를 false로 설정
+    const allowed = !isDeactivated && used < dailyLimit
+
+    console.log(`📋 checkApiUsage - userId: ${userId}, date: ${today}, used: ${used}, dailyLimit: ${dailyLimit}, isDeactivated: ${isDeactivated}, allowed: ${allowed}`)
 
     console.log(`📋 checkApiUsage - userId: ${userId}, date: ${today}, used: ${used}, dailyLimit: ${dailyLimit}, allowed: ${allowed}`)
 
@@ -78,7 +89,8 @@ export async function checkApiUsage(
       used,
       remaining,
       limit: dailyLimit,
-      resetTime
+      resetTime,
+      deactivated: isDeactivated
     }
   } catch (error) {
     console.error('❌ API 사용량 확인 에러:', {
@@ -106,8 +118,8 @@ export async function incrementApiUsage(userId: string, email: string): Promise<
 
     const usageCollection = db.collection<ApiUsageRecord>('api_usage')
 
-    // 사용자의 일일 제한 조회 (DB에서 가져오기)
-    const dailyLimit = await getUserDailyLimit(userId)
+    // 사용자의 일일 제한 조회 (DB에서 가져오기, 이메일 기반)
+    const dailyLimit = await getUserDailyLimit(email)
 
     // findOneAndUpdate: 한 번의 쿼리로 처리 (가장 안전한 패턴)
     // 1. 기존 문서면 count +1, updatedAt 업데이트

@@ -67,9 +67,9 @@ export async function upsertUser(
         provider: provider || 'unknown',
         providerId: providerId || 'unknown',
         isActive: true, // 기본값: 활성
-        dailyLimit: 20, // 기본값: 20회
+        dailyLimit: 15, // 기본값: 15회
         todayUsed: 0, // 기본값: 0 (오늘 사용한 횟수)
-        remaining: 20, // 기본값: 20 (남은 횟수)
+        remaining: 15, // 기본값: 15 (남은 횟수)
         lastResetDate: new Date().toISOString().split('T')[0], // YYYY-MM-DD
         isDeactivated: false, // 기본값: 활성화
         createdAt: now,
@@ -84,32 +84,35 @@ export async function upsertUser(
 
 
 /**
- * 사용자의 일일 제한 횟수 조회
- * 1순위: user_limits 컬렉션 (admin에서 설정한 값)
- * 2순위: users 컬렉션 (기본값)
- * 3순위: 기본값 15
+ * 사용자의 일일 제한 횟수 조회 (user_limits 컬렉션에서)
+ * 관리앱에서 관리하는 user_limits에서 할당량을 가져옴
  */
-export async function getUserDailyLimit(userId: string): Promise<number> {
+export async function getUserDailyLimit(userIdOrEmail: string): Promise<number> {
   const { db } = await connectToDatabase()
 
-  // 1순위: user_limits 컬렉션 확인 (admin에서 설정한 값)
-  const userLimitsCollection = db.collection('user_limits')
-  const userLimitRecord = await userLimitsCollection.findOne({ userId })
+  try {
+    // user_limits 컬렉션에서 조회 (관리앱이 관리)
+    const userLimitsCollection = db.collection('user_limits')
 
-  if (userLimitRecord?.dailyLimit) {
-    return userLimitRecord.dailyLimit
+    // 이메일일 가능성이 높으므로 먼저 이메일로 조회 (관리앱과 일관성)
+    let userLimit = await userLimitsCollection.findOne({ email: userIdOrEmail })
+
+    // 이메일로 못 찾았으면 userId로 시도
+    if (!userLimit) {
+      userLimit = await userLimitsCollection.findOne({ userId: userIdOrEmail })
+    }
+
+    if (userLimit) {
+      return userLimit.dailyLimit ?? 15
+    }
+  } catch (error) {
+    console.error('❌ user_limits 조회 에러:', error)
   }
 
-  // 2순위: users 컬렉션 확인 (기본값)
-  const collection = getUsersCollection(db)
-  const user = await collection.findOne({ userId })
-
-  if (user?.dailyLimit) {
-    return user.dailyLimit
-  }
-
-  // 3순위: 기본값
-  return 15
+  // user_limits에 없으면 users 컬렉션 확인
+  const usersCollection = getUsersCollection(db)
+  const user = await usersCollection.findOne({ userId: userIdOrEmail })
+  return user?.dailyLimit ?? 15 // 기본값: 15
 }
 
 /**
