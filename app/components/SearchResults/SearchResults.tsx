@@ -3,6 +3,7 @@
 import VideoCard from '@/app/components/VideoCard/VideoCard'
 import ResultsTable from '@/app/components/ResultsTable/ResultsTable'
 import TagAnalysisDashboard from '@/app/components/TagAnalysisDashboard/TagAnalysisDashboard'
+import Spinner from '@/app/components/ui/Spinner'
 
 interface SearchResultsProps {
   results: any[]
@@ -30,11 +31,15 @@ export default function SearchResults({
       <TagAnalysisDashboard results={results} />
 
       {/* 결과 영역 */}
-      <div style={{ flex: 1, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', overflowY: 'auto' }}>
+      <div style={{
+        flex: 1,
+        display: 'flex',
+        alignItems: isLoading || results.length === 0 ? 'center' : 'flex-start',
+        justifyContent: 'center',
+        overflowY: 'auto'
+      }}>
         {isLoading ? (
-          <div className="no-results">
-            <p>검색 중...</p>
-          </div>
+          <Spinner text="검색 중..." />
         ) : results.length === 0 ? (
           <div className="no-results">
             <p>왼쪽 필터에서 검색을 진행해주세요</p>
