@@ -23,7 +23,8 @@
       "Bash(git cherry-pick:*)",
       "Bash(timeout 10 npm run dev:*)",
       "Bash(taskkill:*)",
-      "Bash(timeout 15 npm run dev)"
+      "Bash(timeout 15 npm run dev)",
+      "WebFetch(domain:lilys.ai)"
     ],
     "deny": [],
     "ask": []

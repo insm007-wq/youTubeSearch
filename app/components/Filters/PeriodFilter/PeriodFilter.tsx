@@ -16,7 +16,7 @@ const SHORT_TERM_OPTIONS = [
   { value: '10days', label: '10일' },
 ]
 
-// 장기 옵션
+// 중장기 옵션
 const LONG_TERM_OPTIONS = [
   { value: 'all', label: '전체' },
   { value: '1month', label: '1개월' },
@@ -26,12 +26,12 @@ const LONG_TERM_OPTIONS = [
 ]
 
 export default function PeriodFilter({ value, onChange }: PeriodFilterProps) {
-  // 초기값 결정 (기본값은 "short" 타입)
+  // 초기값 결정 (기본값은 "long" 타입)
   const [periodType, setPeriodType] = useState<'short' | 'long'>(() => {
-    if (['1month', '2months', '6months', '1year'].includes(value)) {
-      return 'long'
+    if (['3days', '5days', '7days', '10days'].includes(value)) {
+      return 'short'
     }
-    return 'short'
+    return 'long'
   })
 
   const options = periodType === 'short' ? SHORT_TERM_OPTIONS : LONG_TERM_OPTIONS
@@ -44,7 +44,7 @@ export default function PeriodFilter({ value, onChange }: PeriodFilterProps) {
 
   return (
     <div className="filter-section">
-      <div className="filter-title">📅 업로드 기간</div>
+      <div className="filter-title">업로드 기간</div>
 
       {/* 단기/장기 라디오 버튼 */}
       <div className="period-type-selector">
@@ -64,7 +64,7 @@ export default function PeriodFilter({ value, onChange }: PeriodFilterProps) {
             checked={periodType === 'long'}
             onChange={() => handleTypeChange('long')}
           />
-          <span>장기</span>
+          <span>중·장기</span>
         </label>
       </div>
 

@@ -42,7 +42,7 @@ interface ApiLimitError {
 
 export default function Search({ user, signOut }: { user?: User; signOut?: (options?: any) => void }) {
   const [searchInput, setSearchInput] = useState("");
-  const [uploadPeriod, setUploadPeriod] = useState("7days");
+  const [uploadPeriod, setUploadPeriod] = useState("all");
   const [videoLength, setVideoLength] = useState("all");
   const [engagementRatios, setEngagementRatios] = useState<string[]>(["4", "5"]);
   const [isLoading, setIsLoading] = useState(false);
