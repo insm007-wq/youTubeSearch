@@ -9,7 +9,6 @@ import VideoLengthFilter from "@/app/components/Filters/VideoLengthFilter/VideoL
 import EngagementRatioFilter from "@/app/components/Filters/EngagementRatioFilter/EngagementRatioFilter";
 import CommentsModal from "@/app/components/CommentsModal/CommentsModal";
 import ChannelModal from "@/app/components/ChannelModal/ChannelModal";
-import SavedSearches from "@/app/components/SavedSearches/SavedSearches";
 import ApiLimitBanner from "@/app/components/ApiLimitBanner/ApiLimitBanner";
 import { getEngagementLevel } from "@/lib/engagementUtils";
 import { isShortVideo, isLongVideo } from "@/lib/durationUtils";
@@ -85,7 +84,7 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
       if (!isResizing) return;
 
       const newWidth = e.clientX;
-      const minWidth = 300;
+      const minWidth = 400;
       const maxWidth = 1000;
 
       if (newWidth >= minWidth && newWidth <= maxWidth) {
@@ -440,54 +439,6 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
     }
   };
 
-  // 저장된 검색 로드
-  const handleLoadSavedSearch = useCallback(async (query: string) => {
-    setIsLoading(true);
-    setApiLimitError(null); // 새 검색 시 이전 에러 제거
-    try {
-      const params = new URLSearchParams({
-        q: query,
-        maxResults: "50",
-      });
-      const response = await fetch(`/api/youtube_search?${params}`);
-      const data = await response.json();
-
-      if (!response.ok) {
-        // 403 에러: 계정이 비활성화됨
-        if (response.status === 403) {
-          setApiLimitError({
-            message: data.message,
-            deactivated: true,
-          });
-          return;
-        }
-
-        // 429 에러: API 사용 제한 초과
-        if (response.status === 429) {
-          setApiLimitError({
-            message: data.message,
-            used: data.apiUsageToday.used,
-            limit: data.apiUsageToday.limit,
-            remaining: data.apiUsageToday.remaining,
-            resetTime: data.resetTime,
-          });
-          return;
-        }
-
-        // 기타 에러
-        alert(`검색 실패: ${data.error || "알 수 없는 오류"}`);
-        return;
-      }
-
-      setAllResults(data.items || []);
-      setTotalResults(data.totalResults || 0);
-    } catch (error) {
-      console.error("검색 오류:", error);
-      alert("검색 중 오류가 발생했습니다");
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
 
   // 댓글 조회 함수
   const handleCommentsClick = useCallback(async (videoId: string, videoTitle: string) => {
@@ -566,7 +517,6 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
         <div className="sidebar" style={{ width: `${sidebarWidth}px` }}>
           <div className="sidebar-title">유튜브 스카우트</div>
 
-          {/* 검색 섹션 */}
           <div className="search-section">
             <div className="search-input-wrapper">
               <div className="search-label">검색어</div>
@@ -602,10 +552,6 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
             </AnimatePresence>
           </div>
 
-          {/* 저장된 검색 섹션 */}
-          <SavedSearches
-            onSearchLoad={handleLoadSavedSearch}
-          />
 
           {/* 필터 섹션 */}
           <div className="filters-wrapper">

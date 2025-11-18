@@ -542,6 +542,7 @@
   padding: 12px;
   border-bottom: 1px solid #e5e5e5;
   vertical-align: middle;
+  text-align: left;
 }
 
 .results-table tbody tr:hover {
@@ -578,7 +579,7 @@
 }
 
 .table-number {
-  text-align: right;
+  text-align: center;
   font-weight: 500;
   color: #333;
   min-width: 80px;
@@ -599,7 +600,9 @@
 }
 
 .engagement-badge {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 4px 10px;
   border-radius: 4px;
   font-size: 11px;

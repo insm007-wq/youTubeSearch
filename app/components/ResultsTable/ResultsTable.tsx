@@ -122,8 +122,9 @@ export default function ResultsTable({ results, showVPH }: ResultsTableProps) {
   }
 
   return (
-    <div className="results-table-wrapper">
-      <table className="results-table">
+    <div style={{ width: '100%', padding: '0 20px' }}>
+      <div className="results-table-wrapper">
+        <table className="results-table">
         <thead>
           <tr>
             <th>썸네일</th>
@@ -191,7 +192,8 @@ export default function ResultsTable({ results, showVPH }: ResultsTableProps) {
             )
           })}
         </tbody>
-      </table>
+        </table>
+      </div>
     </div>
   )
 }

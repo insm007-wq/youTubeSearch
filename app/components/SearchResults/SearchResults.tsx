@@ -23,60 +23,9 @@ export default function SearchResults({
   onChannelClick,
   onCommentsClick,
 }: SearchResultsProps) {
-  // 통계 계산
-  const stats = results.length > 0 ? {
-    totalViews: results.reduce((sum, video) => sum + video.viewCount, 0),
-    avgSubscribers: Math.round(
-      results.reduce((sum, video) => sum + video.subscriberCount, 0) / results.length
-    ),
-    avgRatio: (
-      results.reduce((sum, video) =>
-        sum + (video.subscriberCount > 0 ? video.viewCount / video.subscriberCount : 0),
-      0) / results.length
-    ).toFixed(2),
-    videoCount: results.length,
-  } : {
-    totalViews: 0,
-    avgSubscribers: 0,
-    avgRatio: '0',
-    videoCount: 0,
-  }
-
-  const formatNumber = (num: number): string => {
-    if (num >= 1000000) {
-      return (num / 1000000).toFixed(1) + 'M'
-    }
-    if (num >= 1000) {
-      return (num / 1000).toFixed(1) + 'K'
-    }
-    return num.toString()
-  }
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-      {/* 결과 개수 */}
-      <p className="results-count">검색결과 {results.length}개</p>
-
-      {/* 통계 대시보드 */}
-      <div className="statistics-dashboard">
-        <div className="stat-card views">
-          <div className="stat-label">총 조회수</div>
-          <div className="stat-value">{formatNumber(stats.totalViews)}</div>
-        </div>
-        <div className="stat-card subscribers">
-          <div className="stat-label">평균 구독자</div>
-          <div className="stat-value">{formatNumber(stats.avgSubscribers)}</div>
-        </div>
-        <div className="stat-card ratio">
-          <div className="stat-label">평균 비율</div>
-          <div className="stat-value">{stats.avgRatio}</div>
-        </div>
-        <div className="stat-card count">
-          <div className="stat-label">영상 개수</div>
-          <div className="stat-value">{stats.videoCount}</div>
-        </div>
-      </div>
-
       {/* 태그 분석 대시보드 */}
       <TagAnalysisDashboard results={results} />
 
@@ -93,8 +42,8 @@ export default function SearchResults({
         ) : viewMode === 'card' ? (
           <div style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))',
-            gap: '12px',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+            gap: '16px',
             width: '100%',
             padding: '20px',
             alignContent: 'flex-start',

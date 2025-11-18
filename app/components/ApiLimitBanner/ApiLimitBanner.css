@@ -12,14 +12,15 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .banner-title {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   color: #856404;
   white-space: nowrap;
@@ -60,9 +61,11 @@
 .banner-content {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 12px;
   flex: 1;
   min-width: 0;
+  flex-wrap: wrap;
+  width: 100%;
 }
 
 .usage-info {
@@ -89,8 +92,8 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  flex: 0 0 200px;
-  min-width: 120px;
+  flex: 1;
+  min-width: 150px;
 }
 
 .progress-bar {
@@ -120,10 +123,11 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 13px;
+  font-size: 12px;
   color: #666;
-  white-space: nowrap;
-  flex-shrink: 0;
+  white-space: normal;
+  word-break: keep-all;
+  flex-basis: 100%;
 }
 
 .reset-label {

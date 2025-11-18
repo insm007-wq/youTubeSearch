@@ -43,25 +43,25 @@
 
 /* Video Info */
 .video-info {
-  padding: 10px 12px;
+  padding: 12px;
   display: flex;
   flex-direction: column;
   flex: 1;
-  gap: 4px;
+  gap: 6px;
   overflow: visible;
 }
 
 /* Title */
 .video-title {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   color: #000;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  line-height: 1.4;
+  line-height: 1.5;
 }
 
 /* Channel */
