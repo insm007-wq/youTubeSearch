@@ -54,14 +54,15 @@ export async function checkApiUsage(
     const today = getTodayDate()
 
     const usageCollection = db.collection<ApiUsageRecord>('api_usage')
-    const usersCollection = db.collection('users')
+    const userLimitsCollection = db.collection('user_limits')
 
-    // 사용자 정보 조회 (isDeactivated 포함)
-    const user = await usersCollection.findOne({ userId })
-    const isDeactivated = user?.isDeactivated ?? false
+    // user_limits 컬렉션에서 사용자 정보 조회 (isDeactivated 포함)
+    // user_limits는 관리앱에서 관리하는 컬렉션
+    const userLimit = await userLimitsCollection.findOne({ userId })
+    const isDeactivated = userLimit?.isDeactivated ?? false
+    const dailyLimit = userLimit?.dailyLimit ?? 15
 
-    // 사용자의 일일 제한 조회 (DB에서 가져오기)
-    const dailyLimit = user?.dailyLimit ?? 15
+    console.log(`🔍 user_limits 조회 - userId: ${userId}, isDeactivated: ${isDeactivated}, dailyLimit: ${dailyLimit}`)
 
     // 오늘의 기록만 조회 (생성하지 않음)
     const usageRecord = await usageCollection.findOne({

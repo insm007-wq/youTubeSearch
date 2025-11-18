@@ -84,13 +84,27 @@ export async function upsertUser(
 
 
 /**
- * 사용자의 일일 제한 횟수 조회
+ * 사용자의 일일 제한 횟수 조회 (user_limits 컬렉션에서)
+ * 관리앱에서 관리하는 user_limits에서 할당량을 가져옴
  */
 export async function getUserDailyLimit(userId: string): Promise<number> {
   const { db } = await connectToDatabase()
-  const collection = getUsersCollection(db)
 
-  const user = await collection.findOne({ userId })
+  try {
+    // user_limits 컬렉션에서 조회 (관리앱이 관리)
+    const userLimitsCollection = db.collection('user_limits')
+    const userLimit = await userLimitsCollection.findOne({ userId })
+
+    if (userLimit) {
+      return userLimit.dailyLimit ?? 15
+    }
+  } catch (error) {
+    console.error('❌ user_limits 조회 에러:', error)
+  }
+
+  // user_limits에 없으면 users 컬렉션 확인
+  const usersCollection = getUsersCollection(db)
+  const user = await usersCollection.findOne({ userId })
   return user?.dailyLimit ?? 15 // 기본값: 15
 }
 
