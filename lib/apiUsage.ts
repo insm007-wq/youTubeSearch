@@ -58,11 +58,12 @@ export async function checkApiUsage(
 
     // user_limits 컬렉션에서 사용자 정보 조회 (isDeactivated 포함)
     // user_limits는 관리앱에서 관리하는 컬렉션
-    const userLimit = await userLimitsCollection.findOne({ userId })
+    // 이메일을 프라이머리 키로 사용 (관리앱과 일관성)
+    const userLimit = await userLimitsCollection.findOne({ email })
     const isDeactivated = userLimit?.isDeactivated ?? false
     const dailyLimit = userLimit?.dailyLimit ?? 15
 
-    console.log(`🔍 user_limits 조회 - userId: ${userId}, isDeactivated: ${isDeactivated}, dailyLimit: ${dailyLimit}`)
+    console.log(`🔍 user_limits 조회 - email: ${email}, isDeactivated: ${isDeactivated}, dailyLimit: ${dailyLimit}`)
 
     // 오늘의 기록만 조회 (생성하지 않음)
     const usageRecord = await usageCollection.findOne({
@@ -115,8 +116,8 @@ export async function incrementApiUsage(userId: string, email: string): Promise<
 
     const usageCollection = db.collection<ApiUsageRecord>('api_usage')
 
-    // 사용자의 일일 제한 조회 (DB에서 가져오기)
-    const dailyLimit = await getUserDailyLimit(userId)
+    // 사용자의 일일 제한 조회 (DB에서 가져오기, 이메일 기반)
+    const dailyLimit = await getUserDailyLimit(email)
 
     // findOneAndUpdate: 한 번의 쿼리로 처리 (가장 안전한 패턴)
     // 1. 기존 문서면 count +1, updatedAt 업데이트
