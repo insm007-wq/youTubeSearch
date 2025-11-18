@@ -135,6 +135,26 @@
   font-weight: 600;
 }
 
+/* 비활성화된 계정 스타일 */
+.api-limit-banner.deactivated {
+  background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%);
+  border-color: #ef9a9a;
+  box-shadow: 0 2px 8px rgba(244, 67, 54, 0.1);
+}
+
+.api-limit-banner.deactivated .banner-title {
+  color: #c62828;
+}
+
+.api-limit-banner.deactivated .banner-icon {
+  color: #f44336;
+}
+
+.api-limit-banner.deactivated .reset-label {
+  color: #d32f2f;
+  font-weight: 500;
+}
+
 /* 다크 모드 지원 (향후) */
 @media (prefers-color-scheme: dark) {
   .api-limit-banner {
@@ -156,5 +176,18 @@
 
   .reset-time {
     color: #ffb74d;
+  }
+
+  .api-limit-banner.deactivated {
+    background: linear-gradient(135deg, rgba(244, 67, 54, 0.15) 0%, rgba(229, 57, 53, 0.1) 100%);
+    border-color: rgba(244, 67, 54, 0.3);
+  }
+
+  .api-limit-banner.deactivated .banner-title {
+    color: #ff6b6b;
+  }
+
+  .api-limit-banner.deactivated .reset-label {
+    color: #ff6b6b;
   }
 }

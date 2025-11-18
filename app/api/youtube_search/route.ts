@@ -63,7 +63,20 @@ export async function GET(request: NextRequest) {
 
     // ✅ API 사용량 확인
     const usageCheck = await checkApiUsage(userId, userEmail)
-    console.log(`📊 사용량 확인 - used: ${usageCheck.used}, limit: ${usageCheck.limit}, allowed: ${usageCheck.allowed}`)
+    console.log(`📊 사용량 확인 - used: ${usageCheck.used}, limit: ${usageCheck.limit}, allowed: ${usageCheck.allowed}, deactivated: ${usageCheck.deactivated}`)
+
+    // ✅ 사용자가 비활성화된 경우
+    if (usageCheck.deactivated) {
+      return NextResponse.json(
+        {
+          error: '계정이 비활성화되었습니다',
+          message: '더 이상 검색할 수 없습니다. 관리자에게 문의하세요.',
+          deactivated: true
+        },
+        { status: 403 }
+      )
+    }
+
     if (!usageCheck.allowed) {
       return NextResponse.json(
         {

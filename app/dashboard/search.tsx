@@ -33,10 +33,11 @@ interface User {
 
 interface ApiLimitError {
   message: string;
-  used: number;
-  limit: number;
-  remaining: number;
-  resetTime: string;
+  used?: number;
+  limit?: number;
+  remaining?: number;
+  resetTime?: string;
+  deactivated?: boolean;
 }
 
 export default function Search({ user, signOut }: { user?: User; signOut?: (options?: any) => void }) {
@@ -390,6 +391,15 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
       const data = await response.json();
 
       if (!response.ok) {
+        // 403 에러: 계정이 비활성화됨
+        if (response.status === 403) {
+          setApiLimitError({
+            message: data.message,
+            deactivated: true,
+          });
+          return;
+        }
+
         // 429 에러: API 사용 제한 초과
         if (response.status === 429) {
           setApiLimitError({
@@ -436,6 +446,15 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
       const data = await response.json();
 
       if (!response.ok) {
+        // 403 에러: 계정이 비활성화됨
+        if (response.status === 403) {
+          setApiLimitError({
+            message: data.message,
+            deactivated: true,
+          });
+          return;
+        }
+
         // 429 에러: API 사용 제한 초과
         if (response.status === 429) {
           setApiLimitError({
@@ -569,6 +588,7 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
                   used={apiLimitError.used}
                   limit={apiLimitError.limit}
                   resetTime={apiLimitError.resetTime}
+                  deactivated={apiLimitError.deactivated}
                   onClose={() => setApiLimitError(null)}
                 />
               )}
