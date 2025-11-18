@@ -49,6 +49,7 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
   const [totalResults, setTotalResults] = useState(0);
   const [viewMode, setViewMode] = useState<"card" | "table">("card");
   const [sortBy, setSortBy] = useState("relevance");
+  const [searchHistory, setSearchHistory] = useState<string[]>([]);
 
   // OAuth 제공자별 색상 매핑
   const getProviderColor = (providerId?: string): string => {
@@ -75,6 +76,14 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
     const savedWidth = localStorage.getItem("youtube-scout-sidebar-width");
     if (savedWidth) {
       setSidebarWidth(parseInt(savedWidth, 10));
+    }
+  }, []);
+
+  // 검색 히스토리 로드
+  useEffect(() => {
+    const savedHistory = localStorage.getItem("youtube-scout-search-history");
+    if (savedHistory) {
+      setSearchHistory(JSON.parse(savedHistory));
     }
   }, []);
 
@@ -385,6 +394,11 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
       return;
     }
 
+    // 검색 히스토리 저장
+    const newHistory = [searchInput, ...searchHistory.filter(item => item !== searchInput)].slice(0, 10);
+    setSearchHistory(newHistory);
+    localStorage.setItem("youtube-scout-search-history", JSON.stringify(newHistory));
+
     setIsLoading(true);
     setApiLimitError(null); // 새 검색 시 이전 에러 제거
     try {
@@ -431,12 +445,25 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
     } finally {
       setIsLoading(false);
     }
-  }, [searchInput]);
+  }, [searchInput, searchHistory]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
       handleSearch();
     }
+  };
+
+  // 히스토리 항목 클릭
+  const handleHistoryClick = (keyword: string) => {
+    setSearchInput(keyword);
+  };
+
+  // 히스토리 항목 삭제
+  const handleDeleteHistory = (e: React.MouseEvent, keyword: string) => {
+    e.stopPropagation();
+    const newHistory = searchHistory.filter(item => item !== keyword);
+    setSearchHistory(newHistory);
+    localStorage.setItem("youtube-scout-search-history", JSON.stringify(newHistory));
   };
 
 
@@ -530,7 +557,26 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
                     onChange={(e) => setSearchInput(e.target.value)}
                     onKeyDown={handleKeyDown}
                   />
-                  <div className="search-history-dropdown" id="searchHistory"></div>
+                  {searchHistory.length > 0 && searchInput === "" && (
+                    <div className="search-history-dropdown active">
+                      {searchHistory.map((keyword) => (
+                        <div
+                          key={keyword}
+                          className="history-item"
+                          onClick={() => handleHistoryClick(keyword)}
+                        >
+                          <span>{keyword}</span>
+                          <button
+                            className="history-delete"
+                            onClick={(e) => handleDeleteHistory(e, keyword)}
+                            title="삭제"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <button className="btn-search" onClick={handleSearch} disabled={isLoading}>
                   {isLoading ? "검색 중..." : "검색"}
