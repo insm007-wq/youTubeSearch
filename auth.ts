@@ -76,14 +76,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           }
 
           await upsertUser(
-            token.id,
             email,
             user.name,
             user.image,
             account.provider,
-            account.providerAccountId,
-            emailVerified,
-            locale
+            account.providerAccountId
           )
         } catch (error) {
           if (process.env.NODE_ENV !== 'production') {

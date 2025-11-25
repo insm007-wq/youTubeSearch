@@ -14,13 +14,12 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  const userId = session.user.id || session.user.email || 'unknown'
   const userEmail = session.user.email || 'unknown@example.com'
 
   // ✅ 비활성화 사용자 체크
   try {
-    const usageCheck = await checkApiUsage(userId, userEmail)
-    if (usageCheck.deactivated) {
+    const usageCheck = await checkApiUsage(userEmail)
+    if (!usageCheck.allowed && usageCheck.limit === 0) {
       return NextResponse.json(
         {
           error: '계정이 비활성화되었습니다',
