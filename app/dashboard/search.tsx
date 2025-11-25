@@ -440,20 +440,13 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
       setAllResults(data.items || []);
       setTotalResults(data.totalResults || 0);
 
-      // ✅ 성공 시 최신 사용량 정보 업데이트
+      // ✅ 성공 시 에러 상태 초기화 (이전의 제한 상태를 제거)
+      setApiLimitError(null);
+
+      // ✅ 사용량 정보 로깅
       if (data.apiUsageToday) {
         console.log(`✅ 검색 성공 - 사용량: ${data.apiUsageToday.used}/${data.apiUsageToday.limit}`);
-        // 사용량이 제한에 도달했으면 에러 상태로 변경
-        if (data.apiUsageToday.used >= data.apiUsageToday.limit) {
-          console.log(`⚠️ 사용량 제한 도달 - 다음 검색부터 제한됨`);
-          setApiLimitError({
-            message: '오늘 검색 가능한 횟수를 모두 사용했습니다',
-            used: data.apiUsageToday.used,
-            limit: data.apiUsageToday.limit,
-            remaining: data.apiUsageToday.remaining,
-            resetTime: data.resetTime || '',
-          });
-        }
+        console.log(`📊 남은 횟수: ${data.apiUsageToday.remaining}회`);
       }
     } catch (error) {
       console.error("검색 오류:", error);
