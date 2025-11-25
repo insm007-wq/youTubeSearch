@@ -3,20 +3,21 @@ import { connectToDatabase } from './mongodb'
 
 interface User {
   _id?: ObjectId
-  userId: string
-  email: string
+  email: string  // Primary Key
   name?: string
   image?: string
   provider: string
-  providerId: string
-  emailVerified?: boolean
-  locale?: string
-  isActive: boolean
+  providerId?: string
   dailyLimit: number
+  remainingLimit: number
   todayUsed: number
-  remaining: number
   lastResetDate: string
-  isDeactivated: boolean
+  isActive: boolean  // true: 활성, false: 비활성화
+  isBanned: boolean
+  bannedAt?: Date
+  bannedReason?: string
+  isOnline: boolean
+  lastActive: Date
   lastLogin: Date
   createdAt: Date
   updatedAt: Date
@@ -27,51 +28,48 @@ function getUsersCollection(db: Db): Collection<User> {
 }
 
 /**
- * 사용자 정보를 MongoDB에 저장/업데이트 (user_limits 통합)
+ * 사용자 정보를 MongoDB에 저장/업데이트
+ * Email을 Primary Key로 사용
  * 로그인 시마다 호출되며, lastLogin을 갱신합니다
  */
 export async function upsertUser(
-  userId: string,
   email: string,
   name?: string,
   image?: string,
   provider?: string,
-  providerId?: string,
-  emailVerified?: boolean,
-  locale?: string
+  providerId?: string
 ): Promise<User> {
   const { db } = await connectToDatabase()
 
   const collection = getUsersCollection(db)
 
-  // 인덱스 생성 (중복 방지)
-  await collection.createIndex({ userId: 1 }, { unique: true })
-  await collection.createIndex({ email: 1 })
+  // Email을 Primary Key로 사용
+  await collection.createIndex({ email: 1 }, { unique: true })
 
   const now = new Date()
 
   const result = await collection.findOneAndUpdate(
-    { userId },
+    { email },
     {
       $set: {
-        email,
         name,
         image,
-        emailVerified,
-        locale,
-        lastLogin: now, // 로그인할 때마다 갱신
+        provider: provider || 'unknown',
+        providerId: providerId || 'unknown',
+        lastLogin: now,
+        lastActive: now,
+        isOnline: true,
         updatedAt: now,
       },
       $setOnInsert: {
-        userId,
-        provider: provider || 'unknown',
-        providerId: providerId || 'unknown',
-        isActive: true, // 기본값: 활성
-        dailyLimit: 15, // 기본값: 15회
-        todayUsed: 0, // 기본값: 0 (오늘 사용한 횟수)
-        remaining: 15, // 기본값: 15 (남은 횟수)
-        lastResetDate: new Date().toISOString().split('T')[0], // YYYY-MM-DD
-        isDeactivated: false, // 기본값: 활성화
+        email,
+        dailyLimit: 20,
+        remainingLimit: 20,
+        todayUsed: 0,
+        lastResetDate: new Date().toISOString().split('T')[0],
+        isActive: true,
+        isBanned: false,
+        isOnline: true,
         createdAt: now,
       },
     },
@@ -84,74 +82,46 @@ export async function upsertUser(
 
 
 /**
- * 사용자의 일일 제한 횟수 조회 (user_limits 컬렉션에서)
- * 관리앱에서 관리하는 user_limits에서 할당량을 가져옴
+ * 사용자의 일일 제한 횟수 조회 (email 기반)
  */
-export async function getUserDailyLimit(userIdOrEmail: string): Promise<number> {
+export async function getUserDailyLimit(email: string): Promise<number> {
   const { db } = await connectToDatabase()
 
   try {
-    // user_limits 컬렉션에서 조회 (관리앱이 관리)
-    const userLimitsCollection = db.collection('user_limits')
-
-    // 이메일일 가능성이 높으므로 먼저 이메일로 조회 (관리앱과 일관성)
-    let userLimit = await userLimitsCollection.findOne({ email: userIdOrEmail })
-
-    // 이메일로 못 찾았으면 userId로 시도
-    if (!userLimit) {
-      userLimit = await userLimitsCollection.findOne({ userId: userIdOrEmail })
-    }
-
-    if (userLimit) {
-      return userLimit.dailyLimit ?? 15
-    }
+    const collection = getUsersCollection(db)
+    const user = await collection.findOne({ email })
+    return user?.dailyLimit ?? 20 // 기본값: 20
   } catch (error) {
-    console.error('❌ user_limits 조회 에러:', error)
+    console.error('❌ 사용자 할당량 조회 에러:', error)
+    return 20
   }
-
-  // user_limits에 없으면 users 컬렉션 확인
-  const usersCollection = getUsersCollection(db)
-  const user = await usersCollection.findOne({ userId: userIdOrEmail })
-  return user?.dailyLimit ?? 15 // 기본값: 15
 }
 
 /**
- * 사용자의 API 사용량을 1 증가시킴 + remaining 갱신
+ * 사용자의 할당량을 원자적으로 차감
+ * Atomic 연산으로 동시성 보장
  */
-export async function incrementUserUsage(userId: string): Promise<User | null> {
+export async function decrementUserQuota(email: string): Promise<boolean> {
   const { db } = await connectToDatabase()
   const collection = getUsersCollection(db)
 
-  const user = await collection.findOne({ userId })
-  if (!user) return null
-
   const today = new Date().toISOString().split('T')[0]
 
-  // 날짜가 바뀌었으면 리셋
-  let newTodayUsed = user.todayUsed + 1
-  let newRemaining = user.dailyLimit - newTodayUsed
-  let lastResetDate = user.lastResetDate
-
-  if (user.lastResetDate !== today) {
-    newTodayUsed = 1
-    newRemaining = user.dailyLimit - 1
-    lastResetDate = today
-  }
-
   const result = await collection.findOneAndUpdate(
-    { userId },
     {
-      $set: {
-        todayUsed: newTodayUsed,
-        remaining: newRemaining,
-        lastResetDate: lastResetDate,
-        updatedAt: new Date(),
-      },
+      email,
+      remainingLimit: { $gt: 0 }, // 0보다 클 때만
+      isActive: true,
+      isBanned: false,
+    },
+    {
+      $inc: { remainingLimit: -1, todayUsed: 1 },
+      $set: { lastResetDate: today, updatedAt: new Date() },
     },
     { returnDocument: 'after' }
   )
 
-  return result || null
+  return result !== null
 }
 
 

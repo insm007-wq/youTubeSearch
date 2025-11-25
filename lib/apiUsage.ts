@@ -1,17 +1,16 @@
 import { connectToDatabase } from './mongodb'
 import { ObjectId } from 'mongodb'
-import { getUserDailyLimit } from './userLimits'
+import { getUserDailyLimit, decrementUserQuota } from './userLimits'
 
-// 환경변수에서 설정, 기본값 20 (사용자가 설정하지 않았을 때 사용)
+// 환경변수에서 설정, 기본값 20
 const DEFAULT_DAILY_LIMIT = parseInt(process.env.API_DAILY_LIMIT || '20', 10)
 
 interface ApiUsageRecord {
   _id?: ObjectId
-  userId: string
-  email: string
-  date: string // YYYY-MM-DD
+  email: string  // Primary Key (email 기반)
+  date: string   // YYYY-MM-DD
   count: number
-  lastReset: Date
+  searches?: Array<{ query: string; timestamp: Date }>
   createdAt?: Date
   updatedAt?: Date
 }
@@ -22,7 +21,6 @@ interface ApiUsageResponse {
   remaining: number
   limit: number
   resetTime: string
-  deactivated?: boolean // 사용자가 비활성화된 경우 true
 }
 
 /**
@@ -30,71 +28,82 @@ interface ApiUsageResponse {
  */
 function getTodayDate(): string {
   const today = new Date()
-  // KST (UTC+9) 기준으로 날짜 계산
   const kstDate = new Date(today.getTime() + 9 * 60 * 60 * 1000)
   return kstDate.toISOString().split('T')[0]
 }
 
 /**
- * 사용자의 오늘 API 사용량을 확인
- * @param userId - 사용자 ID
- * @param email - 사용자 이메일
- * @returns { allowed, used, remaining, limit, resetTime, deactivated }
+ * 내일 자정을 ISO 형식으로 반환
  */
-export async function checkApiUsage(
-  userId: string,
-  email: string
-): Promise<ApiUsageResponse> {
+function getTomorrowMidnight(): string {
+  const today = new Date(new Date().getTime() + 9 * 60 * 60 * 1000)
+  const tomorrow = new Date(today)
+  tomorrow.setDate(tomorrow.getDate() + 1)
+  tomorrow.setHours(0, 0, 0, 0)
+  return tomorrow.toISOString().split('T')[0] + 'T00:00:00Z'
+}
+
+/**
+ * 사용자의 오늘 API 사용량을 확인 (Email 기반)
+ */
+export async function checkApiUsage(email: string): Promise<ApiUsageResponse> {
   try {
-    if (!userId || !email) {
-      throw new Error('userId와 email은 필수입니다')
+    if (!email) {
+      throw new Error('email은 필수입니다')
     }
 
     const { db } = await connectToDatabase()
     const today = getTodayDate()
 
+    const usersCollection = db.collection('users')
     const usageCollection = db.collection<ApiUsageRecord>('api_usage')
-    const userLimitsCollection = db.collection('user_limits')
 
-    // user_limits 컬렉션에서 사용자 정보 조회 (isDeactivated 포함)
-    // user_limits는 관리앱에서 관리하는 컬렉션
-    // 이메일을 프라이머리 키로 사용 (관리앱과 일관성)
-    const userLimit = await userLimitsCollection.findOne({ email })
-    const isDeactivated = userLimit?.isDeactivated ?? false
-    const dailyLimit = userLimit?.dailyLimit ?? 15
+    // users에서 사용자 정보 조회 (할당량 및 상태)
+    const user = await usersCollection.findOne({ email })
+    if (!user) {
+      return {
+        allowed: false,
+        used: 0,
+        remaining: 0,
+        limit: 0,
+        resetTime: getTomorrowMidnight()
+      }
+    }
 
-    console.log(`🔍 user_limits 조회 - email: ${email}, isDeactivated: ${isDeactivated}, dailyLimit: ${dailyLimit}`)
+    // 비활성화 또는 밴된 사용자 체크
+    if (!user.isActive || user.isBanned) {
+      return {
+        allowed: false,
+        used: 0,
+        remaining: 0,
+        limit: user.dailyLimit || DEFAULT_DAILY_LIMIT,
+        resetTime: getTomorrowMidnight()
+      }
+    }
 
-    // 오늘의 기록만 조회 (생성하지 않음)
+    // 오늘의 api_usage 기록 조회
     const usageRecord = await usageCollection.findOne({
-      userId,
+      email,
       date: today
     })
 
     const used = usageRecord?.count ?? 0
-    const remaining = Math.max(0, dailyLimit - used)
-    // 비활성화 상태이면 allowed를 false로 설정
-    const allowed = !isDeactivated && used < dailyLimit
+    const limit = user.dailyLimit || DEFAULT_DAILY_LIMIT
+    const remaining = Math.max(0, limit - used)
+    const allowed = used < limit
 
-    console.log(`📋 checkApiUsage - userId: ${userId}, date: ${today}, used: ${used}, dailyLimit: ${dailyLimit}, isDeactivated: ${isDeactivated}, allowed: ${allowed}`)
-
-    console.log(`📋 checkApiUsage - userId: ${userId}, date: ${today}, used: ${used}, dailyLimit: ${dailyLimit}, allowed: ${allowed}`)
-
-    // 내일 자정의 시간 계산
-    const tomorrow = new Date(new Date(today).getTime() + 24 * 60 * 60 * 1000)
-    const resetTime = `${tomorrow.toISOString().split('T')[0]}T00:00:00Z`
+    console.log(`📊 checkApiUsage - email: ${email}, used: ${used}/${limit}, allowed: ${allowed}`)
 
     return {
       allowed,
       used,
       remaining,
-      limit: dailyLimit,
-      resetTime,
-      deactivated: isDeactivated
+      limit,
+      resetTime: getTomorrowMidnight()
     }
   } catch (error) {
     console.error('❌ API 사용량 확인 에러:', {
-      userId,
+      email,
       error: error instanceof Error ? error.message : error
     })
     throw error
@@ -102,42 +111,35 @@ export async function checkApiUsage(
 }
 
 /**
- * 사용자의 API 사용량을 1 증가시킴 (최적화됨: 1번의 DB 쿼리)
- * @param userId - 사용자 ID
- * @param email - 사용자 이메일
- * @returns 업데이트된 전체 사용량 정보 (DB 재조회 불필요)
+ * 사용자의 API 사용량을 1 증가시킴 (Email 기반)
+ * Atomic 연산 사용으로 동시성 보장
  */
-export async function incrementApiUsage(userId: string, email: string): Promise<ApiUsageResponse> {
+export async function incrementApiUsage(email: string, query?: string): Promise<ApiUsageResponse> {
   try {
-    if (!userId || !email) {
-      throw new Error('userId와 email은 필수입니다')
+    if (!email) {
+      throw new Error('email은 필수입니다')
     }
 
     const { db } = await connectToDatabase()
     const today = getTodayDate()
 
     const usageCollection = db.collection<ApiUsageRecord>('api_usage')
-
-    // 사용자의 일일 제한 조회 (DB에서 가져오기, 이메일 기반)
     const dailyLimit = await getUserDailyLimit(email)
 
-    // findOneAndUpdate: 한 번의 쿼리로 처리 (가장 안전한 패턴)
-    // 1. 기존 문서면 count +1, updatedAt 업데이트
-    // 2. 없는 문서면 count는 자동으로 1 생성
-    // 3. $setOnInsert에서는 updatedAt을 제외하여 ConflictingUpdateOperators 에러 방지
+    // Atomic upsert: email + date를 유니크 키로 사용
     const result = await usageCollection.findOneAndUpdate(
       {
-        userId,
+        email,
         date: today
       },
       {
         $inc: { count: 1 },
+        $push: query ? { searches: { query, timestamp: new Date() } } : {},
         $set: { updatedAt: new Date() },
         $setOnInsert: {
-          userId,
           email,
           date: today,
-          lastReset: new Date(),
+          count: 1,
           createdAt: new Date()
         }
       },
@@ -151,20 +153,18 @@ export async function incrementApiUsage(userId: string, email: string): Promise<
     const remaining = Math.max(0, dailyLimit - updatedCount)
     const allowed = updatedCount < dailyLimit
 
-    // 내일 자정의 시간 계산
-    const tomorrow = new Date(new Date(today).getTime() + 24 * 60 * 60 * 1000)
-    const resetTime = `${tomorrow.toISOString().split('T')[0]}T00:00:00Z`
+    console.log(`📈 incrementApiUsage - email: ${email}, count: ${updatedCount}/${dailyLimit}`)
 
     return {
       allowed,
       used: updatedCount,
       remaining,
       limit: dailyLimit,
-      resetTime
+      resetTime: getTomorrowMidnight()
     }
   } catch (error) {
     console.error('❌ API 사용량 업데이트 에러:', {
-      userId,
+      email,
       error: error instanceof Error ? error.message : error
     })
     throw error
@@ -172,17 +172,15 @@ export async function incrementApiUsage(userId: string, email: string): Promise<
 }
 
 /**
- * 사용자의 모든 API 사용 기록 조회
- * @param userId - 사용자 ID
- * @param limit - 조회할 기록 수 (기본 30)
+ * 사용자의 모든 API 사용 기록 조회 (Email 기반)
  */
 export async function getUserApiUsageHistory(
-  userId: string,
+  email: string,
   limit: number = 30
 ): Promise<ApiUsageRecord[]> {
   try {
-    if (!userId) {
-      throw new Error('userId는 필수입니다')
+    if (!email) {
+      throw new Error('email은 필수입니다')
     }
 
     if (limit < 1 || limit > 100) {
@@ -193,7 +191,7 @@ export async function getUserApiUsageHistory(
     const usageCollection = db.collection<ApiUsageRecord>('api_usage')
 
     const records = await usageCollection
-      .find({ userId })
+      .find({ email })
       .sort({ date: -1 })
       .limit(limit)
       .toArray()
@@ -201,7 +199,7 @@ export async function getUserApiUsageHistory(
     return records
   } catch (error) {
     console.error('❌ API 사용 기록 조회 에러:', {
-      userId,
+      email,
       error: error instanceof Error ? error.message : error
     })
     throw error
@@ -209,25 +207,22 @@ export async function getUserApiUsageHistory(
 }
 
 /**
- * 사용자의 오늘 사용량만 조회 (간단 버전)
- * @param userId - 사용자 ID
+ * 사용자의 오늘 사용량만 조회 (Email 기반)
  */
-export async function getTodayUsage(userId: string) {
+export async function getTodayUsage(email: string) {
   try {
-    if (!userId) {
-      throw new Error('userId는 필수입니다')
+    if (!email) {
+      throw new Error('email은 필수입니다')
     }
 
     const { db } = await connectToDatabase()
     const today = getTodayDate()
 
     const usageCollection = db.collection<ApiUsageRecord>('api_usage')
-
-    // 사용자의 일일 제한 조회
-    const dailyLimit = await getUserDailyLimit(userId)
+    const dailyLimit = await getUserDailyLimit(email)
 
     const record = await usageCollection.findOne({
-      userId,
+      email,
       date: today
     })
 
@@ -240,7 +235,7 @@ export async function getTodayUsage(userId: string) {
     }
   } catch (error) {
     console.error('❌ 오늘 사용량 조회 에러:', {
-      userId,
+      email,
       error: error instanceof Error ? error.message : error
     })
     throw error
@@ -248,17 +243,14 @@ export async function getTodayUsage(userId: string) {
 }
 
 /**
- * 특정 사용자의 특정 날짜 사용량 조회
- * @param userId - 사용자 ID
- * @param date - 조회할 날짜 (YYYY-MM-DD)
+ * 특정 사용자의 특정 날짜 사용량 조회 (Email 기반)
  */
-export async function getUsageByDate(userId: string, date: string) {
+export async function getUsageByDate(email: string, date: string) {
   try {
-    if (!userId || !date) {
-      throw new Error('userId와 date는 필수입니다')
+    if (!email || !date) {
+      throw new Error('email과 date는 필수입니다')
     }
 
-    // 날짜 형식 검증
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
       throw new Error('날짜는 YYYY-MM-DD 형식이어야 합니다')
     }
@@ -267,7 +259,7 @@ export async function getUsageByDate(userId: string, date: string) {
     const usageCollection = db.collection<ApiUsageRecord>('api_usage')
 
     const record = await usageCollection.findOne({
-      userId,
+      email,
       date
     })
 
@@ -278,7 +270,7 @@ export async function getUsageByDate(userId: string, date: string) {
     }
   } catch (error) {
     console.error('❌ 날짜별 사용량 조회 에러:', {
-      userId,
+      email,
       date,
       error: error instanceof Error ? error.message : error
     })

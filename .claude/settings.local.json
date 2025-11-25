@@ -24,7 +24,10 @@
       "Bash(timeout 10 npm run dev:*)",
       "Bash(taskkill:*)",
       "Bash(timeout 15 npm run dev)",
-      "WebFetch(domain:lilys.ai)"
+      "WebFetch(domain:lilys.ai)",
+      "Bash(npm run dev:*)",
+      "Bash(findstr:*)",
+      "Bash(npx ts-node:*)"
     ],
     "deny": [],
     "ask": []
