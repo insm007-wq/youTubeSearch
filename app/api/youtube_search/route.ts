@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/auth'
 import { checkApiUsage, incrementApiUsage } from '@/lib/apiUsage'
-import { incrementUserUsage } from '@/lib/userLimits'
 
 // YouTube 카테고리 ID 매핑 (lucide-react 아이콘명)
 const YOUTUBE_CATEGORIES: Record<string, { name: string; icon: string }> = {
@@ -56,32 +55,22 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const userId = session.user.id || session.user.email || 'unknown'
     const userEmail = session.user.email || 'unknown@example.com'
 
-    console.log(`🔍 검색 API 호출 - userId: ${userId}, email: ${userEmail}`)
+    console.log(`🔍 검색 API 호출 - email: ${userEmail}`)
 
     // ✅ API 사용량 확인
-    const usageCheck = await checkApiUsage(userId, userEmail)
-    console.log(`📊 사용량 확인 - used: ${usageCheck.used}, limit: ${usageCheck.limit}, allowed: ${usageCheck.allowed}, deactivated: ${usageCheck.deactivated}`)
+    const usageCheck = await checkApiUsage(userEmail)
+    console.log(`📊 사용량 확인 - used: ${usageCheck.used}, limit: ${usageCheck.limit}, allowed: ${usageCheck.allowed}`)
 
-    // ✅ 사용자가 비활성화된 경우
-    if (usageCheck.deactivated) {
-      return NextResponse.json(
-        {
-          error: '계정이 비활성화되었습니다',
-          message: '더 이상 검색할 수 없습니다. 관리자에게 문의하세요.',
-          deactivated: true
-        },
-        { status: 403 }
-      )
-    }
-
+    // ✅ 할당량이 없거나 제한된 경우
     if (!usageCheck.allowed) {
       return NextResponse.json(
         {
-          error: '일일 검색 횟수 제한 초과',
-          message: `오늘 검색 가능한 횟수(${usageCheck.limit}회)를 모두 사용했습니다`,
+          error: '검색할 수 없습니다',
+          message: usageCheck.limit === 0
+            ? '계정이 비활성화되었습니다. 관리자에게 문의하세요.'
+            : `오늘 검색 가능한 횟수(${usageCheck.limit}회)를 모두 사용했습니다`,
           apiUsageToday: {
             used: usageCheck.used,
             limit: usageCheck.limit,
@@ -89,9 +78,10 @@ export async function GET(request: NextRequest) {
           },
           resetTime: usageCheck.resetTime
         },
-        { status: 429 }
+        { status: usageCheck.limit === 0 ? 403 : 429 }
       )
     }
+
 
     const { searchParams } = new URL(request.url)
     const query = searchParams.get('q')?.trim()
@@ -200,15 +190,8 @@ export async function GET(request: NextRequest) {
       }
     }) || []
 
-    // ✅ API 사용량 증가 (최적화: incrementApiUsage에서 전체 사용량 정보 반환하므로 재조회 불필요)
-    const updatedUsage = await incrementApiUsage(userId, userEmail)
-
-    // ✅ users 컬렉션 업데이트 (todayUsed, remaining)
-    try {
-      await incrementUserUsage(userId)
-    } catch (err) {
-      console.warn('⚠️ users 컬렉션 업데이트 실패 (비중요):', err)
-    }
+    // ✅ API 사용량 증가
+    const updatedUsage = await incrementApiUsage(userEmail, query)
 
     return NextResponse.json({
       items,
