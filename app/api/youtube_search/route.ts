@@ -200,7 +200,8 @@ export async function GET(request: NextRequest) {
         used: updatedUsage.used,
         limit: updatedUsage.limit,
         remaining: updatedUsage.remaining
-      }
+      },
+      resetTime: updatedUsage.resetTime
     })
   } catch (error) {
     console.error('❌ YouTube 검색 API 에러:', error)
