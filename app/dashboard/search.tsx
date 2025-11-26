@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { useSession, signOut } from "next-auth/react";
 import { AnimatePresence } from "framer-motion";
 import { LayoutGrid, Table2, Download } from "lucide-react";
 import SearchResults from "@/app/components/SearchResults/SearchResults";
@@ -165,6 +166,25 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
     channelId: "",
     isLoading: false,
   });
+
+  // ✅ 로그아웃 처리 함수 (오프라인 상태 설정)
+  const handleLogout = async () => {
+    try {
+      if (user?.email) {
+        // setUserOffline API 호출
+        await fetch("/api/set-user-offline", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: user.email }),
+        })
+      }
+    } catch (error) {
+      console.error("❌ 오프라인 처리 실패:", error)
+    } finally {
+      // signOut 호출
+      signOut?.({ redirectTo: "/" })
+    }
+  }
 
   // 기간 필터링 함수
   const filterResultsByPeriod = (items: any[], period: string) => {
@@ -689,7 +709,7 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
                     {/* 로그아웃 */}
                     <button
                       className="profile-dropdown-logout"
-                      onClick={() => signOut?.({ redirectTo: "/" })}
+                      onClick={() => handleLogout()}
                     >
                       🚪 로그아웃
                     </button>

@@ -58,7 +58,6 @@ export async function upsertUser(
         providerId: providerId || 'unknown',
         lastLogin: now,
         lastActive: now,
-        isOnline: true,
         updatedAt: now,
       },
       $setOnInsert: {
@@ -105,7 +104,10 @@ export async function decrementUserQuota(email: string): Promise<boolean> {
   const { db } = await connectToDatabase()
   const collection = getUsersCollection(db)
 
-  const today = new Date().toISOString().split('T')[0]
+  // ✅ KST 기준으로 오늘 날짜 계산 (apiUsage.ts와 동일)
+  const today = new Date()
+  const kstDate = new Date(today.getTime() + 9 * 60 * 60 * 1000)
+  const todayStr = kstDate.toISOString().split('T')[0]
 
   const result = await collection.findOneAndUpdate(
     {
@@ -116,7 +118,7 @@ export async function decrementUserQuota(email: string): Promise<boolean> {
     },
     {
       $inc: { remainingLimit: -1, todayUsed: 1 },
-      $set: { lastResetDate: today, updatedAt: new Date() },
+      $set: { lastResetDate: todayStr, updatedAt: new Date() },
     },
     { returnDocument: 'after' }
   )
@@ -124,4 +126,74 @@ export async function decrementUserQuota(email: string): Promise<boolean> {
   return result !== null
 }
 
+/**
+ * 사용자의 lastActive를 갱신
+ * 미들웨어에서 API 호출마다 호출되어 실시간 접속 상태 추적
+ */
+export async function updateLastActive(email: string): Promise<boolean> {
+  try {
+    const { db } = await connectToDatabase()
+    const collection = getUsersCollection(db)
 
+    const result = await collection.findOneAndUpdate(
+      { email },
+      {
+        $set: {
+          lastActive: new Date(),
+          isOnline: true,
+          updatedAt: new Date(),
+        },
+      },
+      { returnDocument: 'after' }
+    )
+
+    return result !== null
+  } catch (error) {
+    console.error('❌ updateLastActive 실패:', error)
+    return false
+  }
+}
+
+/**
+ * 사용자를 오프라인으로 설정
+ * 로그아웃 시 호출
+ */
+export async function setUserOffline(email: string): Promise<boolean> {
+  try {
+    const { db } = await connectToDatabase()
+    const collection = getUsersCollection(db)
+
+    const result = await collection.findOneAndUpdate(
+      { email },
+      {
+        $set: {
+          isOnline: false,
+          updatedAt: new Date(),
+        },
+      },
+      { returnDocument: 'after' }
+    )
+
+    return result !== null
+  } catch (error) {
+    console.error('❌ setUserOffline 실패:', error)
+    return false
+  }
+}
+
+/**
+ * 이메일로 사용자 조회
+ * auth.ts 에서 차단 여부 확인할 때 사용
+ */
+export async function getUserById(email: string): Promise<User | null> {
+  try {
+    const { db } = await connectToDatabase()
+    const collection = getUsersCollection(db)
+
+    const user = await collection.findOne({ email })
+    return user || null
+  } catch (error) {
+    console.error('❌ getUserById 실패:', error)
+    return null
+  }
+}

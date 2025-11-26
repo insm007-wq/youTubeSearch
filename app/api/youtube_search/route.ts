@@ -47,8 +47,19 @@ function getCategoryInfo(categoryId: string) {
 export async function GET(request: NextRequest) {
   try {
     // ✅ 인증 확인 및 사용자 정보 추출
-    const session = await auth()
+    let session
+    try {
+      session = await auth()
+    } catch (authError) {
+      console.error('❌ auth() 호출 실패:', authError)
+      return NextResponse.json(
+        { error: '인증 처리 중 오류가 발생했습니다' },
+        { status: 500 }
+      )
+    }
+
     if (!session?.user) {
+      console.log('⚠️  세션 없음 - 로그인 필요')
       return NextResponse.json(
         { error: '인증이 필요합니다. 로그인해주세요.' },
         { status: 401 }
@@ -56,21 +67,41 @@ export async function GET(request: NextRequest) {
     }
 
     const userEmail = session.user.email || 'unknown@example.com'
-
     console.log(`🔍 검색 API 호출 - email: ${userEmail}`)
 
     // ✅ API 사용량 확인
-    const usageCheck = await checkApiUsage(userEmail)
-    console.log(`📊 사용량 확인 - used: ${usageCheck.used}, limit: ${usageCheck.limit}, allowed: ${usageCheck.allowed}`)
+    let usageCheck
+    try {
+      usageCheck = await checkApiUsage(userEmail)
+    } catch (usageError) {
+      console.error('❌ checkApiUsage 호출 실패:', usageError)
+      return NextResponse.json(
+        { error: 'API 사용량 확인 중 오류 발생' },
+        { status: 500 }
+      )
+    }
+    console.log(`📊 사용량 확인:`, {
+      email: userEmail,
+      used: usageCheck.used,
+      limit: usageCheck.limit,
+      remaining: usageCheck.remaining,
+      allowed: usageCheck.allowed
+    })
 
     // ✅ 할당량이 없거나 제한된 경우
     if (!usageCheck.allowed) {
+      console.log(`❌ 검색 거부 - allowed: ${usageCheck.allowed}, limit: ${usageCheck.limit}`)
+      const statusCode = usageCheck.limit === 0 ? 403 : 429
+      const message = usageCheck.limit === 0
+        ? '계정이 비활성화되었습니다. 관리자에게 문의하세요.'
+        : `오늘 검색 가능한 횟수(${usageCheck.limit}회)를 모두 사용했습니다`
+
+      console.log(`  → Status: ${statusCode}, Message: ${message}`)
+
       return NextResponse.json(
         {
           error: '검색할 수 없습니다',
-          message: usageCheck.limit === 0
-            ? '계정이 비활성화되었습니다. 관리자에게 문의하세요.'
-            : `오늘 검색 가능한 횟수(${usageCheck.limit}회)를 모두 사용했습니다`,
+          message,
           apiUsageToday: {
             used: usageCheck.used,
             limit: usageCheck.limit,
@@ -78,9 +109,11 @@ export async function GET(request: NextRequest) {
           },
           resetTime: usageCheck.resetTime
         },
-        { status: usageCheck.limit === 0 ? 403 : 429 }
+        { status: statusCode }
       )
     }
+
+    console.log(`✅ 검색 허용 - used: ${usageCheck.used}/${usageCheck.limit}`)
 
 
     const { searchParams } = new URL(request.url)
@@ -117,10 +150,13 @@ export async function GET(request: NextRequest) {
     url.searchParams.append('order', 'relevance')
     url.searchParams.append('key', apiKey)
 
+    console.log(`🌐 YouTube API 호출 - query: ${query}`)
     const response = await fetch(url.toString())
+    console.log(`📥 YouTube API 응답 - status: ${response.status}`)
 
     if (!response.ok) {
       const errorData = await response.json()
+      console.error(`❌ YouTube API 에러 - status: ${response.status}, message:`, errorData.error?.message)
       return NextResponse.json(
         { error: errorData.error?.message || 'YouTube API 오류' },
         { status: response.status }

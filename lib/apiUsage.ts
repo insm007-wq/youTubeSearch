@@ -60,7 +60,16 @@ export async function checkApiUsage(email: string): Promise<ApiUsageResponse> {
 
     // users에서 사용자 정보 조회 (할당량 및 상태)
     const user = await usersCollection.findOne({ email })
+    console.log(`🔍 checkApiUsage - 사용자 조회 결과:`, {
+      email,
+      found: !!user,
+      isActive: user?.isActive,
+      isBanned: user?.isBanned,
+      dailyLimit: user?.dailyLimit
+    })
+
     if (!user) {
+      console.log(`❌ checkApiUsage - 사용자 없음, limit: 0`)
       return {
         allowed: false,
         used: 0,
@@ -72,6 +81,7 @@ export async function checkApiUsage(email: string): Promise<ApiUsageResponse> {
 
     // 비활성화 또는 밴된 사용자 체크
     if (!user.isActive || user.isBanned) {
+      console.log(`❌ checkApiUsage - 사용자 비활성/차단됨, isActive: ${user.isActive}, isBanned: ${user.isBanned}`)
       return {
         allowed: false,
         used: 0,
@@ -91,6 +101,27 @@ export async function checkApiUsage(email: string): Promise<ApiUsageResponse> {
     const limit = user.dailyLimit || DEFAULT_DAILY_LIMIT
     const remaining = Math.max(0, limit - used)
     const allowed = used < limit
+
+    // ✅ 할당량 리셋 체크 (lastResetDate와 오늘 날짜 비교)
+    const userLastResetDate = user.lastResetDate || '1970-01-01'
+    if (userLastResetDate !== today && used === 0) {
+      // 오늘이 새로운 날이고 아직 사용량이 없으면 users 컬렉션 리셋
+      try {
+        const usersCollection = db.collection('users')
+        await usersCollection.updateOne(
+          { email },
+          {
+            $set: {
+              lastResetDate: today,
+              updatedAt: new Date()
+            }
+          }
+        )
+        console.log(`🔄 할당량 리셋 - email: ${email}, limit: ${limit}`)
+      } catch (resetError) {
+        console.log(`⚠️  할당량 리셋 실패 (무시됨):`, resetError)
+      }
+    }
 
     console.log(`📊 checkApiUsage - email: ${email}, used: ${used}/${limit}, allowed: ${allowed}`)
 
@@ -139,7 +170,6 @@ export async function incrementApiUsage(email: string, query?: string): Promise<
         $setOnInsert: {
           email,
           date: today,
-          count: 1,
           createdAt: new Date()
         }
       },

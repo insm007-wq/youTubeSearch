@@ -2,7 +2,7 @@ import NextAuth from 'next-auth'
 import Google from 'next-auth/providers/google'
 import Kakao from 'next-auth/providers/kakao'
 import Naver from 'next-auth/providers/naver'
-import { upsertUser } from './lib/userLimits'
+import { upsertUser, getUserById } from './lib/userLimits'
 
 export const runtime = 'nodejs'
 
@@ -42,6 +42,41 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
   },
   callbacks: {
+    // ✅ 로그인 전 차단 여부 확인
+    async signIn({ user, account }: any) {
+      if (!account?.providerAccountId) return false
+
+      try {
+        // 제공자별 이메일 추출
+        let email = user.email || ''
+        if (account.provider === 'kakao' && !email) {
+          email = user.kakao_account?.email || user.kakao_account?.account_email || ''
+        }
+
+        if (!email) return false
+
+        // 사용자 조회
+        const dbUser = await getUserById(email)
+
+        // ✅ 차단된 사용자는 로그인 거부
+        if (dbUser?.isBanned) {
+          console.warn(`❌ 차단된 사용자 로그인 시도: ${email}`)
+          return '/login?error=BannedUser' // 로그인 페이지로 리다이렉트
+        }
+
+        // ✅ 비활성 사용자도 로그인 거부
+        if (dbUser && !dbUser.isActive) {
+          console.warn(`⚠️ 비활성 사용자 로그인 시도: ${email}`)
+          return '/login?error=InactiveUser'
+        }
+
+        return true
+      } catch (error) {
+        console.error('❌ signIn 콜백 에러:', error)
+        return true // 에러 시 로그인 진행
+      }
+    },
+
     async jwt({ token, user, account }: any) {
       // OAuth provider의 영구적인 고유 ID 사용 (로그인할 때마다 동일)
       if (account?.providerAccountId) {

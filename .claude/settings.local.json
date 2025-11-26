@@ -27,7 +27,20 @@
       "WebFetch(domain:lilys.ai)",
       "Bash(npm run dev:*)",
       "Bash(findstr:*)",
-      "Bash(npx ts-node:*)"
+      "Bash(npx ts-node:*)",
+      "Bash(tree:*)",
+      "Bash(find:*)",
+      "Bash(git log:*)",
+      "Bash(npm install:*)",
+      "Bash(curl:*)",
+      "Bash(netstat:*)",
+      "Bash(powershell -Command \"if (Test-Path .next) { Remove-Item -Recurse -Force .next }; if (Test-Path node_modules) { Remove-Item -Recurse -Force node_modules }; if (Test-Path package-lock.json) { Remove-Item -Force package-lock.json }; Write-Host ''✅ 정리 완료''\")",
+      "Bash(npm ci:*)",
+      "Bash(npx next build)",
+      "Bash(timeout 30 npm run dev:*)",
+      "Bash(powershell -Command \"if (Test-Path .next) { Remove-Item -Recurse -Force .next }; if (Test-Path .next/dev/lock) { Remove-Item -Force .next/dev/lock }; Write-Host ''✅ .next 디렉토리 정리 완료''\")",
+      "Bash(powershell -Command:*)",
+      "Bash(rm:*)"
     ],
     "deny": [],
     "ask": []
