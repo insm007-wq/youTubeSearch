@@ -1,6 +1,9 @@
 import { Collection, Db, ObjectId } from 'mongodb'
 import { connectToDatabase } from './mongodb'
 
+// 환경변수에서 기본 일일 할당량 설정
+const DEFAULT_DAILY_LIMIT = parseInt(process.env.DEFAULT_DAILY_LIMIT || '20', 10)
+
 interface User {
   _id?: ObjectId
   email: string  // Primary Key
@@ -62,8 +65,8 @@ export async function upsertUser(
       },
       $setOnInsert: {
         email,
-        dailyLimit: 20,
-        remainingLimit: 20,
+        dailyLimit: DEFAULT_DAILY_LIMIT,
+        remainingLimit: DEFAULT_DAILY_LIMIT,
         todayUsed: 0,
         lastResetDate: new Date().toISOString().split('T')[0],
         isActive: true,
