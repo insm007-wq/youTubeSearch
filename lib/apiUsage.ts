@@ -155,6 +155,7 @@ export async function incrementApiUsage(email: string, query?: string): Promise<
     const today = getTodayDate()
 
     const usageCollection = db.collection<ApiUsageRecord>('api_usage')
+    const usersCollection = db.collection('users')
     const dailyLimit = await getUserDailyLimit(email)
 
     // Atomic upsert: email + date를 유니크 키로 사용
@@ -182,6 +183,24 @@ export async function incrementApiUsage(email: string, query?: string): Promise<
     const updatedCount = result?.count ?? 1
     const remaining = Math.max(0, dailyLimit - updatedCount)
     const allowed = updatedCount < dailyLimit
+
+    // ✅ users 컬렉션의 remainingLimit도 동시에 업데이트
+    try {
+      await usersCollection.updateOne(
+        { email },
+        {
+          $set: {
+            remainingLimit: remaining,
+            todayUsed: updatedCount,
+            lastResetDate: today,
+            updatedAt: new Date()
+          }
+        }
+      )
+      console.log(`✅ users 컬렉션 업데이트 - email: ${email}, remaining: ${remaining}, used: ${updatedCount}`)
+    } catch (updateError) {
+      console.warn(`⚠️  users 컬렉션 업데이트 실패 (계속 진행):`, updateError)
+    }
 
     console.log(`📈 incrementApiUsage - email: ${email}, count: ${updatedCount}/${dailyLimit}`)
 
