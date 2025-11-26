@@ -191,9 +191,11 @@ export async function incrementApiUsage(email: string, query?: string): Promise<
         {
           $set: {
             remainingLimit: remaining,
-            todayUsed: updatedCount,
             lastResetDate: today,
             updatedAt: new Date()
+          },
+          $unset: {
+            todayUsed: ""  // ✅ todayUsed 필드 제거 (중복 데이터)
           }
         }
       )
