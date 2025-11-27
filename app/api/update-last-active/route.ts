@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { updateLastActive } from '@/lib/userLimits'
 
 export async function POST(request: NextRequest) {
+  let email = ''
   try {
-    const { email } = await request.json()
+    const body = await request.json()
+    email = body.email
 
     if (!email) {
       return NextResponse.json(

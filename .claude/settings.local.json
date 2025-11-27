@@ -40,7 +40,9 @@
       "Bash(timeout 30 npm run dev:*)",
       "Bash(powershell -Command \"if (Test-Path .next) { Remove-Item -Recurse -Force .next }; if (Test-Path .next/dev/lock) { Remove-Item -Force .next/dev/lock }; Write-Host ''✅ .next 디렉토리 정리 완료''\")",
       "Bash(powershell -Command:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(git pull:*)",
+      "Bash(git merge:*)"
     ],
     "deny": [],
     "ask": []
