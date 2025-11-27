@@ -186,6 +186,26 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
     }
   }
 
+  // ✅ 브라우저 종료 감지 - 사용자를 오프라인 상태로 변경
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (user?.email) {
+        // sendBeacon 사용하여 브라우저 종료 시에도 요청 보장
+        const blob = new Blob(
+          [JSON.stringify({ email: user.email })],
+          { type: "application/json" }
+        )
+        navigator.sendBeacon("/api/set-user-offline", blob)
+      }
+    }
+
+    window.addEventListener("beforeunload", handleBeforeUnload)
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload)
+    }
+  }, [user?.email])
+
   // 기간 필터링 함수
   const filterResultsByPeriod = (items: any[], period: string) => {
     if (period === "all") return items;

@@ -150,9 +150,14 @@ export async function updateLastActive(email: string): Promise<boolean> {
       { returnDocument: 'after' }
     )
 
+    if (result) {
+      console.log(`✅ [updateLastActive] 성공: ${email}`)
+    } else {
+      console.warn(`⚠️ [updateLastActive] 사용자를 찾을 수 없음: ${email}`)
+    }
     return result !== null
   } catch (error) {
-    console.error('❌ updateLastActive 실패:', error)
+    console.error(`❌ [updateLastActive] 데이터베이스 오류 (${email}):`, error)
     return false
   }
 }

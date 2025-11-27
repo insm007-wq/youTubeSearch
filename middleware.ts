@@ -45,6 +45,7 @@ export async function middleware(req: NextRequest) {
             // 30초 이상 경과했을 때만 DB 업데이트
             if (now - lastUpdate > 30000) {
               lastUpdateCache.set(email, now)
+              console.log(`🔵 [Middleware] 사용자 활동 추적: ${email} (${req.nextUrl.pathname})`)
 
               // 비동기로 updateLastActive 호출 (응답 지연 방지)
               updateLastActiveAsync(email).catch(err => {
@@ -70,13 +71,22 @@ export async function middleware(req: NextRequest) {
  */
 async function updateLastActiveAsync(email: string) {
   try {
-    await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/update-last-active`, {
+    const url = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/update-last-active`
+    console.log(`🔄 [Middleware] updateLastActiveAsync 호출: ${email} -> ${url}`)
+
+    const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email }),
     })
+
+    if (!response.ok) {
+      console.error(`❌ [Middleware] updateLastActiveAsync 실패: ${email} (상태: ${response.status})`)
+    } else {
+      console.log(`✅ [Middleware] updateLastActiveAsync 성공: ${email}`)
+    }
   } catch (error) {
-    console.error('❌ updateLastActiveAsync 호출 실패:', error)
+    console.error(`❌ [Middleware] updateLastActiveAsync 호출 실패 (${email}):`, error)
   }
 }
 
