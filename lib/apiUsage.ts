@@ -59,7 +59,7 @@ export async function checkApiUsage(email: string): Promise<ApiUsageResponse> {
     const usageCollection = db.collection<ApiUsageRecord>('api_usage')
 
     // users에서 사용자 정보 조회 (할당량 및 상태)
-    const user = await usersCollection.findOne({ email })
+    let user = await usersCollection.findOne({ email })
     console.log(`🔍 checkApiUsage - 사용자 조회 결과:`, {
       email,
       found: !!user,
@@ -68,14 +68,38 @@ export async function checkApiUsage(email: string): Promise<ApiUsageResponse> {
       dailyLimit: user?.dailyLimit
     })
 
+    // ✅ 사용자가 없으면 자동 재생성 시도 (기존 사용자 복구)
     if (!user) {
-      console.log(`❌ checkApiUsage - 사용자 없음, limit: 0`)
-      return {
-        allowed: false,
-        used: 0,
-        remaining: 0,
-        limit: 0,
-        resetTime: getTomorrowMidnight()
+      console.log(`⚠️ checkApiUsage - 사용자 없음, 자동 재생성 시도: ${email}`)
+
+      try {
+        // 기본 사용자 정보로 재생성 시도
+        const { upsertUser } = await import('./userLimits')
+        await upsertUser(email, '', '', 'recovery', 'auto')
+
+        // 재조회
+        user = await usersCollection.findOne({ email })
+
+        if (user) {
+          console.log(`✅ checkApiUsage - 사용자 자동 생성 성공: ${email}`)
+          // 정상 플로우로 계속 진행
+        } else {
+          throw new Error('재생성 후에도 조회 실패')
+        }
+      } catch (error) {
+        console.error(`❌ checkApiUsage - 사용자 자동 생성 실패: ${email}`, {
+          error: error instanceof Error ? error.message : String(error),
+          timestamp: new Date().toISOString()
+        })
+
+        // ✅ 재생성 실패 → limit: -1 (특별한 에러 코드: "재로그인 필요")
+        return {
+          allowed: false,
+          used: 0,
+          remaining: 0,
+          limit: -1, // -1은 "사용자 없음/재로그인 필요" 신호
+          resetTime: getTomorrowMidnight()
+        }
       }
     }
 

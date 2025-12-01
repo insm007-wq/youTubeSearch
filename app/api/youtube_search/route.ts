@@ -91,16 +91,34 @@ export async function GET(request: NextRequest) {
     // ✅ 할당량이 없거나 제한된 경우
     if (!usageCheck.allowed) {
       console.log(`❌ 검색 거부 - allowed: ${usageCheck.allowed}, limit: ${usageCheck.limit}`)
-      const statusCode = usageCheck.limit === 0 ? 403 : 429
-      const message = usageCheck.limit === 0
-        ? '계정이 비활성화되었습니다. 관리자에게 문의하세요.'
-        : `오늘 검색 가능한 횟수(${usageCheck.limit}회)를 모두 사용했습니다`
 
-      console.log(`  → Status: ${statusCode}, Message: ${message}`)
+      let statusCode: number
+      let errorType: string
+      let message: string
+
+      // ✅ limit 값으로 에러 타입 구분
+      if (usageCheck.limit === -1) {
+        // 사용자 없음 (자동 복구 실패)
+        statusCode = 401
+        errorType = 'USER_NOT_FOUND'
+        message = '사용자 정보를 확인할 수 없습니다. 로그아웃 후 다시 로그인해주세요.'
+      } else if (usageCheck.limit === 0) {
+        // 비활성화/차단
+        statusCode = 403
+        errorType = 'ACCOUNT_DEACTIVATED'
+        message = '계정이 비활성화되었습니다. 관리자에게 문의하세요.'
+      } else {
+        // 할당량 소진
+        statusCode = 429
+        errorType = 'QUOTA_EXCEEDED'
+        message = `오늘 검색 가능한 횟수(${usageCheck.limit}회)를 모두 사용했습니다`
+      }
+
+      console.log(`  → Status: ${statusCode}, Type: ${errorType}, Message: ${message}`)
 
       return NextResponse.json(
         {
-          error: '검색할 수 없습니다',
+          error: errorType,
           message,
           apiUsageToday: {
             used: usageCheck.used,

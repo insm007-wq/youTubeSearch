@@ -42,7 +42,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
   },
   callbacks: {
-    // ✅ 로그인 전 차단 여부 확인
+    // ✅ 로그인 전 차단 여부 확인 (이메일 검증 강화)
     async signIn({ user, account }: any) {
       if (!account?.providerAccountId) return false
 
@@ -53,7 +53,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           email = user.kakao_account?.email || user.kakao_account?.account_email || ''
         }
 
-        if (!email) return false
+        // ✅ 이메일 필수 검증 강화
+        if (!email || email.trim() === '') {
+          console.error('❌ 이메일 없음:', {
+            provider: account.provider,
+            timestamp: new Date().toISOString()
+          })
+          return '/login?error=NoEmail'
+        }
 
         // 사용자 조회
         const dbUser = await getUserById(email)
@@ -61,7 +68,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         // ✅ 차단된 사용자는 로그인 거부
         if (dbUser?.isBanned) {
           console.warn(`❌ 차단된 사용자 로그인 시도: ${email}`)
-          return '/login?error=BannedUser' // 로그인 페이지로 리다이렉트
+          return '/login?error=BannedUser'
         }
 
         // ✅ 비활성 사용자도 로그인 거부
@@ -72,8 +79,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         return true
       } catch (error) {
-        console.error('❌ signIn 콜백 에러:', error)
-        return true // 에러 시 로그인 진행
+        console.error('❌ signIn 콜백 에러:', {
+          error: error instanceof Error ? error.message : String(error),
+          timestamp: new Date().toISOString()
+        })
+        // ✅ 에러 시 차단 (로그인 진행하지 않음)
+        return '/login?error=AuthFailed'
       }
     },
 
@@ -82,46 +93,67 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (account?.providerAccountId) {
         token.id = `${account.provider}:${account.providerAccountId}`
 
-        // 로그인 시 사용자 정보를 MongoDB에 저장
+        // 🔥 로그인 시 사용자 정보를 MongoDB에 저장 (재시도 로직 포함)
         try {
-          // OAuth 제공자별로 추가 정보 수집
-          let emailVerified: boolean | undefined
-          let locale: string | undefined
-
-          // Google OAuth에서 이메일 인증 여부 가져오기
-          if (account.provider === 'google') {
-            emailVerified = user.email_verified ?? false
-            locale = user.locale ?? 'ko'
-          }
-          // Kakao OAuth에서 정보 가져오기
-          else if (account.provider === 'kakao') {
-            emailVerified = user.kakao_account?.is_email_verified ?? false
-            locale = user.properties?.locale ?? 'ko'
-          }
-          // Naver OAuth에서 정보 가져오기
-          else if (account.provider === 'naver') {
-            emailVerified = true // Naver는 기본적으로 인증된 이메일 제공
-            locale = 'ko' // Naver는 한국 서비스이므로 기본값 'ko'
-          }
-
           // 제공자별 이메일 추출
           let email = user.email || ''
           if (account.provider === 'kakao' && !email) {
             email = user.kakao_account?.email || user.kakao_account?.account_email || ''
           }
 
-          await upsertUser(
-            email,
-            user.name,
-            user.image,
-            account.provider,
-            account.providerAccountId
-          )
-        } catch (error) {
-          if (process.env.NODE_ENV !== 'production') {
-            console.error('사용자 정보 저장 실패:', error instanceof Error ? error.message : error)
+          // ✅ 이메일 필수 검증
+          if (!email || email.trim() === '') {
+            console.error('❌ 이메일 없음 - 로그인 거부:', {
+              provider: account.provider,
+              timestamp: new Date().toISOString()
+            })
+            throw new Error('EMAIL_REQUIRED')
           }
-          // 저장 실패해도 로그인은 진행
+
+          // ✅ 재시도 로직 (최대 3회)
+          let retries = 3
+          let lastError: any
+
+          while (retries > 0) {
+            try {
+              await upsertUser(
+                email,
+                user.name,
+                user.image,
+                account.provider,
+                account.providerAccountId
+              )
+              console.log(`✅ 사용자 저장 성공: ${email}`)
+              break // 성공 시 루프 탈출
+            } catch (error) {
+              lastError = error
+              retries--
+              if (retries > 0) {
+                console.warn(`⚠️ 사용자 저장 실패 (재시도 ${3 - retries}/3): ${email}`)
+                // 1초 대기 후 재시도
+                await new Promise(resolve => setTimeout(resolve, 1000))
+              }
+            }
+          }
+
+          // 3회 모두 실패 → 로그인 차단
+          if (retries === 0) {
+            console.error('❌ 사용자 저장 최종 실패:', {
+              email,
+              provider: account.provider,
+              error: lastError instanceof Error ? lastError.message : String(lastError),
+              timestamp: new Date().toISOString()
+            })
+            throw new Error('USER_CREATION_FAILED')
+          }
+        } catch (error) {
+          // ✅ 프로덕션에서도 에러 로그 출력
+          console.error('❌ JWT 콜백 에러 - 로그인 차단:', {
+            error: error instanceof Error ? error.message : String(error),
+            timestamp: new Date().toISOString()
+          })
+          // NextAuth가 처리하도록 에러 throw
+          throw error
         }
       }
       if (user) {

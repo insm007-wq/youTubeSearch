@@ -42,6 +42,17 @@ export async function upsertUser(
   provider?: string,
   providerId?: string
 ): Promise<User> {
+  // ✅ 이메일 필수 검증
+  if (!email || email.trim() === '') {
+    throw new Error('이메일은 필수입니다')
+  }
+
+  // ✅ 이메일 형식 검증
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  if (!emailRegex.test(email.trim())) {
+    throw new Error('올바른 이메일 형식이 아닙니다')
+  }
+
   const { db } = await connectToDatabase()
 
   const collection = getUsersCollection(db)
