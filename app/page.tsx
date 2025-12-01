@@ -7,6 +7,15 @@ import styles from "./page.module.css";
 
 export default function Home() {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleTitleClick = () => {
+    setIsRefreshing(true);
+    setTimeout(() => {
+      setIsRefreshing(false);
+      window.location.reload();
+    }, 600);
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-950 dark:via-slate-900 dark:to-black flex flex-col items-center justify-center px-4 py-12">
@@ -14,7 +23,12 @@ export default function Home() {
       <div className={`text-center max-w-3xl ${styles.animateFadeInUp}`}>
         {/* 로고/제목 */}
         <div className="mb-6">
-          <h1 className="text-6xl md:text-7xl font-bold bg-gradient-to-r from-sky-600 to-violet-600 bg-clip-text text-transparent mb-4 tracking-tight">
+          <h1
+            onClick={handleTitleClick}
+            className={`text-6xl md:text-7xl font-bold bg-gradient-to-r from-sky-600 to-violet-600 bg-clip-text text-transparent mb-4 tracking-tight cursor-pointer transition-opacity hover:opacity-80 ${
+              isRefreshing ? styles.titleRefresh : ""
+            }`}
+          >
             유튜브 스카우트
           </h1>
           <div className="h-1.5 w-24 bg-gradient-to-r from-sky-500 to-violet-500 mx-auto rounded-full"></div>
