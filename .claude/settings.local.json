@@ -42,7 +42,10 @@
       "Bash(powershell -Command:*)",
       "Bash(rm:*)",
       "Bash(git pull:*)",
-      "Bash(git merge:*)"
+      "Bash(git merge:*)",
+      "WebFetch(domain:developers.tiktok.com)",
+      "WebFetch(domain:www.tikapi.io)",
+      "mcp__ide__getDiagnostics"
     ],
     "deny": [],
     "ask": []

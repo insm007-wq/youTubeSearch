@@ -95,27 +95,25 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         // 🔥 로그인 시 사용자 정보를 MongoDB에 저장 (재시도 로직 포함)
         try {
-          // 제공자별 이메일 추출
-          let email = user.email || ''
-          if (account.provider === 'kakao' && !email) {
-            email = user.kakao_account?.email || user.kakao_account?.account_email || ''
-          }
-
-          // ✅ 이메일 필수 검증
-          if (!email || email.trim() === '') {
-            console.error('❌ 이메일 없음 - 로그인 거부:', {
-              provider: account.provider,
-              timestamp: new Date().toISOString()
-            })
-            throw new Error('EMAIL_REQUIRED')
-          }
-
-          // ✅ 재시도 로직 (최대 3회)
+          // ✅ 재시도 로직 (최대 3회) - 이메일 추출과 upsertUser 모두 포함
           let retries = 3
           let lastError: any
+          let email = ''
 
           while (retries > 0) {
             try {
+              // 제공자별 이메일 추출 (재시도 루프 내부)
+              email = user.email || ''
+              if (account.provider === 'kakao' && !email) {
+                email = user.kakao_account?.email || user.kakao_account?.account_email || ''
+              }
+
+              // ✅ 이메일 필수 검증
+              if (!email || email.trim() === '') {
+                throw new Error('EMAIL_REQUIRED')
+              }
+
+              // 사용자 정보를 MongoDB에 저장
               await upsertUser(
                 email,
                 user.name,
@@ -129,7 +127,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               lastError = error
               retries--
               if (retries > 0) {
-                console.warn(`⚠️ 사용자 저장 실패 (재시도 ${3 - retries}/3): ${email}`)
+                const errorMsg = error instanceof Error ? error.message : String(error)
+                console.warn(`⚠️ 사용자 저장 실패 (재시도 ${3 - retries}/3): ${email || 'unknown'}, error: ${errorMsg}`)
                 // 1초 대기 후 재시도
                 await new Promise(resolve => setTimeout(resolve, 1000))
               }
@@ -139,7 +138,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           // 3회 모두 실패 → 로그인 차단
           if (retries === 0) {
             console.error('❌ 사용자 저장 최종 실패:', {
-              email,
+              email: email || 'unknown',
               provider: account.provider,
               error: lastError instanceof Error ? lastError.message : String(lastError),
               timestamp: new Date().toISOString()
