@@ -11,9 +11,6 @@ import EngagementRatioFilter from "@/app/components/Filters/EngagementRatioFilte
 import CommentsModal from "@/app/components/CommentsModal/CommentsModal";
 import ChannelModal from "@/app/components/ChannelModal/ChannelModal";
 import ApiLimitBanner from "@/app/components/ApiLimitBanner/ApiLimitBanner";
-import { getEngagementLevel } from "@/lib/engagementUtils";
-import { isShortVideo, isLongVideo } from "@/lib/durationUtils";
-import { getDaysAgo } from "@/lib/dateUtils";
 import "./search.css";
 
 interface Comment {
@@ -51,6 +48,15 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
   const [viewMode, setViewMode] = useState<"card" | "table">("card");
   const [sortBy, setSortBy] = useState("relevance");
   const [searchHistory, setSearchHistory] = useState<string[]>([]);
+  const [isTitleRefreshing, setIsTitleRefreshing] = useState(false);
+
+  const handleTitleClick = () => {
+    setIsTitleRefreshing(true);
+    setTimeout(() => {
+      setIsTitleRefreshing(false);
+      window.location.reload();
+    }, 600);
+  };
 
   // OAuth 제공자별 색상 매핑
   const getProviderColor = (providerId?: string): string => {
@@ -591,7 +597,9 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
       <div className="main-container">
         {/* 왼쪽 패널 */}
         <div className="sidebar" style={{ width: `${sidebarWidth}px` }}>
-          <div className="sidebar-title">유튜브 스카우트</div>
+          <div className="sidebar-title" onClick={handleTitleClick} style={{ cursor: "pointer", transition: "opacity 0.3s", opacity: isTitleRefreshing ? 0.5 : 1 }}>
+            유튜브 스카우트
+          </div>
 
           <div className="search-section">
             <div className="search-input-wrapper">
