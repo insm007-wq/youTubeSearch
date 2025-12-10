@@ -135,12 +135,9 @@ const getEngagementLevel = (ratio: number): number => {
 };
 
 // VPH 계산 함수
-const calculateVPH = (viewCount: number, publishedAt: string): number => {
-  if (!publishedAt) return 0;
-  const publishDate = new Date(publishedAt).getTime();
-  const now = new Date().getTime();
-  const hours = (now - publishDate) / (1000 * 60 * 60);
-  return hours > 0 ? viewCount / hours : 0;
+const calculateVPH = (viewCount: number, subscriberCount: number): number => {
+  if (subscriberCount === 0) return 0;
+  return viewCount / subscriberCount;
 };
 
 export default function VideoCard({ video, showVPH = false, vph, onChannelClick, onCommentsClick }: VideoCardProps) {
@@ -169,8 +166,8 @@ export default function VideoCard({ video, showVPH = false, vph, onChannelClick,
   const engagementLevel = getEngagementLevel(engagementRatio);
   const ratioText = subscriberCount > 0 ? engagementRatio.toFixed(2) : "N/A";
 
-  const calculatedVPH = vph || calculateVPH(viewCount, publishedAt || "");
-  const vphText = formatNumber(Math.round(calculatedVPH));
+  const calculatedVPH = vph || calculateVPH(viewCount, subscriberCount);
+  const vphText = subscriberCount > 0 ? calculatedVPH.toFixed(2) : "N/A";
 
   const badgeClass = `engagement-badge engagement-${engagementLevel}`;
   const videoLink = `https://www.youtube.com/watch?v=${id}`;

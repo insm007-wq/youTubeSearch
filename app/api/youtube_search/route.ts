@@ -147,14 +147,14 @@ export async function GET(request: NextRequest) {
       const channelIds = [...new Set(items.map((v) => v.channelId).filter(Boolean))]
       console.log(`📊 고유 채널: ${channelIds.length}개`)
 
-      // 3️⃣ Google YouTube Channels API로 구독자 수 조회
+      // 3️⃣ Google YouTube Channels API로 구독자 수 조회 (실패해도 무시)
       let subscriberMap = new Map<string, number>()
       if (channelIds.length > 0) {
         const channelsStartTime = Date.now()
         try {
           subscriberMap = await getChannelsSubscriberCounts(channelIds)
           const channelsTime = Date.now() - channelsStartTime
-          console.log(`✅ 구독자 정보 조회 완료 (${channelsTime}ms)`)
+          console.log(`✅ 구독자 정보 조회 완료 (${channelsTime}ms) - ${subscriberMap.size}개`)
         } catch (channelsError) {
           console.warn(`⚠️  구독자 정보 조회 실패:`, channelsError)
           // 실패해도 계속 진행 (구독자 수 = 0)
