@@ -36,10 +36,6 @@ export async function getChannelsSubscriberCounts(
   const map = new Map<string, number>()
 
   try {
-    console.log(`🔍 Google Channels API 요청 시작`)
-    console.log(`   - 채널 수: ${channelIds.length}개`)
-    console.log(`   - API Key 존재: ${YOUTUBE_API_KEY ? '✓' : '✗'}`)
-
     // YouTube API는 최대 50개 ID를 한 번에 처리 가능
     const chunks = []
     for (let i = 0; i < channelIds.length; i += 50) {
@@ -47,79 +43,32 @@ export async function getChannelsSubscriberCounts(
     }
 
     for (const chunk of chunks) {
-      try {
-        const url = new URL(`${YOUTUBE_API_URL}/channels`)
-        url.searchParams.append('part', 'statistics')
-        const channelIdParam = chunk.join(',')
-        url.searchParams.append('id', channelIdParam)
-        url.searchParams.append('key', YOUTUBE_API_KEY)
+      const url = new URL(`${YOUTUBE_API_URL}/channels`)
+      url.searchParams.append('part', 'statistics')
+      url.searchParams.append('id', chunk.join(','))
+      url.searchParams.append('key', YOUTUBE_API_KEY)
 
-        const urlStr = url.toString()
-        console.log(`📡 Google API 요청 시작`)
-        console.log(`   채널 수: ${chunk.length}`)
-        console.log(`   첫 채널 ID: ${chunk[0]}`)
-        console.log(`   API 키 길이: ${YOUTUBE_API_KEY?.length}`)
+      const response = await fetch(url.toString())
 
-        const fetchStart = Date.now()
-        const response = await fetch(urlStr)
-        const fetchTime = Date.now() - fetchStart
-
-        console.log(`   응답 상태: ${response.status} (${fetchTime}ms)`)
-
-        if (!response.ok) {
-          console.error(`❌ Google Channels API 에러 - Status ${response.status}`)
-
-          let errorMessage = ''
-          try {
-            const errorBody = await response.text()
-            console.error(`응답 텍스트: ${errorBody}`)
-
-            if (errorBody) {
-              try {
-                const errorJson = JSON.parse(errorBody)
-                errorMessage = JSON.stringify(errorJson, null, 2)
-                console.error(`에러 JSON:`)
-                console.error(errorMessage)
-              } catch {
-                errorMessage = errorBody
-              }
-            }
-          } catch (readError) {
-            console.error(`응답 읽기 실패:`, readError)
-          }
-
-          throw new Error(`YouTube API 에러: ${response.status}`)
-        }
-
-        const parseStart = Date.now()
-        const data = await response.json()
-        const parseTime = Date.now() - parseStart
-
-        console.log(
-          `   - Chunk (${chunk.length}개): ${fetchTime}ms fetch + ${parseTime}ms parse`
-        )
-
-        data.items?.forEach((item: any) => {
-          const subscriberCount = item.statistics?.subscriberCount
-            ? parseInt(item.statistics.subscriberCount)
-            : 0
-          map.set(item.id, subscriberCount)
-        })
-      } catch (chunkError) {
-        console.error(`❌ Chunk 처리 중 에러:`, chunkError)
-        throw chunkError
+      if (!response.ok) {
+        const errorBody = await response.text()
+        console.error(`❌ Google Channels API 실패 (${response.status}): ${errorBody.substring(0, 200)}`)
+        throw new Error(`YouTube API 에러: ${response.status}`)
       }
-    }
 
-    const totalTime = Date.now() - startTime
-    console.log(
-      `✅ Google Channels API 완료 - ${map.size}개 채널 (${totalTime}ms)`
-    )
+      const data = await response.json()
+
+      data.items?.forEach((item: any) => {
+        const subscriberCount = item.statistics?.subscriberCount
+          ? parseInt(item.statistics.subscriberCount)
+          : 0
+        map.set(item.id, subscriberCount)
+      })
+    }
 
     return map
   } catch (error) {
-    const totalTime = Date.now() - startTime
-    console.error(`❌ Google Channels API 실패 (${totalTime}ms):`, error)
+    console.error(`❌ Google Channels API 실패:`, error)
     throw error
   }
 }
