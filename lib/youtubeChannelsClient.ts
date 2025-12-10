@@ -50,34 +50,45 @@ export async function getChannelsSubscriberCounts(
       try {
         const url = new URL(`${YOUTUBE_API_URL}/channels`)
         url.searchParams.append('part', 'statistics')
-        url.searchParams.append('id', chunk.join(','))
+        const channelIdParam = chunk.join(',')
+        url.searchParams.append('id', channelIdParam)
         url.searchParams.append('key', YOUTUBE_API_KEY)
 
-        console.log(`📡 Google API 요청:`)
-        console.log(`   - URL: ${url.toString().substring(0, 100)}...`)
-        console.log(`   - Channel IDs count: ${chunk.length}`)
+        const urlStr = url.toString()
+        console.log(`📡 Google API 요청 시작`)
+        console.log(`   채널 수: ${chunk.length}`)
+        console.log(`   첫 채널 ID: ${chunk[0]}`)
+        console.log(`   API 키 길이: ${YOUTUBE_API_KEY?.length}`)
 
         const fetchStart = Date.now()
-        const response = await fetch(url.toString())
+        const response = await fetch(urlStr)
         const fetchTime = Date.now() - fetchStart
 
-        if (!response.ok) {
-          const errorBody = await response.text()
-          console.error(
-            `❌ Google Channels API 실패 - Status: ${response.status}`
-          )
-          console.error(`   - 요청 URL: ${url.toString().substring(0, 200)}`)
-          console.error(`   - 응답 본문: ${errorBody}`)
+        console.log(`   응답 상태: ${response.status} (${fetchTime}ms)`)
 
-          // 응답 본문 파싱 시도
+        if (!response.ok) {
+          console.error(`❌ Google Channels API 에러 - Status ${response.status}`)
+
+          let errorMessage = ''
           try {
-            const errorJson = JSON.parse(errorBody)
-            console.error(`   - 에러 상세:`, errorJson)
-          } catch (e) {
-            // JSON 파싱 실패는 무시
+            const errorBody = await response.text()
+            console.error(`응답 텍스트: ${errorBody}`)
+
+            if (errorBody) {
+              try {
+                const errorJson = JSON.parse(errorBody)
+                errorMessage = JSON.stringify(errorJson, null, 2)
+                console.error(`에러 JSON:`)
+                console.error(errorMessage)
+              } catch {
+                errorMessage = errorBody
+              }
+            }
+          } catch (readError) {
+            console.error(`응답 읽기 실패:`, readError)
           }
 
-          throw new Error(`YouTube API 에러: ${response.status} - ${errorBody}`)
+          throw new Error(`YouTube API 에러: ${response.status}`)
         }
 
         const parseStart = Date.now()
