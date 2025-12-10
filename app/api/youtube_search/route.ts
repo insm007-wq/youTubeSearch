@@ -1,50 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/auth'
 import { checkApiUsage, incrementApiUsage } from '@/lib/apiUsage'
-
-// YouTube 카테고리 ID 매핑 (lucide-react 아이콘명)
-const YOUTUBE_CATEGORIES: Record<string, { name: string; icon: string }> = {
-  '1': { name: '영화', icon: 'Film' },
-  '2': { name: '자동차', icon: 'Car' },
-  '10': { name: '음악', icon: 'Music' },
-  '15': { name: '애완동물', icon: 'PawPrint' },
-  '17': { name: '스포츠', icon: 'Trophy' },
-  '18': { name: '단편영화', icon: 'Film' },
-  '19': { name: '여행', icon: 'Plane' },
-  '20': { name: '게임', icon: 'Gamepad2' },
-  '21': { name: '블로깅', icon: 'Video' },
-  '22': { name: '내용', icon: 'Tv' },
-  '23': { name: '광고', icon: 'Megaphone' },
-  '24': { name: '클래식', icon: 'Music' },
-  '25': { name: '코미디', icon: 'Smile' },
-  '26': { name: '뉴스', icon: 'Newspaper' },
-  '27': { name: '쇼핑', icon: 'ShoppingBag' },
-  '28': { name: '기술', icon: 'Cpu' },
-  '29': { name: 'B-영화', icon: 'Film' },
-  '30': { name: '뮤직비디오', icon: 'Music' },
-  '31': { name: '영화 예고편', icon: 'Clapperboard' },
-  '32': { name: '이벤트', icon: 'Calendar' },
-  '33': { name: '영상', icon: 'Video' },
-  '34': { name: '영상', icon: 'Video' },
-  '35': { name: '영상', icon: 'Video' },
-  '36': { name: '영상', icon: 'Video' },
-  '37': { name: '영상', icon: 'Video' },
-  '38': { name: '영상', icon: 'Video' },
-  '39': { name: '영상', icon: 'Video' },
-  '40': { name: '영상', icon: 'Video' },
-  '41': { name: '교육', icon: 'BookOpen' },
-  '42': { name: '과학기술', icon: 'Microscope' },
-  '43': { name: '소재', icon: 'Palette' },
-  '44': { name: '단편영화', icon: 'Film' },
-  '45': { name: '트레일러', icon: 'PlayCircle' },
-  '46': { name: '팟캐스트', icon: 'Mic2' },
-}
-
-function getCategoryInfo(categoryId: string) {
-  return YOUTUBE_CATEGORIES[categoryId] || { name: '기타', icon: 'Video' }
-}
+import { searchYouTubeWithRapidAPI } from '@/lib/rapidApiClient'
+import { getChannelsSubscriberCounts } from '@/lib/youtubeChannelsClient'
 
 export async function GET(request: NextRequest) {
+  const requestStartTime = Date.now()
+
   try {
     // ✅ 인증 확인 및 사용자 정보 추출
     let session
@@ -136,7 +98,7 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     const query = searchParams.get('q')?.trim()
-    let maxResults = parseInt(searchParams.get('maxResults') || '20')
+    let maxResults = parseInt(searchParams.get('maxResults') || '50')
 
     // ✅ 입력값 검증
     if (!query || query.length < 1 || query.length > 100) {
@@ -151,105 +113,104 @@ export async function GET(request: NextRequest) {
       maxResults = 20
     }
 
-    const apiKey = process.env.YOUTUBE_API_KEY
-    if (!apiKey) {
+    // ✅ RapidAPI + Google을 통한 YouTube 검색
+    let items
+    try {
+      const searchStartTime = Date.now()
+      console.log(`🔍 RapidAPI 검색 시작 - query: ${query}`)
+
+      // 1️⃣ RapidAPI로 검색
+      items = await searchYouTubeWithRapidAPI(query, maxResults)
+      const rapidApiTime = Date.now() - searchStartTime
+
+      if (!items || items.length === 0) {
+        console.log(`⚠️  검색 결과 없음`)
+        return NextResponse.json({
+          items: [],
+          totalResults: 0,
+          apiUsageToday: {
+            used: usageCheck.used,
+            limit: usageCheck.limit,
+            remaining: usageCheck.remaining,
+          },
+          resetTime: usageCheck.resetTime,
+        })
+      }
+
+      // 2️⃣ 고유 채널 ID 추출
+      const channelIds = [...new Set(items.map((v) => v.channelId).filter(Boolean))]
+      console.log(`📊 고유 채널: ${channelIds.length}개`)
+
+      // 3️⃣ Google YouTube Channels API로 구독자 수 조회
+      let subscriberMap = new Map<string, number>()
+      if (channelIds.length > 0) {
+        const channelsStartTime = Date.now()
+        try {
+          subscriberMap = await getChannelsSubscriberCounts(channelIds)
+          const channelsTime = Date.now() - channelsStartTime
+          console.log(`✅ 구독자 정보 조회 완료 (${channelsTime}ms)`)
+        } catch (channelsError) {
+          console.warn(`⚠️  구독자 정보 조회 실패:`, channelsError)
+          // 실패해도 계속 진행 (구독자 수 = 0)
+        }
+      }
+
+      // 4️⃣ 데이터 병합
+      items = items.map((item) => ({
+        ...item,
+        subscriberCount: subscriberMap.get(item.channelId) || 0,
+      }))
+
+      // 5️⃣ 중복 제거 (같은 videoId 제거)
+      const seenIds = new Set<string>()
+      items = items.filter((item) => {
+        if (seenIds.has(item.id)) {
+          return false
+        }
+        seenIds.add(item.id)
+        return true
+      })
+
+      const searchTime = Date.now() - searchStartTime
+      console.log(`✅ 검색 완료 - 결과: ${items.length}개 (${searchTime}ms)`)
+    } catch (error) {
+      const searchTime = Date.now() - requestStartTime
+      console.error(`❌ 검색 실패 (${searchTime}ms):`, error)
       return NextResponse.json(
-        { error: 'API 키가 설정되지 않았습니다' },
+        {
+          error: 'SEARCH_FAILED',
+          message: error instanceof Error ? error.message : '검색 중 오류 발생',
+        },
         { status: 500 }
       )
     }
 
-    // ✅ YouTube API 호출 (URL 순서 개선: 매개변수를 먼저 설정하고 key는 마지막에)
-    const url = new URL('https://www.googleapis.com/youtube/v3/search')
-    url.searchParams.append('part', 'snippet')
-    url.searchParams.append('q', query)
-    url.searchParams.append('type', 'video')
-    url.searchParams.append('maxResults', maxResults.toString())
-    url.searchParams.append('order', 'relevance')
-    url.searchParams.append('key', apiKey)
-
-    console.log(`🌐 YouTube API 호출 - query: ${query}`)
-    const response = await fetch(url.toString())
-    console.log(`📥 YouTube API 응답 - status: ${response.status}`)
-
-    if (!response.ok) {
-      const errorData = await response.json()
-      console.error(`❌ YouTube API 에러 - status: ${response.status}, message:`, errorData.error?.message)
-      return NextResponse.json(
-        { error: errorData.error?.message || 'YouTube API 오류' },
-        { status: response.status }
-      )
-    }
-
-    const data = await response.json()
-
-    // 비디오 ID 추출
-    const videoIds = data.items?.map((item: any) => item.id.videoId).join(',') || ''
-
-    if (!videoIds) {
+    if (!items || items.length === 0) {
       return NextResponse.json({
         items: [],
         totalResults: 0,
+        apiUsageToday: {
+          used: usageCheck.used,
+          limit: usageCheck.limit,
+          remaining: usageCheck.remaining,
+        },
+        resetTime: usageCheck.resetTime,
       })
     }
 
-    // ✅ 비디오 상세 정보 조회 (조회수, 좋아요, 카테고리 등)
-    const videoDetailsUrl = new URL('https://www.googleapis.com/youtube/v3/videos')
-    videoDetailsUrl.searchParams.append('part', 'statistics,contentDetails,snippet,topicDetails')
-    videoDetailsUrl.searchParams.append('id', videoIds)
-    videoDetailsUrl.searchParams.append('key', apiKey)
-
-    const videoDetailsResponse = await fetch(videoDetailsUrl.toString())
-    const videoDetailsData = await videoDetailsResponse.json()
-
-    // 채널 정보 조회 (구독자 수 등)
-    const channelIds = videoDetailsData.items?.map((item: any) => item.snippet.channelId).join(',') || ''
-    let channelData: any = { items: [] }
-
-    if (channelIds) {
-      const channelUrl = new URL('https://www.googleapis.com/youtube/v3/channels')
-      channelUrl.searchParams.append('part', 'statistics')
-      channelUrl.searchParams.append('id', channelIds)
-      channelUrl.searchParams.append('key', apiKey)
-
-      const channelResponse = await fetch(channelUrl.toString())
-      channelData = await channelResponse.json()
-    }
-
-    // 데이터 병합
-    const items = videoDetailsData.items?.map((video: any) => {
-      const channelInfo = channelData.items?.find((ch: any) => ch.id === video.snippet.channelId)
-      const subscriberCount = parseInt(channelInfo?.statistics?.subscriberCount || '0')
-      const viewCount = parseInt(video.statistics?.viewCount || '0')
-      const likeCount = parseInt(video.statistics?.likeCount || '0')
-      const categoryId = video.snippet?.categoryId || ''
-      const categoryInfo = getCategoryInfo(categoryId)
-
-      return {
-        id: video.id,
-        title: video.snippet.title,
-        description: video.snippet.description,
-        channelId: video.snippet.channelId,
-        channelTitle: video.snippet.channelTitle,
-        publishedAt: video.snippet.publishedAt,
-        viewCount,
-        likeCount,
-        duration: video.contentDetails?.duration,
-        subscriberCount,
-        thumbnail: video.snippet.thumbnails?.medium?.url,
-        tags: video.snippet?.tags || [],
-        categoryId,
-        categoryName: categoryInfo.name,
-        categoryIcon: categoryInfo.icon,
-      }
-    }) || []
-
     // ✅ API 사용량 증가
+    const usageStartTime = Date.now()
     const updatedUsage = await incrementApiUsage(userEmail, query)
+    const usageTime = Date.now() - usageStartTime
+
+    const totalTime = Date.now() - requestStartTime
+    console.log(`📊 요청 완료 요약:`)
+    console.log(`   - 사용량 업데이트: ${usageTime}ms`)
+    console.log(`   - 전체 소요 시간: ${totalTime}ms`)
 
     return NextResponse.json({
       items,
-      totalResults: data.pageInfo?.totalResults || 0,
+      totalResults: items.length,
       apiUsageToday: {
         used: updatedUsage.used,
         limit: updatedUsage.limit,
