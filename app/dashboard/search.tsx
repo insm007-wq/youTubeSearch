@@ -450,7 +450,7 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
     try {
       const params = new URLSearchParams({
         q: searchInput,
-        maxResults: "50",
+        maxResults: "40",
       });
 
       const response = await fetch(`/api/youtube_search?${params}`);

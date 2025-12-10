@@ -123,6 +123,12 @@ export async function GET(request: NextRequest) {
       items = await searchYouTubeWithRapidAPI(query, maxResults)
       const rapidApiTime = Date.now() - searchStartTime
 
+      console.log(`📊 RapidAPI 응답 상세:`, {
+        itemsCount: items?.length,
+        itemsType: typeof items,
+        firstItem: items?.[0] ? { id: items[0].id, title: items[0].title } : null
+      })
+
       if (!items || items.length === 0) {
         console.log(`⚠️  검색 결과 없음`)
         return NextResponse.json({

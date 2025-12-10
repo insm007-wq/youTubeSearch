@@ -303,6 +303,7 @@ async function searchWithRapidAPI(
     url.searchParams.append('query', query)
     url.searchParams.append('lang', 'en')
     url.searchParams.append('country', 'us')
+    url.searchParams.append('maxResults', maxResults.toString())
 
     const fetchStart = Date.now()
     const response = await fetch(url.toString(), {
