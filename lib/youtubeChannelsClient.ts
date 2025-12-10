@@ -66,8 +66,18 @@ export async function getChannelsSubscriberCounts(
           console.error(
             `❌ Google Channels API 실패 - Status: ${response.status}`
           )
-          console.error(`   - 응답 본문: ${errorBody.substring(0, 500)}`)
-          throw new Error(`YouTube API 에러: ${response.status} - ${errorBody.substring(0, 200)}`)
+          console.error(`   - 요청 URL: ${url.toString().substring(0, 200)}`)
+          console.error(`   - 응답 본문: ${errorBody}`)
+
+          // 응답 본문 파싱 시도
+          try {
+            const errorJson = JSON.parse(errorBody)
+            console.error(`   - 에러 상세:`, errorJson)
+          } catch (e) {
+            // JSON 파싱 실패는 무시
+          }
+
+          throw new Error(`YouTube API 에러: ${response.status} - ${errorBody}`)
         }
 
         const parseStart = Date.now()
