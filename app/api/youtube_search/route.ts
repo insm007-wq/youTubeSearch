@@ -139,6 +139,17 @@ export async function GET(request: NextRequest) {
         })
       }
 
+      // 1-1️⃣ 중복 제거 (같은 video.id가 있으면 제거)
+      const uniqueIds = new Set<string>()
+      items = items.filter((video) => {
+        if (uniqueIds.has(video.id)) {
+          return false
+        }
+        uniqueIds.add(video.id)
+        return true
+      })
+      console.log(`✅ 중복 제거 완료 - 최종 ${items.length}개`)
+
       // 2️⃣ 고유 채널 ID 추출 (빠름)
       const channelStart = Date.now()
       const channelIds = [...new Set(items.map((v) => v.channelId).filter(Boolean))]
@@ -173,7 +184,7 @@ export async function GET(request: NextRequest) {
         }
       })
       const mergeTime = Date.now() - mergeStart
-      console.log(`⏱️  [4단계] 병합: ${mergeTime}ms (${items.length}개)`)
+      console.log(`⏱️  [4단계] 병합: ${mergeTime}ms (${items.length}개) (중복 제거 후)`)
 
       const searchTime = Date.now() - searchStartTime
       console.log(`✅ 검색 완료 - 최종 ${items.length}개 (총 ${searchTime}ms)`)

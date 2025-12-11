@@ -76,7 +76,14 @@ export async function GET(request: NextRequest) {
         'Now': '유튜브',
         'Music': '음악',
         'Gaming': '게임',
-        'Movies': '영화'
+        'Movies': '영화',
+        'News': '뉴스',
+        'Sports': '스포츠',
+        'Education': '교육',
+        'Technology': '기술',
+        'Arts': '예술',
+        'Food': '음식',
+        'Fitness': '피트니스'
       }
       const query = sectionQueryMap[section] || '유튜브'
 
@@ -95,7 +102,17 @@ export async function GET(request: NextRequest) {
       // 조회수 기준 내림차순 정렬 (높은 조회수가 먼저)
       items.sort((a, b) => (b.viewCount || 0) - (a.viewCount || 0))
 
-      console.log(`✅ 트렌딩 조회 완료 - query: ${query}, ${items.length}개 (최근 7일 이내, 조회수 기준 정렬)`)
+      // 중복 제거 (같은 video.id가 있으면 제거)
+      const uniqueIds = new Set<string>()
+      items = items.filter((video) => {
+        if (uniqueIds.has(video.id)) {
+          return false
+        }
+        uniqueIds.add(video.id)
+        return true
+      })
+
+      console.log(`✅ 트렌딩 조회 완료 - query: ${query}, ${items.length}개 (최근 7일 이내, 조회수 기준 정렬, 중복 제거)`)
       const trendingTime = Date.now() - trendingStartTime
       console.log(`⏱️  [1단계] 트렌딩 영상: ${trendingTime}ms (${items.length}개)`)
 

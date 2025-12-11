@@ -361,6 +361,16 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
     [allResults, uploadPeriod, videoLength, engagementRatios, sortBy]
   );
 
+  // 트렌딩 필터링된 결과 계산 (메모이제이션)
+  // 트렌딩은 필터 제외, 정렬만 적용 (검색 필터 미적용)
+  const filteredTrendingResults = useMemo(
+    () => {
+      // 정렬만 적용 (모든 필터 제외)
+      return sortResults(trendingResults, sortBy);
+    },
+    [trendingResults, sortBy]
+  );
+
   // 엑셀 다운로드 함수
   const handleExcelDownload = () => {
     if (results.length === 0) {
@@ -725,6 +735,13 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
                 <option value="Music">🎵 음악</option>
                 <option value="Gaming">🎮 게임</option>
                 <option value="Movies">🎬 영화</option>
+                <option value="News">📰 뉴스</option>
+                <option value="Sports">🏃 스포츠</option>
+                <option value="Education">🎓 교육</option>
+                <option value="Technology">📱 기술</option>
+                <option value="Arts">🎨 예술</option>
+                <option value="Food">🍳 음식</option>
+                <option value="Fitness">🏋️ 피트니스</option>
               </select>
               <button
                 className="btn-trending"
@@ -821,8 +838,8 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
           </div>
 
           <SearchResults
-            results={showTrending ? trendingResults : results}
-            totalResults={showTrending ? trendingResults.length : totalResults}
+            results={showTrending ? filteredTrendingResults : results}
+            totalResults={showTrending ? filteredTrendingResults.length : totalResults}
             isLoading={showTrending ? isTrendingLoading : isLoading}
             showVPH={true}
             viewMode={viewMode}
