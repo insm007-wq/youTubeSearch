@@ -711,37 +711,27 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
             <EngagementRatioFilter selectedValues={engagementRatios} onChange={setEngagementRatios} />
           </div>
 
-          {/* 트렌딩 탭 섹션 */}
-          <div className="trending-tabs-section">
+          {/* 트렌딩 입력 섹션 */}
+          <div className="trending-input-wrapper">
             <div className="trending-label">🔥 트렌딩 영상</div>
-            <div className="trending-tabs">
-              <button
-                className={`trending-tab ${trendingSection === 'Now' ? 'active' : ''}`}
-                onClick={() => handleTrendingClick('Now')}
+            <div className="trending-container-with-button">
+              <select
+                className="trending-dropdown"
+                value={trendingSection}
+                onChange={(e) => setTrendingSection(e.target.value)}
                 disabled={isTrendingLoading}
               >
-                지금 뜨는
-              </button>
+                <option value="Now">지금 뜨는</option>
+                <option value="Music">🎵 음악</option>
+                <option value="Gaming">🎮 게임</option>
+                <option value="Movies">🎬 영화</option>
+              </select>
               <button
-                className={`trending-tab ${trendingSection === 'Music' ? 'active' : ''}`}
-                onClick={() => handleTrendingClick('Music')}
+                className="btn-trending"
+                onClick={() => handleTrendingClick(trendingSection)}
                 disabled={isTrendingLoading}
               >
-                🎵 음악
-              </button>
-              <button
-                className={`trending-tab ${trendingSection === 'Gaming' ? 'active' : ''}`}
-                onClick={() => handleTrendingClick('Gaming')}
-                disabled={isTrendingLoading}
-              >
-                🎮 게임
-              </button>
-              <button
-                className={`trending-tab ${trendingSection === 'Movies' ? 'active' : ''}`}
-                onClick={() => handleTrendingClick('Movies')}
-                disabled={isTrendingLoading}
-              >
-                🎬 영화
+                {isTrendingLoading ? "로딩중..." : "조회"}
               </button>
             </div>
           </div>
