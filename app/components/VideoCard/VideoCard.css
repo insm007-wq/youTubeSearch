@@ -21,7 +21,7 @@
 /* Thumbnail */
 .video-thumbnail {
   width: 100%;
-  height: 130px;
+  aspect-ratio: 16 / 9;
   background-color: #e5e5e5;
   object-fit: cover;
   position: relative;
@@ -256,7 +256,6 @@
 
 /* Buttons */
 .btn-view-channel,
-.btn-view-comments,
 .btn-view-link {
   flex: 1;
   min-width: 0;
@@ -282,19 +281,6 @@
 .btn-view-channel:hover {
   background-color: #a5d6a7;
   border-color: #388e3c;
-  color: #1b5e20;
-}
-
-/* Comments Button - Green (darker) */
-.btn-view-comments {
-  background-color: #c8e6c9;
-  border: 1px solid #388e3c;
-  color: #1b5e20;
-}
-
-.btn-view-comments:hover {
-  background-color: #81c784;
-  border-color: #2e7d32;
   color: #1b5e20;
 }
 

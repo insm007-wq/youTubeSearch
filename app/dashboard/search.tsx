@@ -8,17 +8,9 @@ import SearchResults from "@/app/components/SearchResults/SearchResults";
 import PeriodFilter from "@/app/components/Filters/PeriodFilter/PeriodFilter";
 import VideoLengthFilter from "@/app/components/Filters/VideoLengthFilter/VideoLengthFilter";
 import EngagementRatioFilter from "@/app/components/Filters/EngagementRatioFilter/EngagementRatioFilter";
-import CommentsModal from "@/app/components/CommentsModal/CommentsModal";
 import ChannelModal from "@/app/components/ChannelModal/ChannelModal";
 import ApiLimitBanner from "@/app/components/ApiLimitBanner/ApiLimitBanner";
 import "./search.css";
-
-interface Comment {
-  author: string;
-  text: string;
-  likes: number;
-  replies: number;
-}
 
 interface User {
   id?: string;
@@ -149,16 +141,6 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
     };
   }, [profileDropdownOpen]);
 
-  // 댓글 모달 상태
-  const [showCommentsModal, setShowCommentsModal] = useState(false);
-  const [commentsModalData, setCommentsModalData] = useState({
-    videoTitle: "",
-    comments: [] as Comment[],
-    totalReplies: 0,
-    totalLikes: 0,
-    isLoading: false,
-  });
-
   // 채널 모달 상태
   const [showChannelModal, setShowChannelModal] = useState(false);
   const [channelModalData, setChannelModalData] = useState({
@@ -169,6 +151,7 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
     subscriberCountValue: 0,
     videoCount: 0,
     customUrl: "",
+    country: null as string | null,
     channelId: "",
     isLoading: false,
   });
@@ -522,39 +505,6 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
   };
 
 
-  // 댓글 조회 함수
-  const handleCommentsClick = useCallback(async (videoId: string, videoTitle: string) => {
-    setCommentsModalData((prev) => ({
-      ...prev,
-      isLoading: true,
-      videoTitle,
-    }));
-    setShowCommentsModal(true);
-
-    try {
-      const response = await fetch(`/api/youtube_comments?videoId=${videoId}`);
-      const data = await response.json();
-
-      if (!response.ok) {
-        alert(data.error || "댓글을 불러올 수 없습니다");
-        setCommentsModalData((prev) => ({ ...prev, isLoading: false }));
-        return;
-      }
-
-      setCommentsModalData((prev) => ({
-        ...prev,
-        comments: data.comments,
-        totalReplies: data.totalReplies,
-        totalLikes: data.totalLikes,
-        isLoading: false,
-      }));
-    } catch (error) {
-      console.error("댓글 조회 오류:", error);
-      alert("댓글 조회 중 오류가 발생했습니다");
-      setCommentsModalData((prev) => ({ ...prev, isLoading: false }));
-    }
-  }, []);
-
   // 채널 조회 함수
   const handleChannelClick = useCallback(async (channelId: string, channelTitle: string) => {
     setChannelModalData((prev) => ({
@@ -583,6 +533,7 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
         subscriberCountValue: data.subscriberCount,
         videoCount: data.videoCount,
         customUrl: data.customUrl,
+        country: data.country || null,
         isLoading: false,
       }));
     } catch (error) {
@@ -754,21 +705,9 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
             showVPH={true}
             viewMode={viewMode}
             onChannelClick={handleChannelClick}
-            onCommentsClick={handleCommentsClick}
           />
         </div>
       </div>
-
-      {/* 댓글 분석 모달 */}
-      <CommentsModal
-        isOpen={showCommentsModal}
-        videoTitle={commentsModalData.videoTitle}
-        comments={commentsModalData.comments}
-        totalReplies={commentsModalData.totalReplies}
-        totalLikes={commentsModalData.totalLikes}
-        isLoading={commentsModalData.isLoading}
-        onClose={() => setShowCommentsModal(false)}
-      />
 
       {/* 채널 분석 모달 */}
       <ChannelModal
@@ -780,6 +719,7 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
         subscriberCountValue={channelModalData.subscriberCountValue}
         videoCount={channelModalData.videoCount}
         customUrl={channelModalData.customUrl}
+        country={channelModalData.country}
         channelId={channelModalData.channelId}
         isLoading={channelModalData.isLoading}
         onClose={() => setShowChannelModal(false)}

@@ -8,7 +8,6 @@ import {
   TrendingUp,
   Zap,
   Play,
-  MessageCircle,
   LinkIcon,
   Film,
   Car,
@@ -78,7 +77,6 @@ interface VideoCardProps {
   showVPH?: boolean;
   vph?: number;
   onChannelClick?: (channelId: string, channelTitle: string) => void;
-  onCommentsClick?: (videoId: string, videoTitle: string) => void;
 }
 
 // 숫자 포맷팅 함수
@@ -140,7 +138,7 @@ const calculateVPH = (viewCount: number, subscriberCount: number): number => {
   return viewCount / subscriberCount;
 };
 
-export default function VideoCard({ video, showVPH = false, vph, onChannelClick, onCommentsClick }: VideoCardProps) {
+export default function VideoCard({ video, showVPH = false, vph, onChannelClick }: VideoCardProps) {
   const {
     id,
     title,
@@ -256,17 +254,6 @@ export default function VideoCard({ video, showVPH = false, vph, onChannelClick,
           >
             <Play size={12} />
             채널
-          </button>
-
-          <button
-            className="btn-view-comments"
-            onClick={(e) => {
-              e.preventDefault();
-              onCommentsClick?.(id, title);
-            }}
-          >
-            <MessageCircle size={12} />
-            댓글
           </button>
 
           <button
