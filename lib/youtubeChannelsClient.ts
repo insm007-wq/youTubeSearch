@@ -60,6 +60,43 @@ interface RapidAPIChannelDetailsResponse {
 
 const requestQueue = new RequestQueue(CONFIG.MAX_CONCURRENT_REQUESTS)
 
+// ============ 채널 정보 캐싱 (In-Memory) ============
+
+interface CacheEntry {
+  subscriberCount: number
+  country: string | null
+  timestamp: number
+}
+
+const channelCache = new Map<string, CacheEntry>()
+const CACHE_TTL = 15 * 60 * 1000 // 15분
+
+function getCachedChannelInfo(channelId: string): CacheEntry | null {
+  const cached = channelCache.get(channelId)
+  if (!cached) return null
+
+  const now = Date.now()
+  if (now - cached.timestamp > CACHE_TTL) {
+    // 캐시 만료됨
+    channelCache.delete(channelId)
+    return null
+  }
+
+  return cached
+}
+
+function setCacheChannelInfo(
+  channelId: string,
+  subscriberCount: number,
+  country: string | null
+): void {
+  channelCache.set(channelId, {
+    subscriberCount,
+    country,
+    timestamp: Date.now(),
+  })
+}
+
 // ============ 재시도 로직 ============
 
 async function withRetry<T>(
@@ -287,7 +324,7 @@ export async function getChannelsSubscriberCounts(
 }
 
 /**
- * 여러 채널 정보 조회 (구독자 수, 국가 등)
+ * 여러 채널 정보 조회 (구독자 수, 국가 등) - 캐싱 지원
  * @param channelIds 채널 ID 배열
  * @returns 채널 ID -> 채널 정보 Map
  */
@@ -307,40 +344,69 @@ export async function getChannelsInfo(
     return new Map()
   }
 
-  try {
-    // Promise.all로 동시 요청 (RequestQueue가 동시성 제어)
-    const results = await Promise.all(
-      channelIds.map(id => fetchChannelDetails(id))
-    )
+  // 1단계: 캐시에서 조회
+  const result = new Map<string, { subscriberCount: number; country: string | null }>()
+  const uncachedIds: string[] = []
+  let cacheHits = 0
 
-    // Map 생성
-    const map = new Map<string, { subscriberCount: number; country: string | null }>()
-    results.forEach((channel, index) => {
-      if (channel) {
-        map.set(channelIds[index], {
-          subscriberCount: channel.subscriberCount,
-          country: channel.country,
-        })
-      } else {
-        // 실패한 채널도 맵에 추가
-        map.set(channelIds[index], {
-          subscriberCount: 0,
-          country: null,
-        })
-      }
-    })
+  channelIds.forEach(id => {
+    const cached = getCachedChannelInfo(id)
+    if (cached) {
+      result.set(id, {
+        subscriberCount: cached.subscriberCount,
+        country: cached.country,
+      })
+      cacheHits++
+    } else {
+      uncachedIds.push(id)
+    }
+  })
 
-    const elapsedTime = Date.now() - startTime
-    const successCount = results.filter(r => r !== null).length
-    console.log(
-      `✅ 채널 정보 조회 완료 (${elapsedTime}ms) - ${successCount}/${channelIds.length}개 성공`
-    )
+  console.log(`📊 채널 정보 조회 시작 - 캐시: ${cacheHits}/${channelIds.length}개 히트, API 요청: ${uncachedIds.length}개`)
 
-    return map
-  } catch (error) {
-    console.error(`❌ RapidAPI 채널 조회 실패:`, error)
-    return new Map()
+  // 2단계: 캐시 미스 항목만 API 요청
+  if (uncachedIds.length > 0) {
+    try {
+      // Promise.all로 동시 요청 (RequestQueue가 동시성 제어)
+      const results = await Promise.all(
+        uncachedIds.map(id => fetchChannelDetails(id))
+      )
+
+      // 결과 병합 및 캐시 저장
+      results.forEach((channel, index) => {
+        const channelId = uncachedIds[index]
+        if (channel) {
+          result.set(channelId, {
+            subscriberCount: channel.subscriberCount,
+            country: channel.country,
+          })
+          // 캐시에 저장
+          setCacheChannelInfo(channelId, channel.subscriberCount, channel.country)
+        } else {
+          // 실패한 채널도 맵에 추가
+          result.set(channelId, {
+            subscriberCount: 0,
+            country: null,
+          })
+          // 실패한 항목도 캐시 (0 구독자)
+          setCacheChannelInfo(channelId, 0, null)
+        }
+      })
+
+      const apiTime = Date.now() - startTime
+      const successCount = results.filter(r => r !== null).length
+      console.log(
+        `✅ 채널 정보 조회 완료 (${apiTime}ms) - API 요청: ${successCount}/${uncachedIds.length}개 성공, 캐시 히트: ${cacheHits}개`
+      )
+    } catch (error) {
+      console.error(`❌ RapidAPI 채널 조회 실패:`, error)
+    }
+  } else {
+    const cacheTime = Date.now() - startTime
+    console.log(`✅ 채널 정보 조회 완료 (${cacheTime}ms) - 캐시만 사용 (모두 히트)`)
   }
+
+  return result
 }
 
 /**

@@ -413,6 +413,62 @@ export async function searchYouTubeWithRapidAPI(
 }
 
 /**
+ * YouTube 트렌딩 영상 조회 (RapidAPI)
+ */
+export async function getTrendingVideos(
+  section: string = 'Now'
+): Promise<ApifyDataItem[]> {
+  if (!RAPIDAPI_KEY || !RAPIDAPI_HOST) {
+    throw new Error('RapidAPI 키 또는 Host가 설정되지 않았습니다')
+  }
+
+  const startTime = Date.now()
+
+  return withRetry(async () => {
+    const url = new URL(`${API_BASE_URL}/trending/`)
+    url.searchParams.append('country', 'KR')
+    url.searchParams.append('section', section)
+    url.searchParams.append('lang', 'ko')
+
+    const fetchStart = Date.now()
+    const response = await fetch(url.toString(), {
+      method: 'GET',
+      headers: {
+        'x-rapidapi-key': RAPIDAPI_KEY,
+        'x-rapidapi-host': RAPIDAPI_HOST,
+      },
+      signal: AbortSignal.timeout(CONFIG.REQUEST_TIMEOUT),
+    })
+    const fetchTime = Date.now() - fetchStart
+
+    if (!response.ok) {
+      const error: any = new Error(`HTTP ${response.status}`)
+      error.status = response.status
+      throw error
+    }
+
+    const data = await response.json()
+    const items = data.videos || []
+    const totalTime = Date.now() - startTime
+
+    console.log(`✅ RapidAPI 트렌딩 요청 완료 - section: ${section}, ${items.length}개 (${totalTime}ms)`)
+
+    // 데이터 변환
+    let transformedItems = transformRapidAPIData(items)
+
+    const shortsCount = transformedItems.filter(
+      (item: any) => item._needsDetailsFetch
+    ).length
+
+    if (shortsCount > 0) {
+      transformedItems = await fetchShortsDetails(transformedItems)
+    }
+
+    return transformedItems
+  })
+}
+
+/**
  * 비디오 정보 조회
  */
 export function getVideoInfo(item: ApifyDataItem) {

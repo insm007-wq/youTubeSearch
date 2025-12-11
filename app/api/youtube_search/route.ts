@@ -203,20 +203,26 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // ✅ API 사용량 증가
-    const usageStartTime = Date.now()
-    const updatedUsage = await incrementApiUsage(userEmail, query)
-    const usageTime = Date.now() - usageStartTime
+    // ✅ API 사용량 증가 (비동기 처리 - await 제거)
+    // incrementApiUsage를 비동기로 처리하여 응답 시간 단축
+    incrementApiUsage(userEmail, query)
+      .catch((error) => {
+        console.warn(`⚠️  API 사용량 증가 실패:`, error)
+      })
+
+    // 현재 사용량 정보 반환 (checkApiUsage에서 이미 조회함)
+    // 실제 증가는 DB에서 비동기로 처리됨
+    const projectedUsage = {
+      used: usageCheck.used + 1,
+      limit: usageCheck.limit,
+      remaining: usageCheck.remaining - 1
+    }
 
     return NextResponse.json({
       items,
       totalResults: items.length,
-      apiUsageToday: {
-        used: updatedUsage.used,
-        limit: updatedUsage.limit,
-        remaining: updatedUsage.remaining
-      },
-      resetTime: updatedUsage.resetTime
+      apiUsageToday: projectedUsage,
+      resetTime: usageCheck.resetTime
     })
   } catch (error) {
     console.error('❌ YouTube 검색 API 에러:', error)

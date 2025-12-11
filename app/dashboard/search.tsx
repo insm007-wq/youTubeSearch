@@ -36,6 +36,12 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
   const [isTitleRefreshing, setIsTitleRefreshing] = useState(false);
   const [toasts, setToasts] = useState<ToastType[]>([]);
 
+  // 트렌딩 기능
+  const [showTrending, setShowTrending] = useState(false);
+  const [trendingResults, setTrendingResults] = useState<any[]>([]);
+  const [trendingSection, setTrendingSection] = useState<string>('Now');
+  const [isTrendingLoading, setIsTrendingLoading] = useState(false);
+
   const handleTitleClick = () => {
     setIsTitleRefreshing(true);
     setTimeout(() => {
@@ -443,27 +449,121 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
     localStorage.setItem("youtube-scout-search-history", JSON.stringify(newHistory));
 
     setIsLoading(true);
+    setShowTrending(false); // 검색 시 트렌딩 탭 숨기기
+
     try {
-      const params = new URLSearchParams({
+      // 1차: 20개 빠르게 로딩
+      const params20 = new URLSearchParams({
         q: searchInput,
-        maxResults: "50",
+        maxResults: "20",
       });
 
-      const response = await fetch(`/api/youtube_search?${params}`);
-      const data = await response.json();
+      console.log(`🔍 [1차] 20개 빠른 로딩 시작...`);
+      const startTime = Date.now();
+      const response20 = await fetch(`/api/youtube_search?${params20}`);
+      const data20 = await response20.json();
+      const time20 = Date.now() - startTime;
 
-      if (!response.ok) {
+      if (!response20.ok) {
         // 403 에러: 계정이 비활성화됨
-        if (response.status === 403) {
+        if (response20.status === 403) {
           addToast({
             type: 'error',
             title: '계정이 비활성화되었습니다',
             message: '더 이상 검색할 수 없습니다. 관리자에게 문의하세요.',
           });
+          setIsLoading(false);
           return;
         }
 
         // 429 에러: API 사용 제한 초과
+        if (response20.status === 429) {
+          const used = data20.apiUsageToday?.used || 0;
+          const limit = data20.apiUsageToday?.limit || 0;
+          addToast({
+            type: 'warning',
+            title: '일일 검색 횟수 제한 초과',
+            message: `오늘 사용: ${used}/${limit}회 | 내일 다시 시도해주세요`,
+          });
+          setIsLoading(false);
+          return;
+        }
+
+        // 기타 에러
+        addToast({
+          type: 'error',
+          title: '검색 실패',
+          message: data20.error || "알 수 없는 오류",
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      console.log(`⏱️  [1차] 20개 로드 완료 (${time20}ms)`);
+
+      // 1차 결과 표시 (20개)
+      setAllResults(data20.items || []);
+      setTotalResults(data20.totalResults || 0);
+      setIsLoading(false);
+
+      // ✅ 1차 사용량 정보 로깅
+      if (data20.apiUsageToday) {
+        console.log(`✅ [1차] 검색 성공 - 사용량: ${data20.apiUsageToday.used}/${data20.apiUsageToday.limit}`);
+      }
+
+      // 2차: 50개 백그라운드 로딩 (await 없음 - 비동기 처리)
+      console.log(`🔍 [2차] 50개 백그라운드 로딩 시작...`);
+      const params50 = new URLSearchParams({
+        q: searchInput,
+        maxResults: "50",
+      });
+
+      // 비동기로 2차 로딩 (응답 대기 안함)
+      fetch(`/api/youtube_search?${params50}`)
+        .then(async (response50) => {
+          const data50 = await response50.json();
+          if (response50.ok) {
+            console.log(`⏱️  [2차] 50개 로드 완료 (${data50.items?.length || 0}개)`);
+            setAllResults(data50.items || []);
+            setTotalResults(data50.totalResults || 0);
+
+            if (data50.apiUsageToday) {
+              console.log(`✅ [2차] 검색 성공 - 사용량: ${data50.apiUsageToday.used}/${data50.apiUsageToday.limit}`);
+            }
+          }
+        })
+        .catch((error) => {
+          console.warn(`⚠️  [2차] 백그라운드 로딩 실패:`, error);
+        });
+    } catch (error) {
+      console.error("검색 오류:", error);
+      alert("검색 중 오류가 발생했습니다");
+      setIsLoading(false);
+    }
+  }, [searchInput, searchHistory, addToast]);
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      handleSearch();
+    }
+  };
+
+  // 트렌딩 영상 조회 함수
+  const handleTrendingClick = useCallback(async (section: string) => {
+    setTrendingSection(section);
+    setShowTrending(true);
+    setIsTrendingLoading(true);
+
+    try {
+      const params = new URLSearchParams({
+        section: section,
+      });
+
+      const response = await fetch(`/api/trending?${params}`);
+      const data = await response.json();
+
+      if (!response.ok) {
+        // API 사용 제한 초과
         if (response.status === 429) {
           const used = data.apiUsageToday?.used || 0;
           const limit = data.apiUsageToday?.limit || 0;
@@ -475,36 +575,30 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
           return;
         }
 
-        // 기타 에러
         addToast({
           type: 'error',
-          title: '검색 실패',
+          title: '트렌딩 조회 실패',
           message: data.error || "알 수 없는 오류",
         });
         return;
       }
 
-      setAllResults(data.items || []);
-      setTotalResults(data.totalResults || 0);
+      setTrendingResults(data.items || []);
 
-      // ✅ 사용량 정보 로깅
       if (data.apiUsageToday) {
-        console.log(`✅ 검색 성공 - 사용량: ${data.apiUsageToday.used}/${data.apiUsageToday.limit}`);
-        console.log(`📊 남은 횟수: ${data.apiUsageToday.remaining}회`);
+        console.log(`✅ 트렌딩 조회 성공 - 사용량: ${data.apiUsageToday.used}/${data.apiUsageToday.limit}`);
       }
     } catch (error) {
-      console.error("검색 오류:", error);
-      alert("검색 중 오류가 발생했습니다");
+      console.error("트렌딩 조회 오류:", error);
+      addToast({
+        type: 'error',
+        title: '트렌딩 조회 실패',
+        message: "트렌딩 조회 중 오류가 발생했습니다",
+      });
     } finally {
-      setIsLoading(false);
+      setIsTrendingLoading(false);
     }
-  }, [searchInput, searchHistory]);
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      handleSearch();
-    }
-  };
+  }, [addToast]);
 
   // 히스토리 항목 클릭
   const handleHistoryClick = (keyword: string) => {
@@ -616,6 +710,41 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
             <VideoLengthFilter value={videoLength} onChange={setVideoLength} />
             <EngagementRatioFilter selectedValues={engagementRatios} onChange={setEngagementRatios} />
           </div>
+
+          {/* 트렌딩 탭 섹션 */}
+          <div className="trending-tabs-section">
+            <div className="trending-label">🔥 트렌딩 영상</div>
+            <div className="trending-tabs">
+              <button
+                className={`trending-tab ${trendingSection === 'Now' ? 'active' : ''}`}
+                onClick={() => handleTrendingClick('Now')}
+                disabled={isTrendingLoading}
+              >
+                지금 뜨는
+              </button>
+              <button
+                className={`trending-tab ${trendingSection === 'Music' ? 'active' : ''}`}
+                onClick={() => handleTrendingClick('Music')}
+                disabled={isTrendingLoading}
+              >
+                🎵 음악
+              </button>
+              <button
+                className={`trending-tab ${trendingSection === 'Gaming' ? 'active' : ''}`}
+                onClick={() => handleTrendingClick('Gaming')}
+                disabled={isTrendingLoading}
+              >
+                🎮 게임
+              </button>
+              <button
+                className={`trending-tab ${trendingSection === 'Movies' ? 'active' : ''}`}
+                onClick={() => handleTrendingClick('Movies')}
+                disabled={isTrendingLoading}
+              >
+                🎬 영화
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* 리사이저 */}
@@ -702,9 +831,9 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
           </div>
 
           <SearchResults
-            results={results}
-            totalResults={totalResults}
-            isLoading={isLoading}
+            results={showTrending ? trendingResults : results}
+            totalResults={showTrending ? trendingResults.length : totalResults}
+            isLoading={showTrending ? isTrendingLoading : isLoading}
             showVPH={true}
             viewMode={viewMode}
             onChannelClick={handleChannelClick}

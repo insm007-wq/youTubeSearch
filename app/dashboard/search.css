@@ -1069,3 +1069,54 @@
 .profile-dropdown-logout:active {
   background: #fdd0d5;
 }
+
+/* 트렌딩 탭 섹션 */
+.trending-tabs-section {
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid #e5e5e5;
+}
+
+.trending-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #333;
+  margin-bottom: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.trending-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.trending-tab {
+  padding: 8px 16px;
+  border: 1px solid #ddd;
+  background-color: #f5f5f5;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.trending-tab:hover:not(.active):not(:disabled) {
+  background-color: #efefef;
+  border-color: #ccc;
+}
+
+.trending-tab.active {
+  background-color: #ff4757;
+  color: white;
+  border-color: #ff4757;
+}
+
+.trending-tab:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
