@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/auth'
 import { checkApiUsage } from '@/lib/apiUsage'
+import { getChannelInfo } from '@/lib/youtubeChannelsClient'
 
-const YOUTUBE_API_URL = 'https://www.googleapis.com/youtube/v3'
-
+/**
+ * YouTube 채널 상세 정보 조회 엔드포인트
+ * RapidAPI YouTube V2 /channel/details 사용
+ * (이전: Google YouTube Data API v3)
+ */
 export async function GET(request: NextRequest) {
   // ✅ 인증 확인 및 비활성화 체크
   const session = await auth()
@@ -36,7 +40,6 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = new URL(request.url)
   const channelId = searchParams.get('channelId')?.trim()
-  const apiKey = process.env.YOUTUBE_API_KEY
 
   // ✅ 입력값 검증
   if (!channelId || channelId.length < 1 || channelId.length > 50) {
@@ -46,36 +49,10 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  if (!apiKey) {
-    return NextResponse.json(
-      { error: 'API 키가 설정되지 않았습니다' },
-      { status: 500 }
-    )
-  }
-
   try {
-    // ✅ URLSearchParams 사용 (API 키 안전하게 처리)
-    const url = new URL(`${YOUTUBE_API_URL}/channels`)
-    url.searchParams.append('part', 'snippet,statistics,brandingSettings')
-    url.searchParams.append('id', channelId)
-    url.searchParams.append('key', apiKey)
-
-    const response = await fetch(url.toString(), {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    })
-
-    if (!response.ok) {
-      return NextResponse.json(
-        { error: '채널 정보를 불러올 수 없습니다' },
-        { status: response.status }
-      )
-    }
-
-    const data = await response.json()
-    const channel = data.items[0]
+    // ✅ RapidAPI로 채널 정보 조회
+    console.log(`📺 채널 상세 정보 조회: ${channelId}`)
+    const channel = await getChannelInfo(channelId)
 
     if (!channel) {
       return NextResponse.json(
@@ -84,21 +61,22 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const stats = channel.statistics
-    const snippet = channel.snippet
-
+    // ✅ 응답 형식 (기존 호환)
     return NextResponse.json({
-      title: snippet.title,
-      description: snippet.description || '설명 없음',
-      viewCount: parseInt(stats.viewCount) || 0,
-      subscriberCount: parseInt(stats.subscriberCount) || 0,
-      hiddenSubscriberCount: stats.hiddenSubscriberCount || false,
-      videoCount: parseInt(stats.videoCount) || 0,
-      customUrl: snippet.customUrl || 'N/A',
-      thumbnail: snippet.thumbnails?.medium?.url || '',
+      title: channel.title,
+      description: channel.description,
+      viewCount: channel.viewCount,
+      subscriberCount: channel.subscriberCount,
+      hiddenSubscriberCount: false, // RapidAPI 미지원
+      videoCount: channel.videoCount,
+      customUrl: 'N/A', // RapidAPI 미지원
+      thumbnail: channel.thumbnail,
+      banner: channel.banner,
+      country: channel.country,
+      verified: channel.verified,
     })
   } catch (error) {
-    console.error('채널 조회 오류:', error)
+    console.error('❌ 채널 조회 오류:', error)
     return NextResponse.json(
       { error: '채널 정보 조회 중 오류가 발생했습니다' },
       { status: 500 }

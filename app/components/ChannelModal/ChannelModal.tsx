@@ -9,9 +9,49 @@ interface ChannelModalProps {
   subscriberCountValue: number
   videoCount: number
   customUrl: string
+  country: string | null
   channelId: string
   isLoading: boolean
   onClose: () => void
+}
+
+// 국가 코드를 국가명으로 변환
+const getCountryName = (code: string | null): string => {
+  if (!code) return 'N/A'
+
+  const countryMap: Record<string, string> = {
+    'US': '미국',
+    'KR': '대한민국',
+    'JP': '일본',
+    'GB': '영국',
+    'CA': '캐나다',
+    'AU': '호주',
+    'DE': '독일',
+    'FR': '프랑스',
+    'CN': '중국',
+    'IN': '인도',
+    'BR': '브라질',
+    'MX': '멕시코',
+    'ES': '스페인',
+    'IT': '이탈리아',
+    'NL': '네덜란드',
+    'RU': '러시아',
+    'SG': '싱가포르',
+    'HK': '홍콩',
+    'TW': '대만',
+    'TH': '태국',
+    'PH': '필리핀',
+    'ID': '인도네시아',
+    'MY': '말레이시아',
+    'VN': '베트남',
+    'TR': '튀르키예',
+    'SA': '사우디아라비아',
+    'AE': '아랍에미리트',
+    'ZA': '남아프리카',
+    'NG': '나이지리아',
+  }
+
+  return countryMap[code] || code
 }
 
 export default function ChannelModal({
@@ -23,6 +63,7 @@ export default function ChannelModal({
   subscriberCountValue,
   videoCount,
   customUrl,
+  country,
   channelId,
   isLoading,
   onClose,
@@ -85,8 +126,8 @@ export default function ChannelModal({
                   <div className="channel-stat-value">{formatNumber(videoCount)}</div>
                 </div>
                 <div className="channel-stat-box">
-                  <div className="channel-stat-label">채널 카테고리</div>
-                  <div className="channel-stat-value">{customUrl || 'N/A'}</div>
+                  <div className="channel-stat-label">채널 국가</div>
+                  <div className="channel-stat-value">{getCountryName(country)}</div>
                 </div>
               </div>
 

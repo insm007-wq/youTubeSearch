@@ -3,6 +3,8 @@
  * 동접 500명 지원 설계
  */
 
+import { RequestQueue } from '@/lib/utils/requestQueue'
+
 // ============ 설정 ============
 const API_BASE_URL = 'https://youtube-v2.p.rapidapi.com'
 const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY
@@ -11,7 +13,7 @@ const RAPIDAPI_HOST = process.env.RAPIDAPI_HOST
 // 동접 500명 지원을 위한 설정
 const CONFIG = {
   // API 속도 제한 (동접별 요청 큐)
-  MAX_CONCURRENT_REQUESTS: 10, // 동시 요청 수
+  MAX_CONCURRENT_REQUESTS: 20, // 동시 요청 수 (2배 증가)
   REQUEST_TIMEOUT: 15000, // 요청 타임아웃 (15초)
   RETRY_COUNT: 2, // 재시도 횟수
   RETRY_DELAY: 1000, // 재시도 간격 (1초)
@@ -63,67 +65,7 @@ interface ApifyDataItem {
 }
 
 // ============ 요청 큐 관리 (동접 제어) ============
-class RequestQueue {
-  private activeRequests = 0
-  private queue: Array<() => Promise<any>> = []
-  private maxConcurrent = CONFIG.MAX_CONCURRENT_REQUESTS
-
-  async enqueue<T>(fn: () => Promise<T>): Promise<T> {
-    return new Promise((resolve, reject) => {
-      const task = async () => {
-        this.activeRequests++
-        try {
-          const result = await fn()
-          resolve(result)
-        } catch (error) {
-          reject(error)
-        } finally {
-          this.activeRequests--
-          this.processQueue()
-        }
-      }
-
-      if (this.activeRequests < this.maxConcurrent) {
-        this.activeRequests++
-        fn()
-          .then(resolve)
-          .catch(reject)
-          .finally(() => {
-            this.activeRequests--
-            this.processQueue()
-          })
-      } else {
-        this.queue.push(task)
-      }
-    })
-  }
-
-  private processQueue() {
-    while (this.queue.length > 0 && this.activeRequests < this.maxConcurrent) {
-      const task = this.queue.shift()
-      if (task) {
-        this.activeRequests++
-        task()
-          .then()
-          .catch()
-          .finally(() => {
-            this.activeRequests--
-            this.processQueue()
-          })
-      }
-    }
-  }
-
-  getStatus() {
-    return {
-      activeRequests: this.activeRequests,
-      queuedRequests: this.queue.length,
-      maxConcurrent: this.maxConcurrent,
-    }
-  }
-}
-
-const requestQueue = new RequestQueue()
+const requestQueue = new RequestQueue(CONFIG.MAX_CONCURRENT_REQUESTS)
 
 // ============ 재시도 로직 ============
 async function withRetry<T>(
@@ -380,39 +322,33 @@ async function fetchShortsDetails(
     batches.push(shortVideos.slice(i, i + CONFIG.SHORTS_BATCH_SIZE))
   }
 
-  const allDurations: string[] = []
-  for (let i = 0; i < batches.length; i++) {
-    const batch = batches[i]
-    const durations = await Promise.all(
-      batch.map((video) => getVideoDetails(video.id))
+  // 모든 배치를 동시에 실행 (RequestQueue가 동시성 제어)
+  // 배치 간 딜레이 제거 (RequestQueue가 rate limit 관리)
+  const allBatchDurations = await Promise.all(
+    batches.map((batch) =>
+      Promise.all(batch.map((video) => getVideoDetails(video.id)))
     )
-    allDurations.push(...durations)
+  )
 
-    // 배치 간 딜레이
-    if (i < batches.length - 1) {
-      await new Promise((resolve) =>
-        setTimeout(resolve, CONFIG.SHORTS_REQUEST_DELAY)
-      )
-    }
-  }
+  // 결과 평탄화
+  const allDurations = allBatchDurations.flat()
 
   // 결과 병합
   const updatedItems = items.map((item) => {
-    const { _needsDetailsFetch, ...baseItem } = item as any
-
     if (item._needsDetailsFetch) {
       const detailIndex = shortVideos.findIndex((v) => v.id === item.id)
       const actualDuration = allDurations[detailIndex]
 
       if (actualDuration && actualDuration !== 'SHORTS') {
         return {
-          ...baseItem,
+          ...item,
           duration: convertDurationToISO8601(actualDuration),
-        }
+          _needsDetailsFetch: undefined,
+        } as ApifyDataItem
       }
     }
 
-    return baseItem
+    return item
   })
 
   console.log(`✅ 쇼츠 상세 정보 조회 완료`)
@@ -435,13 +371,11 @@ export async function searchYouTubeWithRapidAPI(
     const shortsCount = transformedItems.filter(
       (item: any) => item._needsDetailsFetch
     ).length
+
     if (shortsCount > 0) {
       transformedItems = await fetchShortsDetails(transformedItems)
     }
 
-    console.log(
-      `✅ YouTube 검색 성공 - ${transformedItems.length}개${shortsCount > 0 ? ` (쇼츠 ${shortsCount}개)` : ''}`
-    )
     return transformedItems
   } catch (error) {
     console.error('❌ YouTube 검색 실패:', error)

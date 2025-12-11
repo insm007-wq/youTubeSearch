@@ -121,13 +121,6 @@ export async function GET(request: NextRequest) {
 
       // 1️⃣ RapidAPI로 검색
       items = await searchYouTubeWithRapidAPI(query, maxResults)
-      const rapidApiTime = Date.now() - searchStartTime
-
-      console.log(`📊 RapidAPI 응답 상세:`, {
-        itemsCount: items?.length,
-        itemsType: typeof items,
-        firstItem: items?.[0] ? { id: items[0].id, title: items[0].title } : null
-      })
 
       if (!items || items.length === 0) {
         console.log(`⚠️  검색 결과 없음`)
@@ -147,7 +140,7 @@ export async function GET(request: NextRequest) {
       const channelIds = [...new Set(items.map((v) => v.channelId).filter(Boolean))]
       console.log(`📊 고유 채널: ${channelIds.length}개`)
 
-      // 3️⃣ Google YouTube Channels API로 구독자 수 조회 (실패해도 무시)
+      // 3️⃣ 구독자 정보 조회 (실패해도 무시)
       let subscriberMap = new Map<string, number>()
       if (channelIds.length > 0) {
         const channelsStartTime = Date.now()
@@ -161,7 +154,7 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      // 4️⃣ 데이터 병합
+      // 4️⃣ 데이터 병합 (구독자 수 추가)
       items = items.map((item) => ({
         ...item,
         subscriberCount: subscriberMap.get(item.channelId) || 0,
@@ -208,11 +201,6 @@ export async function GET(request: NextRequest) {
     const usageStartTime = Date.now()
     const updatedUsage = await incrementApiUsage(userEmail, query)
     const usageTime = Date.now() - usageStartTime
-
-    const totalTime = Date.now() - requestStartTime
-    console.log(`📊 요청 완료 요약:`)
-    console.log(`   - 사용량 업데이트: ${usageTime}ms`)
-    console.log(`   - 전체 소요 시간: ${totalTime}ms`)
 
     return NextResponse.json({
       items,
