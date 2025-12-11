@@ -713,7 +713,7 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
 
           {/* 트렌딩 입력 섹션 */}
           <div className="trending-input-wrapper">
-            <div className="trending-label">🔥 트렌딩 영상</div>
+            <div className="trending-label">트렌딩 영상</div>
             <div className="trending-container-with-button">
               <select
                 className="trending-dropdown"
