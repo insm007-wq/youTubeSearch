@@ -9,7 +9,7 @@ import PeriodFilter from "@/app/components/Filters/PeriodFilter/PeriodFilter";
 import VideoLengthFilter from "@/app/components/Filters/VideoLengthFilter/VideoLengthFilter";
 import EngagementRatioFilter from "@/app/components/Filters/EngagementRatioFilter/EngagementRatioFilter";
 import ChannelModal from "@/app/components/ChannelModal/ChannelModal";
-import ApiLimitBanner from "@/app/components/ApiLimitBanner/ApiLimitBanner";
+import Toast, { Toast as ToastType } from "@/app/components/Toast/Toast";
 import "./search.css";
 
 interface User {
@@ -20,14 +20,6 @@ interface User {
   provider?: string;
 }
 
-interface ApiLimitError {
-  message: string;
-  used?: number;
-  limit?: number;
-  remaining?: number;
-  resetTime?: string;
-  deactivated?: boolean;
-}
 
 export default function Search({ user, signOut }: { user?: User; signOut?: (options?: any) => void }) {
   const [searchInput, setSearchInput] = useState("");
@@ -41,6 +33,7 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
   const [sortBy, setSortBy] = useState("relevance");
   const [searchHistory, setSearchHistory] = useState<string[]>([]);
   const [isTitleRefreshing, setIsTitleRefreshing] = useState(false);
+  const [toasts, setToasts] = useState<ToastType[]>([]);
 
   const handleTitleClick = () => {
     setIsTitleRefreshing(true);
@@ -49,6 +42,26 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
       window.location.reload();
     }, 600);
   };
+
+  // 토스트 추가 함수
+  const addToast = useCallback((message: Omit<ToastType, 'id'>) => {
+    const id = `toast-${Date.now()}-${Math.random()}`;
+    const newToast: ToastType = { ...message, id };
+    setToasts((prev) => [...prev, newToast]);
+
+    // 자동으로 닫기 (기본 3초, 커스텀 duration 지정 가능)
+    const duration = message.duration || 3000;
+    setTimeout(() => {
+      removeToast(id);
+    }, duration);
+
+    return id;
+  }, []);
+
+  // 토스트 제거 함수
+  const removeToast = useCallback((id: string) => {
+    setToasts((prev) => prev.filter((toast) => toast.id !== id));
+  }, []);
 
   // OAuth 제공자별 색상 매핑
   const getProviderColor = (providerId?: string): string => {
@@ -62,7 +75,6 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
     return colorMap[provider] || "#667eea";
   };
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
-  const [apiLimitError, setApiLimitError] = useState<ApiLimitError | null>(null);
   const profileDropdownRef = useRef<HTMLDivElement>(null);
 
   // 사이드바 너비 조정
@@ -429,7 +441,6 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
     localStorage.setItem("youtube-scout-search-history", JSON.stringify(newHistory));
 
     setIsLoading(true);
-    setApiLimitError(null); // 새 검색 시 이전 에러 제거
     try {
       const params = new URLSearchParams({
         q: searchInput,
@@ -442,35 +453,37 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
       if (!response.ok) {
         // 403 에러: 계정이 비활성화됨
         if (response.status === 403) {
-          setApiLimitError({
-            message: data.message,
-            deactivated: true,
+          addToast({
+            type: 'error',
+            title: '계정이 비활성화되었습니다',
+            message: '더 이상 검색할 수 없습니다. 관리자에게 문의하세요.',
           });
           return;
         }
 
         // 429 에러: API 사용 제한 초과
         if (response.status === 429) {
-          setApiLimitError({
-            message: data.message,
-            used: data.apiUsageToday.used,
-            limit: data.apiUsageToday.limit,
-            remaining: data.apiUsageToday.remaining,
-            resetTime: data.resetTime,
+          const used = data.apiUsageToday?.used || 0;
+          const limit = data.apiUsageToday?.limit || 0;
+          addToast({
+            type: 'warning',
+            title: '일일 검색 횟수 제한 초과',
+            message: `오늘 사용: ${used}/${limit}회 | 내일 다시 시도해주세요`,
           });
           return;
         }
 
         // 기타 에러
-        alert(`검색 실패: ${data.error || "알 수 없는 오류"}`);
+        addToast({
+          type: 'error',
+          title: '검색 실패',
+          message: data.error || "알 수 없는 오류",
+        });
         return;
       }
 
       setAllResults(data.items || []);
       setTotalResults(data.totalResults || 0);
-
-      // ✅ 성공 시 에러 상태 초기화 (이전의 제한 상태를 제거)
-      setApiLimitError(null);
 
       // ✅ 사용량 정보 로깅
       if (data.apiUsageToday) {
@@ -592,18 +605,6 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
               </div>
             </div>
 
-            {/* API 사용 제한 배너 */}
-            <AnimatePresence>
-              {apiLimitError && (
-                <ApiLimitBanner
-                  used={apiLimitError.used}
-                  limit={apiLimitError.limit}
-                  resetTime={apiLimitError.resetTime}
-                  deactivated={apiLimitError.deactivated}
-                  onClose={() => setApiLimitError(null)}
-                />
-              )}
-            </AnimatePresence>
           </div>
 
 
@@ -723,6 +724,13 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
         channelId={channelModalData.channelId}
         isLoading={channelModalData.isLoading}
         onClose={() => setShowChannelModal(false)}
+      />
+
+      {/* 토스트 알림 */}
+      <Toast
+        toasts={toasts}
+        onRemove={removeToast}
+        position="top-center"
       />
     </>
   );
