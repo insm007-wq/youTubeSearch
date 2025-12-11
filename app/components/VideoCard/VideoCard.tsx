@@ -2,6 +2,7 @@
 
 import TagAnalysis from "@/app/components/TagAnalysis/TagAnalysis";
 import { Tooltip } from "@/app/components/ui/Tooltip";
+import { calculateVPH } from "@/lib/vphUtils";
 import {
   Eye,
   Users,
@@ -133,11 +134,6 @@ const getEngagementLevel = (ratio: number): number => {
   return 5;
 };
 
-// VPH 계산 함수
-const calculateVPH = (viewCount: number, subscriberCount: number): number => {
-  if (subscriberCount === 0) return 0;
-  return viewCount / subscriberCount;
-};
 
 export default function VideoCard({ video, showVPH = false, vph, onChannelClick }: VideoCardProps) {
   const {
@@ -166,8 +162,8 @@ export default function VideoCard({ video, showVPH = false, vph, onChannelClick 
   const engagementLevel = getEngagementLevel(engagementRatio);
   const ratioText = subscriberCount > 0 ? engagementRatio.toFixed(2) : "N/A";
 
-  const calculatedVPH = vph || calculateVPH(viewCount, subscriberCount);
-  const vphText = subscriberCount > 0 ? calculatedVPH.toFixed(2) : "N/A";
+  const calculatedVPH = calculateVPH(viewCount, publishedAt || "");
+  const vphText = calculatedVPH > 0 ? calculatedVPH.toString() : "N/A";
 
   const badgeClass = `engagement-badge engagement-${engagementLevel}`;
   const videoLink = `https://www.youtube.com/watch?v=${id}`;
@@ -218,34 +214,14 @@ export default function VideoCard({ video, showVPH = false, vph, onChannelClick 
 
         {/* badge */}
         <div className="badge-container">
-          <Tooltip
-            content={
-              engagementLevel === 1
-                ? "매우 낮음 (0.2배 미만)"
-                : engagementLevel === 2
-                ? "낮음 (0.2~0.6배)"
-                : engagementLevel === 3
-                ? "보통 (0.6~1.4배)"
-                : engagementLevel === 4
-                ? "높음 (1.4~3.0배)"
-                : "매우 높음 (3.0배+, 바이럴)"
-            }
-            placement="top"
-            variant="glassmorphic"
-          >
-            <div className={badgeClass}>{engagementLevel}단계</div>
-          </Tooltip>
+          <div className={badgeClass}>{engagementLevel}단계</div>
 
           {categoryName && (
-            <Tooltip content="업로드 경과 시간" placement="top" variant="glassmorphic">
-              <div className="text-badge">{categoryName}</div>
-            </Tooltip>
+            <div className="text-badge upload-time">{categoryName}</div>
           )}
 
           {channelCountry && (
-            <Tooltip content="채널 국가" placement="top" variant="glassmorphic">
-              <div className="text-badge">{channelCountry}</div>
-            </Tooltip>
+            <div className="text-badge country">{channelCountry}</div>
           )}
         </div>
 

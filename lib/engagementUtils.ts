@@ -21,12 +21,7 @@ export const getEngagementLevel = (ratio: number): number => {
   return 1;
 };
 
-export const calculateVPH = (
-  viewCount: number | undefined,
-  subscriberCount: number | undefined
-): number => {
-  return calculateEngagementRatio(viewCount, subscriberCount);
-};
+// VPH 계산은 vphUtils.ts로 이동 (vidIQ 방식 구현)
 
 export const formatEngagementLevel = (level: number): string => {
   const levels = ["레벨1", "레벨2", "레벨3", "레벨4", "레벨5"];

@@ -1,5 +1,7 @@
 'use client'
 
+import { calculateVPH } from '@/lib/vphUtils'
+
 interface ResultsTableProps {
   results: any[]
   showVPH: boolean
@@ -101,24 +103,9 @@ export default function ResultsTable({ results, showVPH }: ResultsTableProps) {
     }
   }
 
-  // VPH 계산 (조회수 / (구독자 * 일수))
-  const calculateVPH = (
-    viewCount: number,
-    subscriberCount: number,
-    publishedAt: string
-  ): string => {
-    if (subscriberCount === 0) return '-'
-
-    try {
-      const publishDate = new Date(publishedAt).getTime()
-      const now = Date.now()
-      const daysOld = Math.max(1, Math.floor((now - publishDate) / (1000 * 60 * 60 * 24)))
-
-      const vph = viewCount / (subscriberCount * daysOld)
-      return vph.toFixed(2)
-    } catch {
-      return '-'
-    }
+  // VPH 포맷팅 함수
+  const formatVPH = (vph: number): string => {
+    return vph > 0 ? vph.toString() : '-'
   }
 
   return (
@@ -176,7 +163,7 @@ export default function ResultsTable({ results, showVPH }: ResultsTableProps) {
                   </span>
                 </td>
                 <td className="table-duration">{formatDuration(video.duration)}</td>
-                {showVPH && <td className="table-number">{calculateVPH(video.viewCount, video.subscriberCount, video.publishedAt)}</td>}
+                {showVPH && <td className="table-number">{formatVPH(calculateVPH(video.viewCount, video.publishedAt))}</td>}
                 <td className="table-date">{formatDate(video.publishedAt)}</td>
                 <td>
                   <a

@@ -10,6 +10,7 @@ import VideoLengthFilter from "@/app/components/Filters/VideoLengthFilter/VideoL
 import EngagementRatioFilter from "@/app/components/Filters/EngagementRatioFilter/EngagementRatioFilter";
 import ChannelModal from "@/app/components/ChannelModal/ChannelModal";
 import Toast, { Toast as ToastType } from "@/app/components/Toast/Toast";
+import { calculateVPH } from "@/lib/vphUtils";
 import "./search.css";
 
 interface User {
@@ -294,8 +295,8 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
         break;
       case "vph":
         sorted.sort((a, b) => {
-          const vphA = a.subscriberCount > 0 ? a.viewCount / a.subscriberCount : 0;
-          const vphB = b.subscriberCount > 0 ? b.viewCount / b.subscriberCount : 0;
+          const vphA = calculateVPH(a.viewCount, a.publishedAt);
+          const vphB = calculateVPH(b.viewCount, b.publishedAt);
           return vphB - vphA;
         });
         break;
