@@ -34,8 +34,12 @@ yarn-error.log*
 # IDE
 .vscode/
 .idea/
+.claude/
 *.swp
 *.swo
+
+# Logs
+dev.log
 
 # OS
 nul
