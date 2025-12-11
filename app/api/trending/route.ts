@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/auth'
 import { checkApiUsage, incrementApiUsage } from '@/lib/apiUsage'
-import { getTrendingVideos } from '@/lib/rapidApiClient'
+import { searchYouTubeWithRapidAPI } from '@/lib/rapidApiClient'
 import { getChannelsInfo } from '@/lib/youtubeChannelsClient'
 
 export async function GET(request: NextRequest) {
@@ -65,13 +65,37 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const section = searchParams.get('section') || 'Now'
 
-    // ✅ RapidAPI로 트렌딩 영상 조회
+    // ✅ 조회수가 높은 트렌딩 영상 조회 (최근 7일 이내)
     let items
     try {
       const trendingStartTime = Date.now()
-      console.log(`🔥 RapidAPI 트렌딩 조회 시작 - section: ${section}`)
+      console.log(`🔥 트렌딩 조회 시작 - section: ${section}`)
 
-      items = await getTrendingVideos(section)
+      // 섹션별 검색어 매핑
+      const sectionQueryMap: Record<string, string> = {
+        'Now': '유튜브',
+        'Music': '음악',
+        'Gaming': '게임',
+        'Movies': '영화'
+      }
+      const query = sectionQueryMap[section] || '유튜브'
+
+      // 조회수가 높은 영상들을 검색 (조회수 기준 내림차순)
+      items = await searchYouTubeWithRapidAPI(query, 50)
+
+      // 최근 7일 이내의 영상만 필터링
+      const sevenDaysAgo = new Date()
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+
+      items = items.filter((video) => {
+        const publishDate = new Date(video.publishedAt || '')
+        return publishDate >= sevenDaysAgo
+      })
+
+      // 조회수 기준 내림차순 정렬 (높은 조회수가 먼저)
+      items.sort((a, b) => (b.viewCount || 0) - (a.viewCount || 0))
+
+      console.log(`✅ 트렌딩 조회 완료 - query: ${query}, ${items.length}개 (최근 7일 이내, 조회수 기준 정렬)`)
       const trendingTime = Date.now() - trendingStartTime
       console.log(`⏱️  [1단계] 트렌딩 영상: ${trendingTime}ms (${items.length}개)`)
 
