@@ -15,7 +15,14 @@ export async function connectToDatabase() {
     throw new Error('Please define MONGODB_URI in .env.local')
   }
 
-  const client = new MongoClient(mongoUri)
+  const client = new MongoClient(mongoUri, {
+    maxPoolSize: 100,               // 최대 동시 연결 수: 10 → 100 (동접 500명 대응)
+    minPoolSize: 10,                // 최소 연결 유지: 10개
+    maxIdleTimeMS: 30000,           // 30초간 미사용 시 연결 반환
+    waitQueueTimeoutMS: 5000,       // 5초 대기 후 타임아웃
+    serverSelectionTimeoutMS: 5000, // 서버 선택 타임아웃
+    connectTimeoutMS: 10000,        // 연결 타임아웃: 10초
+  })
 
   try {
     await client.connect()

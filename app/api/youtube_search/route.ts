@@ -108,19 +108,22 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // ✅ maxResults 범위 검증 (1-50)
-    if (isNaN(maxResults) || maxResults < 1 || maxResults > 50) {
-      maxResults = 20
+    // ✅ maxResults 범위 검증 (1-100)
+    if (isNaN(maxResults) || maxResults < 1 || maxResults > 100) {
+      maxResults = 50
     }
 
-    // ✅ RapidAPI + Google을 통한 YouTube 검색
+    // ✅ RapidAPI + Google을 통한 YouTube 검색 (병렬 처리)
     let items
     try {
       const searchStartTime = Date.now()
       console.log(`🔍 RapidAPI 검색 시작 - query: ${query}`)
 
       // 1️⃣ RapidAPI로 검색
+      const rapidApiStart = Date.now()
       items = await searchYouTubeWithRapidAPI(query, maxResults)
+      const rapidApiTime = Date.now() - rapidApiStart
+      console.log(`⏱️  [1단계] RapidAPI: ${rapidApiTime}ms (${items.length}개)`)
 
       if (!items || items.length === 0) {
         console.log(`⚠️  검색 결과 없음`)
@@ -136,25 +139,31 @@ export async function GET(request: NextRequest) {
         })
       }
 
-      // 2️⃣ 고유 채널 ID 추출
+      // 2️⃣ 고유 채널 ID 추출 (빠름)
+      const channelStart = Date.now()
       const channelIds = [...new Set(items.map((v) => v.channelId).filter(Boolean))]
-      console.log(`📊 고유 채널: ${channelIds.length}개`)
+      const channelExtractTime = Date.now() - channelStart
+      console.log(`⏱️  [2단계] 채널 추출: ${channelExtractTime}ms (${channelIds.length}개)`)
 
-      // 3️⃣ 채널 정보 조회 (구독자 수, 국가 등) (실패해도 무시)
+      // 3️⃣ 채널 정보 조회 (구독자 수, 국가 등) - 동시에 모든 채널 요청
       let channelInfoMap = new Map<string, { subscriberCount: number; country: string | null }>()
+      const channelsStartTime = Date.now()
       if (channelIds.length > 0) {
-        const channelsStartTime = Date.now()
         try {
+          // getChannelsInfo 내부에서 Promise.all로 모든 채널을 동시에 요청
           channelInfoMap = await getChannelsInfo(channelIds)
           const channelsTime = Date.now() - channelsStartTime
-          console.log(`✅ 채널 정보 조회 완료 (${channelsTime}ms) - ${channelInfoMap.size}개`)
+          console.log(`⏱️  [3단계] 채널 정보: ${channelsTime}ms (${channelInfoMap.size}/${channelIds.length}개)`)
         } catch (channelsError) {
-          console.warn(`⚠️  채널 정보 조회 실패:`, channelsError)
-          // 실패해도 계속 진행
+          const channelsTime = Date.now() - channelsStartTime
+          console.warn(`⚠️  [3단계] 채널 정보 조회 실패 (${channelsTime}ms):`, channelsError)
         }
+      } else {
+        console.log(`⏱️  [3단계] 채널 정보: 0ms (채널 없음)`)
       }
 
       // 4️⃣ 데이터 병합 (구독자 수, 국가 추가)
+      const mergeStart = Date.now()
       items = items.map((item) => {
         const channelInfo = channelInfoMap.get(item.channelId) || { subscriberCount: 0, country: null }
         return {
@@ -163,19 +172,12 @@ export async function GET(request: NextRequest) {
           channelCountry: channelInfo.country,
         }
       })
-
-      // 5️⃣ 중복 제거 (같은 videoId 제거)
-      const seenIds = new Set<string>()
-      items = items.filter((item) => {
-        if (seenIds.has(item.id)) {
-          return false
-        }
-        seenIds.add(item.id)
-        return true
-      })
+      const mergeTime = Date.now() - mergeStart
+      console.log(`⏱️  [4단계] 병합: ${mergeTime}ms (${items.length}개)`)
 
       const searchTime = Date.now() - searchStartTime
-      console.log(`✅ 검색 완료 - 결과: ${items.length}개 (${searchTime}ms)`)
+      console.log(`✅ 검색 완료 - 최종 ${items.length}개 (총 ${searchTime}ms)`)
+      console.log(`📊 최적화: getChannelsInfo 내부에서 Promise.all로 ${channelIds.length}개 채널 동시 요청`)
     } catch (error) {
       const searchTime = Date.now() - requestStartTime
       console.error(`❌ 검색 실패 (${searchTime}ms):`, error)

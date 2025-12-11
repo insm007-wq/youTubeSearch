@@ -228,7 +228,7 @@ async function getVideoDetails(videoId: string): Promise<string> {
 }
 
 /**
- * RapidAPI 검색
+ * RapidAPI 검색 (1회 요청 최대한 많이)
  */
 async function searchWithRapidAPI(
   query: string,
