@@ -152,7 +152,7 @@ export default function VideoCard({ video, showVPH = false, vph, onChannelClick 
     channelCountry,
   } = video;
 
-  const viewCountText = formatNumber(viewCount);
+  const viewCountText = viewCount === 0 ? "조회 불가" : formatNumber(viewCount);
   const subscriberText = subscriberCount > 0 ? formatNumber(subscriberCount) : "미공개";
 
   const durationSeconds = parseDuration(duration || "");

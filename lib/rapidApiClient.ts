@@ -307,28 +307,35 @@ function formatRelativeTime(relativeTime: string): string {
  * 데이터 변환
  */
 function transformRapidAPIData(items: RapidAPIVideo[]): ApifyDataItem[] {
-  return items.map((item) => ({
-    id: item.video_id,
-    title: item.title,
-    description: item.description || '',
-    channelId: item.channel_id || '',
-    channelTitle: item.author,
-    publishedAt: convertRelativeTimeToISO8601(item.published_time || ''),
-    viewCount: item.number_of_views || 0,
-    likeCount: 0,
-    commentCount: 0,
-    duration: convertDurationToISO8601(item.video_length || ''),
-    subscriberCount: 0,
-    thumbnail:
-      item.thumbnails && item.thumbnails.length > 0
-        ? item.thumbnails[item.thumbnails.length - 1].url
-        : '',
-    tags: [],
-    categoryId: '',
-    categoryName: formatRelativeTime(item.published_time || ''),
-    categoryIcon: 'Video',
-    _needsDetailsFetch: item.video_length === 'SHORTS',
-  }))
+  return items.map((item) => {
+    // 조회수가 0이거나 없으면 경고 로그
+    if (!item.number_of_views || item.number_of_views === 0) {
+      console.warn(`⚠️  조회수 0 - 제목: ${item.title}, video_id: ${item.video_id}`)
+    }
+
+    return {
+      id: item.video_id,
+      title: item.title,
+      description: item.description || '',
+      channelId: item.channel_id || '',
+      channelTitle: item.author,
+      publishedAt: convertRelativeTimeToISO8601(item.published_time || ''),
+      viewCount: item.number_of_views || 0,
+      likeCount: 0,
+      commentCount: 0,
+      duration: convertDurationToISO8601(item.video_length || ''),
+      subscriberCount: 0,
+      thumbnail:
+        item.thumbnails && item.thumbnails.length > 0
+          ? item.thumbnails[item.thumbnails.length - 1].url
+          : '',
+      tags: [],
+      categoryId: '',
+      categoryName: formatRelativeTime(item.published_time || ''),
+      categoryIcon: 'Video',
+      _needsDetailsFetch: item.video_length === 'SHORTS',
+    }
+  })
 }
 
 /**

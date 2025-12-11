@@ -151,7 +151,7 @@ export default function ResultsTable({ results, showVPH }: ResultsTableProps) {
                 <td className="table-channel" title={video.channelTitle}>
                   {video.channelTitle}
                 </td>
-                <td className="table-number">{formatNumber(video.viewCount)}</td>
+                <td className="table-number">{video.viewCount === 0 ? '조회 불가' : formatNumber(video.viewCount)}</td>
                 <td className="table-number">{formatNumber(video.subscriberCount)}</td>
                 <td className="table-number">{ratio.toFixed(2)}</td>
                 <td>

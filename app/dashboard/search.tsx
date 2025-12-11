@@ -731,7 +731,7 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
                 onChange={(e) => setTrendingSection(e.target.value)}
                 disabled={isTrendingLoading}
               >
-                <option value="Now">지금 뜨는</option>
+                <option value="Now">⭐ 지금 뜨는</option>
                 <option value="Music">🎵 음악</option>
                 <option value="Gaming">🎮 게임</option>
                 <option value="Movies">🎬 영화</option>
