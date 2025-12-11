@@ -273,7 +273,8 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
         const subscriberCount = video.subscriberCount || 0;
         const viewCount = video.viewCount || 0;
 
-        if (subscriberCount === 0) return false;
+        // "전체" 선택 시에만 구독자 0인 채널도 포함
+        if (subscriberCount === 0 && !ratios.includes("all")) return false;
 
         const ratio = viewCount / subscriberCount;
         const level = getEngagementLevel(ratio);
@@ -445,7 +446,7 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
     try {
       const params = new URLSearchParams({
         q: searchInput,
-        maxResults: "40",
+        maxResults: "50",
       });
 
       const response = await fetch(`/api/youtube_search?${params}`);

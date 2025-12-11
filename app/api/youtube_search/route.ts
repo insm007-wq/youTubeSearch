@@ -98,7 +98,7 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     const query = searchParams.get('q')?.trim()
-    let maxResults = parseInt(searchParams.get('maxResults') || '50')
+    let maxResults = parseInt(searchParams.get('maxResults') || '50')  // 기본값: 50개
 
     // ✅ 입력값 검증
     if (!query || query.length < 1 || query.length > 100) {
