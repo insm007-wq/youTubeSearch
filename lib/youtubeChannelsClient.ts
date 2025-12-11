@@ -287,6 +287,63 @@ export async function getChannelsSubscriberCounts(
 }
 
 /**
+ * 여러 채널 정보 조회 (구독자 수, 국가 등)
+ * @param channelIds 채널 ID 배열
+ * @returns 채널 ID -> 채널 정보 Map
+ */
+export async function getChannelsInfo(
+  channelIds: string[]
+): Promise<Map<string, { subscriberCount: number; country: string | null }>> {
+  const startTime = Date.now()
+
+  if (!RAPIDAPI_KEY || !RAPIDAPI_HOST) {
+    console.warn(
+      '⚠️  RAPIDAPI_KEY 또는 RAPIDAPI_HOST가 설정되지 않았습니다'
+    )
+    return new Map()
+  }
+
+  if (channelIds.length === 0) {
+    return new Map()
+  }
+
+  try {
+    // Promise.all로 동시 요청 (RequestQueue가 동시성 제어)
+    const results = await Promise.all(
+      channelIds.map(id => fetchChannelDetails(id))
+    )
+
+    // Map 생성
+    const map = new Map<string, { subscriberCount: number; country: string | null }>()
+    results.forEach((channel, index) => {
+      if (channel) {
+        map.set(channelIds[index], {
+          subscriberCount: channel.subscriberCount,
+          country: channel.country,
+        })
+      } else {
+        // 실패한 채널도 맵에 추가
+        map.set(channelIds[index], {
+          subscriberCount: 0,
+          country: null,
+        })
+      }
+    })
+
+    const elapsedTime = Date.now() - startTime
+    const successCount = results.filter(r => r !== null).length
+    console.log(
+      `✅ 채널 정보 조회 완료 (${elapsedTime}ms) - ${successCount}/${channelIds.length}개 성공`
+    )
+
+    return map
+  } catch (error) {
+    console.error(`❌ RapidAPI 채널 조회 실패:`, error)
+    return new Map()
+  }
+}
+
+/**
  * 단일 채널 상세 정보 조회 (Google API 호환 인터페이스)
  */
 export async function getChannelInfo(

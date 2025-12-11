@@ -73,6 +73,7 @@ interface VideoCardProps {
     categoryName?: string;
     categoryIcon?: string;
     categoryId?: string;
+    channelCountry?: string | null;
   };
   showVPH?: boolean;
   vph?: number;
@@ -152,6 +153,7 @@ export default function VideoCard({ video, showVPH = false, vph, onChannelClick 
     channelId,
     categoryName,
     categoryIcon,
+    channelCountry,
   } = video;
 
   const viewCountText = formatNumber(viewCount);
@@ -235,8 +237,14 @@ export default function VideoCard({ video, showVPH = false, vph, onChannelClick 
           </Tooltip>
 
           {categoryName && (
-            <Tooltip content="카테고리" placement="top" variant="glassmorphic">
+            <Tooltip content="업로드 경과 시간" placement="top" variant="glassmorphic">
               <div className="text-badge">{categoryName}</div>
+            </Tooltip>
+          )}
+
+          {channelCountry && (
+            <Tooltip content="채널 국가" placement="top" variant="glassmorphic">
+              <div className="text-badge">{channelCountry}</div>
             </Tooltip>
           )}
         </div>

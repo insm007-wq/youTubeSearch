@@ -275,6 +275,35 @@ async function searchWithRapidAPI(
 }
 
 /**
+ * 상대 시간을 사람 친화적인 형식으로 변환
+ * "2 days ago" → "2일 전"
+ */
+function formatRelativeTime(relativeTime: string): string {
+  if (!relativeTime) return ''
+
+  const match = relativeTime.match(
+    /^(\d+)\s+(second|minute|hour|day|week|month|year)s?\s+ago$/
+  )
+
+  if (!match) return ''
+
+  const value = parseInt(match[1], 10)
+  const unit = match[2]
+
+  const unitMap: Record<string, string> = {
+    'second': '초 전',
+    'minute': '분 전',
+    'hour': '시간 전',
+    'day': '일 전',
+    'week': '주 전',
+    'month': '달 전',
+    'year': '년 전',
+  }
+
+  return `${value}${unitMap[unit] || ''}`
+}
+
+/**
  * 데이터 변환
  */
 function transformRapidAPIData(items: RapidAPIVideo[]): ApifyDataItem[] {
@@ -296,7 +325,7 @@ function transformRapidAPIData(items: RapidAPIVideo[]): ApifyDataItem[] {
         : '',
     tags: [],
     categoryId: '',
-    categoryName: '기타',
+    categoryName: formatRelativeTime(item.published_time || ''),
     categoryIcon: 'Video',
     _needsDetailsFetch: item.video_length === 'SHORTS',
   }))

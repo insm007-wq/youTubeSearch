@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/auth'
 import { checkApiUsage, incrementApiUsage } from '@/lib/apiUsage'
 import { searchYouTubeWithRapidAPI } from '@/lib/rapidApiClient'
-import { getChannelsSubscriberCounts } from '@/lib/youtubeChannelsClient'
+import { getChannelsInfo } from '@/lib/youtubeChannelsClient'
 
 export async function GET(request: NextRequest) {
   const requestStartTime = Date.now()
@@ -140,25 +140,29 @@ export async function GET(request: NextRequest) {
       const channelIds = [...new Set(items.map((v) => v.channelId).filter(Boolean))]
       console.log(`📊 고유 채널: ${channelIds.length}개`)
 
-      // 3️⃣ 구독자 정보 조회 (실패해도 무시)
-      let subscriberMap = new Map<string, number>()
+      // 3️⃣ 채널 정보 조회 (구독자 수, 국가 등) (실패해도 무시)
+      let channelInfoMap = new Map<string, { subscriberCount: number; country: string | null }>()
       if (channelIds.length > 0) {
         const channelsStartTime = Date.now()
         try {
-          subscriberMap = await getChannelsSubscriberCounts(channelIds)
+          channelInfoMap = await getChannelsInfo(channelIds)
           const channelsTime = Date.now() - channelsStartTime
-          console.log(`✅ 구독자 정보 조회 완료 (${channelsTime}ms) - ${subscriberMap.size}개`)
+          console.log(`✅ 채널 정보 조회 완료 (${channelsTime}ms) - ${channelInfoMap.size}개`)
         } catch (channelsError) {
-          console.warn(`⚠️  구독자 정보 조회 실패:`, channelsError)
-          // 실패해도 계속 진행 (구독자 수 = 0)
+          console.warn(`⚠️  채널 정보 조회 실패:`, channelsError)
+          // 실패해도 계속 진행
         }
       }
 
-      // 4️⃣ 데이터 병합 (구독자 수 추가)
-      items = items.map((item) => ({
-        ...item,
-        subscriberCount: subscriberMap.get(item.channelId) || 0,
-      }))
+      // 4️⃣ 데이터 병합 (구독자 수, 국가 추가)
+      items = items.map((item) => {
+        const channelInfo = channelInfoMap.get(item.channelId) || { subscriberCount: 0, country: null }
+        return {
+          ...item,
+          subscriberCount: channelInfo.subscriberCount,
+          channelCountry: channelInfo.country,
+        }
+      })
 
       // 5️⃣ 중복 제거 (같은 videoId 제거)
       const seenIds = new Set<string>()
