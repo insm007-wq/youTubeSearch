@@ -352,28 +352,38 @@ async function searchWithRapidAPI(
  * "2 days ago" → "2일 전"
  */
 function formatRelativeTime(relativeTime: string): string {
-  if (!relativeTime) return ''
+  if (!relativeTime) return '시간 불명'
 
+  // 1단계: 숫자와 시간 단위 추출 ("7 hours ago" 또는 "7시간 전" 형식)
   const match = relativeTime.match(
-    /^(\d+)\s+(second|minute|hour|day|week|month|year)s?\s+ago$/
+    /^(\d+)\s+(second|minute|hour|day|week|month|year)s?\s+ago$/i
   )
 
-  if (!match) return ''
+  if (match) {
+    const value = parseInt(match[1], 10)
+    const unit = match[2].toLowerCase()
 
-  const value = parseInt(match[1], 10)
-  const unit = match[2]
+    const unitMap: Record<string, string> = {
+      'second': '초 전',
+      'minute': '분 전',
+      'hour': '시간 전',
+      'day': '일 전',
+      'week': '주 전',
+      'month': '달 전',
+      'year': '년 전',
+    }
 
-  const unitMap: Record<string, string> = {
-    'second': '초 전',
-    'minute': '분 전',
-    'hour': '시간 전',
-    'day': '일 전',
-    'week': '주 전',
-    'month': '달 전',
-    'year': '년 전',
+    return `${value}${unitMap[unit] || ''}`
   }
 
-  return `${value}${unitMap[unit] || ''}`
+  // 2단계: "스트리밍 시간: 7시간 전" 형식 처리 (숫자와 시간 단위만 추출)
+  const streamingMatch = relativeTime.match(/(\d+)(초|분|시간|일|주|달|년)\s*전/)
+  if (streamingMatch) {
+    return `${streamingMatch[1]}${streamingMatch[2]} 전`
+  }
+
+  // 3단계: 그 외 예상 못한 형식은 그대로 표시
+  return relativeTime
 }
 
 /**

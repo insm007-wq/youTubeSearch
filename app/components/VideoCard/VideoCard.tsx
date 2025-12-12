@@ -237,9 +237,7 @@ export default function VideoCard({ video, showVPH = false, vph, onChannelClick 
             <div className="text-badge upload-time">{categoryName}</div>
           )}
 
-          {channelCountry && (
-            <div className="text-badge country">{channelCountry}</div>
-          )}
+          <div className="text-badge country">{channelCountry || '국가 미등록'}</div>
         </div>
 
         <TagAnalysis tags={tags} title={title} />

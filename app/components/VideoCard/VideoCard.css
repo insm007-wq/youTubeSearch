@@ -265,10 +265,10 @@
   cursor: default;
 }
 
-/* 국가 - 주황색 */
+/* 국가 - 보라색 */
 .text-badge.country {
-  background-color: #fff3e0;
-  color: #f57c00;
+  background-color: #f3e5f5;
+  color: #7b1fa2;
   cursor: default;
 }
 
