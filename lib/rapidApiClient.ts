@@ -111,8 +111,8 @@ function convertRelativeTimeToISO8601(relativeTime: string): string {
 
   const now = new Date()
 
-  // 1단계: "N [unit] ago" 형식 매칭
-  const match = relativeTime.match(
+  // 1단계: "N [unit] ago" 형식 매칭 (영문)
+  let match = relativeTime.match(
     /^(\d+)\s+(second|minute|hour|day|week|month|year)s?\s+ago$/i
   )
 
@@ -148,6 +148,41 @@ function convertRelativeTimeToISO8601(relativeTime: string): string {
     return date.toISOString()
   }
 
+  // 1.5단계: "N[단위] 전" 형식 매칭 (한글)
+  match = relativeTime.match(/^(\d+)(초|분|시간|일|주|개월|년)\s*전$/)
+
+  if (match) {
+    const value = parseInt(match[1], 10)
+    const unit = match[2]
+    const date = new Date(now)
+
+    switch (unit) {
+      case '초':
+        date.setSeconds(date.getSeconds() - value)
+        break
+      case '분':
+        date.setMinutes(date.getMinutes() - value)
+        break
+      case '시간':
+        date.setHours(date.getHours() - value)
+        break
+      case '일':
+        date.setDate(date.getDate() - value)
+        break
+      case '주':
+        date.setDate(date.getDate() - value * 7)
+        break
+      case '개월':
+        date.setMonth(date.getMonth() - value)
+        break
+      case '년':
+        date.setFullYear(date.getFullYear() - value)
+        break
+    }
+
+    return date.toISOString()
+  }
+
   // 2단계: 특수 키워드 처리 (RECENTLY, TODAY 등)
   const lowerRelativeTime = relativeTime.toLowerCase().trim()
   const date = new Date(now)
@@ -166,6 +201,10 @@ function convertRelativeTimeToISO8601(relativeTime: string): string {
     case 'yesterday':
       // "어제" → 1일 전
       date.setDate(date.getDate() - 1)
+      return date.toISOString()
+    case '방금 전':
+      // "방금 전" → 1분 전으로 설정
+      date.setMinutes(date.getMinutes() - 1)
       return date.toISOString()
   }
 
