@@ -233,8 +233,29 @@ export default function VideoCard({ video, showVPH = false, vph, onChannelClick 
         <div className="badge-container">
           <div className={badgeClass}>{engagementLevel}단계</div>
 
-          {categoryName && (
-            <div className="text-badge upload-time">{categoryName}</div>
+          {publishedAt && (
+            <div className="text-badge upload-time">
+              {(() => {
+                const publishDate = new Date(publishedAt);
+                const now = new Date();
+                const diffMs = now.getTime() - publishDate.getTime();
+                const diffSeconds = Math.floor(diffMs / 1000);
+
+                if (diffSeconds < 60) return "방금 전";
+                const diffMinutes = Math.floor(diffSeconds / 60);
+                if (diffMinutes < 60) return `${diffMinutes}분 전`;
+                const diffHours = Math.floor(diffMinutes / 60);
+                if (diffHours < 24) return `${diffHours}시간 전`;
+                const diffDays = Math.floor(diffHours / 24);
+                if (diffDays < 7) return `${diffDays}일 전`;
+                const diffWeeks = Math.floor(diffDays / 7);
+                if (diffWeeks < 4) return `${diffWeeks}주 전`;
+                const diffMonths = Math.floor(diffDays / 30);
+                if (diffMonths < 12) return `${diffMonths}개월 전`;
+                const diffYears = Math.floor(diffMonths / 12);
+                return `${diffYears}년 전`;
+              })()}
+            </div>
           )}
 
           {channelCountry && (
