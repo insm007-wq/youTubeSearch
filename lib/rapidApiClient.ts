@@ -277,8 +277,8 @@ async function searchWithRapidAPI(
   return withRetry(async () => {
     const url = new URL(`${API_BASE_URL}/search/`)
     url.searchParams.append('query', query)
-    url.searchParams.append('lang', 'en')
-    url.searchParams.append('country', 'us')
+    url.searchParams.append('lang', 'ko')
+    url.searchParams.append('country', 'kr')
     url.searchParams.append('maxResults', maxResults.toString())
 
     const fetchStart = Date.now()
