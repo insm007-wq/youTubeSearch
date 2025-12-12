@@ -99,18 +99,26 @@ async function withRetry<T>(
 /**
  * 상대 시간을 ISO 8601 날짜로 변환
  * "2 days ago" → "2024-12-08T10:30:00Z"
+ * 정규식 매치 실패 시 합리적인 fallback 처리
  */
 function convertRelativeTimeToISO8601(relativeTime: string): string {
-  if (!relativeTime) return new Date().toISOString()
+  if (!relativeTime) {
+    // 데이터 없으면 안전하게 1일 전으로 설정 (VPH 계산 안정성 확보)
+    const date = new Date()
+    date.setDate(date.getDate() - 1)
+    return date.toISOString()
+  }
 
   const now = new Date()
+
+  // 1단계: "N [unit] ago" 형식 매칭
   const match = relativeTime.match(
-    /^(\d+)\s+(second|minute|hour|day|week|month|year)s?\s+ago$/
+    /^(\d+)\s+(second|minute|hour|day|week|month|year)s?\s+ago$/i
   )
 
   if (match) {
     const value = parseInt(match[1], 10)
-    const unit = match[2]
+    const unit = match[2].toLowerCase()
     const date = new Date(now)
 
     switch (unit) {
@@ -140,7 +148,33 @@ function convertRelativeTimeToISO8601(relativeTime: string): string {
     return date.toISOString()
   }
 
-  return now.toISOString()
+  // 2단계: 특수 키워드 처리 (RECENTLY, TODAY 등)
+  const lowerRelativeTime = relativeTime.toLowerCase().trim()
+  const date = new Date(now)
+
+  switch (lowerRelativeTime) {
+    case 'recently':
+    case 'just now':
+    case 'now':
+      // "최근" → 2시간 전으로 설정 (합리적인 시간)
+      date.setHours(date.getHours() - 2)
+      return date.toISOString()
+    case 'today':
+      // "오늘" → 12시간 전으로 설정
+      date.setHours(date.getHours() - 12)
+      return date.toISOString()
+    case 'yesterday':
+      // "어제" → 1일 전
+      date.setDate(date.getDate() - 1)
+      return date.toISOString()
+  }
+
+  // 3단계: 정규식/키워드 모두 매칭 실패 시 로그 및 안전한 기본값 반환
+  console.warn(
+    `⚠️  publishedAt 형식 인식 불가: "${relativeTime}" → 기본값(1일 전) 사용`
+  )
+  date.setDate(date.getDate() - 1)
+  return date.toISOString()
 }
 
 /**

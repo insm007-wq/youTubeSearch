@@ -46,10 +46,30 @@ export function calculateVPH(
 
     const now = new Date();
     const uploadDate = new Date(publishedAt);
+
+    // uploadDate가 유효한 날짜인지 확인
+    if (isNaN(uploadDate.getTime())) {
+      console.warn(`⚠️  VPH 계산: 잘못된 publishedAt 형식 - "${publishedAt}"`);
+      return 0;
+    }
+
     const hoursElapsed = (now.getTime() - uploadDate.getTime()) / (1000 * 60 * 60);
     const daysSinceUpload = hoursElapsed / 24;
 
-    if (hoursElapsed <= 0 || !isFinite(hoursElapsed)) return 0;
+    // hoursElapsed가 0 이하이거나 유한하지 않으면 반환
+    if (hoursElapsed <= 0 || !isFinite(hoursElapsed)) {
+      console.warn(
+        `⚠️  VPH 계산: 비정상적인 경과 시간 - hoursElapsed: ${hoursElapsed}, publishedAt: ${publishedAt}`
+      );
+      return 0;
+    }
+
+    // hoursElapsed가 매우 작으면 (0.1시간 미만 = 6분 미만) 경고
+    if (hoursElapsed < 0.1) {
+      console.warn(
+        `⚠️  VPH 계산: 매우 최근 영상 (${hoursElapsed.toFixed(4)}시간 전) - publishedAt: ${publishedAt}`
+      );
+    }
 
     // 기본 VPH = 조회수 / 경과 시간
     const baseVPH = viewCount / hoursElapsed;
@@ -58,7 +78,15 @@ export function calculateVPH(
     const decayFactor = getDecayFactor(daysSinceUpload);
     const adjustedVPH = baseVPH * decayFactor;
 
-    return isFinite(adjustedVPH) ? Math.round(adjustedVPH) : 0;
+    // 최종 VPH가 유한한 수인지 확인
+    if (!isFinite(adjustedVPH)) {
+      console.warn(
+        `⚠️  VPH 계산: 결과가 무한대 또는 NaN - baseVPH: ${baseVPH}, decayFactor: ${decayFactor}`
+      );
+      return 0;
+    }
+
+    return Math.round(adjustedVPH);
   } catch (error) {
     console.error('VPH 계산 오류:', error);
     return 0;

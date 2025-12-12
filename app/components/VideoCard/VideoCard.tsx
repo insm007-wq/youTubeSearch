@@ -92,6 +92,23 @@ const formatNumber = (num: number): string => {
   return num.toString();
 };
 
+// VPH 포맷팅 함수 (비정상적으로 큰 값 방지)
+const formatVPH = (vph: number): string => {
+  if (vph <= 0) return "N/A";
+
+  // 비정상적으로 큰 VPH (1,000,000 이상)는 에러로 간주
+  if (vph >= 1000000) {
+    console.warn(`⚠️  비정상적으로 큰 VPH 값: ${vph}`);
+    return "오류";
+  }
+
+  // 일반적인 포맷팅
+  if (vph >= 1000) {
+    return (vph / 1000).toFixed(1) + "K";
+  }
+  return Math.round(vph).toString();
+};
+
 // 기간 파싱 함수 (ISO 8601 duration format)
 const parseDuration = (duration: string): number => {
   if (!duration) return 0;
@@ -163,7 +180,7 @@ export default function VideoCard({ video, showVPH = false, vph, onChannelClick 
   const ratioText = subscriberCount > 0 ? engagementRatio.toFixed(2) : "N/A";
 
   const calculatedVPH = calculateVPH(viewCount, publishedAt || "");
-  const vphText = calculatedVPH > 0 ? calculatedVPH.toString() : "N/A";
+  const vphText = formatVPH(calculatedVPH);
 
   const badgeClass = `engagement-badge engagement-${engagementLevel}`;
   const videoLink = `https://www.youtube.com/watch?v=${id}`;

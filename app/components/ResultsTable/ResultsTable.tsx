@@ -103,9 +103,21 @@ export default function ResultsTable({ results, showVPH }: ResultsTableProps) {
     }
   }
 
-  // VPH 포맷팅 함수
+  // VPH 포맷팅 함수 (비정상적으로 큰 값 방지)
   const formatVPH = (vph: number): string => {
-    return vph > 0 ? vph.toString() : '-'
+    if (vph <= 0) return '-'
+
+    // 비정상적으로 큰 VPH (1,000,000 이상)는 에러로 간주
+    if (vph >= 1000000) {
+      console.warn(`⚠️  비정상적으로 큰 VPH 값: ${vph}`)
+      return '오류'
+    }
+
+    // 일반적인 포맷팅
+    if (vph >= 1000) {
+      return (vph / 1000).toFixed(1) + 'K'
+    }
+    return Math.round(vph).toString()
   }
 
   return (
