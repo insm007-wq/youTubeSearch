@@ -89,6 +89,11 @@ interface YTAPIVideo {
 
   // Shorts listing용 nested data
   data?: Array<any>
+
+  // 참여도 정보 (트렌딩 API에서 제공)
+  likeCount?: string | number | null
+  commentCount?: number | null
+  subscriberCount?: string | number
 }
 
 interface ApifyDataItem {
@@ -524,7 +529,7 @@ async function searchWithYTAPI(
 function transformYTAPIData(items: YTAPIVideo[]): ApifyDataItem[] {
   return items.map((item) => {
     const videoId = extractVideoId(item)
-    const channelId = extractChannelId(item.channel)
+    const channelId = item.channelId || extractChannelId(item.channel)
     // YT-API는 viewCountText ("11,695,093 views"), viewCount ("11695093"), 또는 views 제공
     const viewCount = parseViewCount(
       item.viewCountText || item.viewCount || item.views
@@ -558,14 +563,16 @@ function transformYTAPIData(items: YTAPIVideo[]): ApifyDataItem[] {
       description: item.description || '',
       channelId: item.channelId || channelId,  // YT-API는 직접 channelId 제공
       channelTitle: item.channelTitle || item.channel?.name || '',  // YT-API는 직접 제공
-      publishedAt: convertRelativeTimeToISO8601(
+      publishedAt: item.publishedAt || convertRelativeTimeToISO8601(
         item.publishedTimeText || item.publishDate || item.uploaded || item.publishedText || ''
       ),
       viewCount,
-      likeCount: 0, // YT-API는 좋아요 수 미제공
-      commentCount: 0, // YT-API는 댓글 수 미제공
+      likeCount: item.likeCount ? parseViewCount(item.likeCount) : 0, // 트렌딩은 좋아요 수 제공
+      commentCount: typeof item.commentCount === 'number' ? item.commentCount : 0, // 트렌딩은 댓글 수 제공
       duration: convertDurationToISO8601(item.lengthText || item.duration || ''),
-      subscriberCount: parseSubscriberCount(item.channel?.subscribers),
+      subscriberCount: item.subscriberCount
+        ? parseSubscriberCount(String(item.subscriberCount))
+        : parseSubscriberCount(item.channel?.subscribers),
       thumbnail,
       // 키워드 또는 제목에서 추출
       tags:
