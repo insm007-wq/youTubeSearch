@@ -2,7 +2,7 @@
 
 import VideoCard from '@/app/components/VideoCard/VideoCard'
 import ResultsTable from '@/app/components/ResultsTable/ResultsTable'
-import TagAnalysisDashboard from '@/app/components/TagAnalysisDashboard/TagAnalysisDashboard'
+// import TagAnalysisDashboard from '@/app/components/TagAnalysisDashboard/TagAnalysisDashboard'
 import Spinner from '@/app/components/ui/Spinner'
 
 interface SearchResultsProps {
@@ -25,8 +25,8 @@ export default function SearchResults({
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-      {/* 태그 분석 대시보드 */}
-      <TagAnalysisDashboard results={results} />
+      {/* 태그 분석 대시보드 - 사용 안함 */}
+      {/* <TagAnalysisDashboard results={results} /> */}
 
       {/* 결과 영역 */}
       <div style={{

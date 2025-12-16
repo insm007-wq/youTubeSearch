@@ -188,7 +188,13 @@ export default function VideoCard({ video, showVPH = false, vph, onChannelClick 
   return (
     <div className="video-card">
       <a href={videoLink} target="_blank" rel="noopener noreferrer" style={{ position: "relative", textDecoration: "none" }}>
-        <img src={thumbnail} alt={title} className="video-thumbnail" />
+        {thumbnail ? (
+          <img src={thumbnail} alt={title} className="video-thumbnail" />
+        ) : (
+          <div className="video-thumbnail" style={{ backgroundColor: "#e5e5e5", display: "flex", alignItems: "center", justifyContent: "center", color: "#999" }}>
+            이미지 없음
+          </div>
+        )}
         <div className="video-duration">{durationText}</div>
       </a>
       <div className="video-info">

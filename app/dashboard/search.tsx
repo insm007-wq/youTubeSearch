@@ -279,8 +279,12 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
         const subscriberCount = video.subscriberCount || 0;
         const viewCount = video.viewCount || 0;
 
-        // "전체" 선택 시에만 구독자 0인 채널도 포함
-        if (subscriberCount === 0 && !ratios.includes("all")) return false;
+        // 🔧 구독자 정보가 없으면 필터링하지 않음 (YT-API에서 구독자 정보 미제공 시 대응)
+        // 구독자 정보가 있을 때만 engagement ratio 필터링 적용
+        if (subscriberCount === 0) {
+          // 구독자 정보가 없는 경우: 항상 표시 (필터 무시)
+          return true;
+        }
 
         const ratio = viewCount / subscriberCount;
         const level = getEngagementLevel(ratio);
