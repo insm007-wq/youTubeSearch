@@ -466,13 +466,13 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
     setShowTrending(false); // 검색 시 트렌딩 탭 숨기기
 
     try {
-      // 1차: 20개 빠르게 로딩
+      // 1차: 35개 빠르게 로딩 (중복 제거 후 ~32개)
       const params20 = new URLSearchParams({
         q: searchInput,
-        maxResults: "20",
+        maxResults: "35",
       });
 
-      console.log(`🔍 [1차] 20개 빠른 로딩 시작...`);
+      console.log(`🔍 [1차] 35개 빠른 로딩 시작...`);
       const startTime = Date.now();
       const response20 = await fetch(`/api/youtube_search?${params20}`);
       const data20 = await response20.json();
@@ -525,11 +525,11 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
         console.log(`✅ [1차] 검색 성공 - 사용량: ${data20.apiUsageToday.used}/${data20.apiUsageToday.limit}`);
       }
 
-      // 2차: 50개 백그라운드 로딩 (await 없음 - 비동기 처리)
-      console.log(`🔍 [2차] 50개 백그라운드 로딩 시작...`);
+      // 2차: 45개 백그라운드 로딩 (중복 제거 후 ~41개, 목표: ~40개)
+      console.log(`🔍 [2차] 45개 백그라운드 로딩 시작...`);
       const params50 = new URLSearchParams({
         q: searchInput,
-        maxResults: "50",
+        maxResults: "45",
       });
 
       // 비동기로 2차 로딩 (응답 대기 안함)
