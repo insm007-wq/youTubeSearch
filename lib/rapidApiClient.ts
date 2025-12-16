@@ -4,6 +4,7 @@
  */
 
 import { RequestQueue } from '@/lib/utils/requestQueue'
+import { extractHashtagsFromTitle } from '@/lib/hashtagUtils'
 
 // ============ 설정 ============
 const API_BASE_URL = 'https://youtube-v2.p.rapidapi.com'
@@ -42,6 +43,9 @@ interface RapidAPIVideo {
     width: number
     height: number
   }>
+  hashtags?: string[]
+  tags?: string[]
+  keywords?: string[]
 }
 
 interface ApifyDataItem {
@@ -264,9 +268,9 @@ function convertDurationToISO8601(durationStr: string): string {
 // ============ API 호출 ============
 
 /**
- * RapidAPI Video Details로 정확한 duration 조회
+ * RapidAPI Video Details로 정확한 duration 조회 및 해시태그 확인
  */
-async function getVideoDetails(videoId: string): Promise<string> {
+async function getVideoDetails(videoId: string): Promise<any> {
   return requestQueue.enqueue(async () => {
     try {
       const url = new URL(`${API_BASE_URL}/video/details`)
@@ -292,10 +296,16 @@ async function getVideoDetails(videoId: string): Promise<string> {
       })
 
       const data = await response.json()
-      return data.video_length || ''
+
+      // 📹 해시태그 필드 확인용 로깅
+      console.log('📹 [Video Details] ID:', videoId)
+      console.log('📹 [Video Details Response]:', JSON.stringify(data, null, 2))
+      console.log('📹 [Available Fields]:', Object.keys(data))
+
+      return data
     } catch (error) {
       console.warn(`⚠️  Video Details 조회 실패 - ${videoId}:`, error)
-      return ''
+      return {}
     }
   })
 }
@@ -412,7 +422,12 @@ function transformRapidAPIData(items: RapidAPIVideo[]): ApifyDataItem[] {
         item.thumbnails && item.thumbnails.length > 0
           ? item.thumbnails[item.thumbnails.length - 1].url
           : '',
-      tags: [],
+      // API에서 제공하는 해시태그 사용, 없으면 제목에서 추출
+      tags:
+        item.hashtags ||
+        item.tags ||
+        item.keywords ||
+        extractHashtagsFromTitle(item.title),
       categoryId: '',
       categoryName: formatRelativeTime(item.published_time || ''),
       categoryIcon: 'Video',
