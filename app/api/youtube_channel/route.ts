@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/auth'
 import { checkApiUsage } from '@/lib/apiUsage'
-import { getChannelInfo } from '@/lib/youtubeChannelsClient'
+import { getChannelInfo } from '@/lib/rapidApiClient'
 
 /**
  * YouTube 채널 상세 정보 조회 엔드포인트
- * RapidAPI YouTube V2 /channel/details 사용
- * (이전: Google YouTube Data API v3)
+ * RapidAPI YT-API /channel/info 사용
  */
 export async function GET(request: NextRequest) {
   // ✅ 인증 확인 및 비활성화 체크

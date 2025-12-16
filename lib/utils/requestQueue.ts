@@ -1,6 +1,6 @@
 /**
  * 공통 요청 큐 관리 유틸리티 (동시성 제어)
- * - rapidApiClient와 youtubeChannelsClient에서 사용
+ * - rapidApiClient에서 사용
  * - 동시 요청 수 제한으로 API rate limit 관리
  */
 

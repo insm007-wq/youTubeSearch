@@ -1,7 +1,8 @@
 /**
- * RapidAPI YT-API 클라이언트 (고속 버전)
- * 동접 500명 지원 설계
- * YouTube V2 대비 3-5배 빠른 응답 속도
+ * RapidAPI YT-API 클라이언트
+ * - 검색, 트렌딩, 채널 정보 등 모든 기능 제공
+ * - 동접 500명 지원 설계
+ * - RequestQueue를 통한 동시성 제어
  */
 
 import { RequestQueue } from '@/lib/utils/requestQueue'
@@ -96,6 +97,38 @@ interface YTAPIVideo {
   subscriberCount?: string | number
 }
 
+/**
+ * YT-API 채널 정보 응답 구조
+ */
+interface YTAPIChannelInfo {
+  channel_id: string
+  title: string
+  description?: string
+  subscribers?: string // "454M" 형식
+  videos?: number | string
+  views?: string | number
+  avatar?: Array<{ url: string; width?: number; height?: number }>
+  banner?: Array<{ url: string; width?: number; height?: number }>
+  country?: string
+  verified?: boolean
+}
+
+/**
+ * 채널 정보 응답 (내부 형식)
+ */
+interface YouTubeChannelInfo {
+  id: string
+  title: string
+  subscriberCount: number
+  viewCount: number
+  videoCount: number
+  description: string
+  thumbnail: string
+  banner: string
+  country: string | null
+  verified: boolean
+}
+
 interface ApifyDataItem {
   id: string
   title: string
@@ -118,6 +151,41 @@ interface ApifyDataItem {
 
 // ============ 요청 큐 관리 (동접 제어) ============
 const requestQueue = new RequestQueue(CONFIG.MAX_CONCURRENT_REQUESTS)
+
+// ============ 채널 정보 캐싱 ============
+interface CachedChannelInfo {
+  subscriberCount: number
+  country: string | null
+  timestamp: number
+}
+
+const channelCache = new Map<string, CachedChannelInfo>()
+const CHANNEL_CACHE_TTL = 15 * 60 * 1000 // 15분
+
+function getCachedChannelInfo(channelId: string): CachedChannelInfo | null {
+  const cached = channelCache.get(channelId)
+  if (!cached) return null
+
+  const now = Date.now()
+  if (now - cached.timestamp > CHANNEL_CACHE_TTL) {
+    channelCache.delete(channelId)
+    return null
+  }
+
+  return cached
+}
+
+function setCachedChannelInfo(
+  channelId: string,
+  subscriberCount: number,
+  country: string | null
+): void {
+  channelCache.set(channelId, {
+    subscriberCount,
+    country,
+    timestamp: Date.now(),
+  })
+}
 
 // ============ 유틸리티 함수 ============
 
@@ -656,18 +724,12 @@ export async function getTrendingVideos(
 }
 
 /**
- * YouTube 채널 정보 조회 (RapidAPI YouTube Channels API)
- * YT-API는 채널 정보가 검색에 포함되므로 별도 호출 불필요
+ * YouTube 채널 정보 조회 (YT-API /channel/info)
+ * title, description, thumbnail, banner 등 상세 정보 포함
  */
 export async function getChannelInfo(
   channelId: string
-): Promise<{
-  subscriberCount: number
-  country?: string
-  viewCount?: number
-  videoCount?: number
-  verified?: boolean
-}> {
+): Promise<YouTubeChannelInfo> {
   try {
     const url = new URL(`${API_BASE_URL}/channel/info`)
     url.searchParams.append('channel_id', channelId)
@@ -682,22 +744,136 @@ export async function getChannelInfo(
     })
 
     if (!response.ok) {
-      return { subscriberCount: 0 }
+      return {
+        id: channelId,
+        title: '',
+        subscriberCount: 0,
+        viewCount: 0,
+        videoCount: 0,
+        description: '',
+        thumbnail: '',
+        banner: '',
+        country: null,
+        verified: false,
+      }
     }
 
-    const data = await response.json()
+    const data: YTAPIChannelInfo = await response.json()
+
+    // 썸네일 추출 (avatar 배열에서)
+    let thumbnail = ''
+    if (data.avatar && Array.isArray(data.avatar) && data.avatar.length > 0) {
+      // 마지막 항목이 가장 고해상도
+      const lastAvatar = data.avatar[data.avatar.length - 1]
+      thumbnail = lastAvatar.url || ''
+    }
+
+    // 배너 추출 (banner 배열에서)
+    let banner = ''
+    if (data.banner && Array.isArray(data.banner) && data.banner.length > 0) {
+      banner = data.banner[0].url || ''
+    }
 
     return {
+      id: data.channel_id || channelId,
+      title: data.title || '',
       subscriberCount: parseSubscriberCount(data.subscribers),
-      country: data.country,
       viewCount: data.views ? parseViewCount(data.views) : 0,
-      videoCount: data.videoCount || 0,
+      videoCount: typeof data.videos === 'string'
+        ? parseInt(data.videos.replace(/[^0-9]/g, ''), 10) || 0
+        : (data.videos || 0) as number,
+      description: data.description || '',
+      thumbnail,
+      banner,
+      country: data.country || null,
       verified: data.verified || false,
     }
   } catch (error) {
     console.warn(`⚠️  채널 정보 조회 실패 - ${channelId}:`, error)
-    return { subscriberCount: 0 }
+    return {
+      id: channelId,
+      title: '',
+      subscriberCount: 0,
+      viewCount: 0,
+      videoCount: 0,
+      description: '',
+      thumbnail: '',
+      banner: '',
+      country: null,
+      verified: false,
+    }
   }
+}
+
+/**
+ * 여러 채널 정보 조회 (배치 + 캐싱)
+ * 캐시에 있는 항목은 API 호출 없이 반환, 없는 항목만 조회
+ */
+export async function getChannelsInfo(
+  channelIds: string[]
+): Promise<Map<string, { subscriberCount: number; country: string | null }>> {
+  const startTime = Date.now()
+
+  if (channelIds.length === 0) {
+    return new Map()
+  }
+
+  console.log(`📊 채널 정보 조회 시작 (${channelIds.length}개)`)
+
+  // 1단계: 캐시에서 조회
+  const result = new Map<string, { subscriberCount: number; country: string | null }>()
+  const uncachedIds: string[] = []
+  let cacheHits = 0
+
+  channelIds.forEach(id => {
+    const cached = getCachedChannelInfo(id)
+    if (cached) {
+      result.set(id, {
+        subscriberCount: cached.subscriberCount,
+        country: cached.country,
+      })
+      cacheHits++
+    } else {
+      uncachedIds.push(id)
+    }
+  })
+
+  console.log(
+    `📊 캐시 상태: ${cacheHits}/${channelIds.length}개 히트, API 요청 필요: ${uncachedIds.length}개`
+  )
+
+  // 2단계: 캐시 미스 항목만 API 요청
+  if (uncachedIds.length > 0) {
+    try {
+      // Promise.all로 병렬 요청 (RequestQueue가 동시성 제어)
+      const results = await Promise.all(
+        uncachedIds.map(id => getChannelInfo(id))
+      )
+
+      // 결과 병합 및 캐시 저장
+      results.forEach((channel, index) => {
+        const channelId = uncachedIds[index]
+        result.set(channelId, {
+          subscriberCount: channel.subscriberCount,
+          country: channel.country,
+        })
+        // 캐시에 저장
+        setCachedChannelInfo(channelId, channel.subscriberCount, channel.country)
+      })
+
+      const totalTime = Date.now() - startTime
+      console.log(
+        `✅ 채널 정보 조회 완료 (${totalTime}ms) - 캐시: ${cacheHits}개, API: ${uncachedIds.length}개`
+      )
+    } catch (error) {
+      console.error(`❌ 채널 정보 조회 실패:`, error)
+    }
+  } else {
+    const totalTime = Date.now() - startTime
+    console.log(`✅ 채널 정보 조회 완료 (${totalTime}ms) - 캐시만 사용`)
+  }
+
+  return result
 }
 
 /**

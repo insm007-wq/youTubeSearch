@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/auth'
 import { checkApiUsage, incrementApiUsage } from '@/lib/apiUsage'
-import { searchYouTubeWithRapidAPI } from '@/lib/rapidApiClient'
-import { getChannelsInfo } from '@/lib/youtubeChannelsClient'
+import { searchYouTubeWithRapidAPI, getChannelsInfo } from '@/lib/rapidApiClient'
 
 export async function GET(request: NextRequest) {
   const requestStartTime = Date.now()
