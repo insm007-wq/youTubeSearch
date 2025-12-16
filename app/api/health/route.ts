@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
           maxConcurrentRequests: config.MAX_CONCURRENT_REQUESTS,
           requestTimeout: config.REQUEST_TIMEOUT,
           retryCount: config.RETRY_COUNT,
-          shortsBatchSize: config.SHORTS_BATCH_SIZE,
+          retryDelay: config.RETRY_DELAY,
         },
         health: {
           activeRequests: queueStatus.activeRequests,
