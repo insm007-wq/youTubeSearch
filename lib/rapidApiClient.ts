@@ -484,7 +484,8 @@ function formatRelativeTime(relativeTime: string): string {
  */
 async function searchWithYTAPI(
   query: string,
-  targetCount: number = 40
+  targetCount: number = 40,
+  uploadDate?: string  // 'hour' | 'today' | 'week' | 'month' | 'year'
 ): Promise<YTAPIVideo[]> {
   if (!RAPIDAPI_KEY) {
     throw new Error('RapidAPI 키가 설정되지 않았습니다')
@@ -519,11 +520,13 @@ async function searchWithYTAPI(
         url.searchParams.append('type', searchType)  // 'video' 또는 'shorts'
 
         // ✅ 최적화 파라미터 추가
-        url.searchParams.append('upload_date', 'year')  // 1년치만 요청
-        url.searchParams.append('sort_by', 'views')     // 조회수순 정렬
-        url.searchParams.append('geo', 'KR')            // 한국 지역
-        url.searchParams.append('lang', 'ko')           // 한국어
-        url.searchParams.append('local', '1')           // 현지화 활성화
+        // uploadDate가 있으면 적용, 없으면 기간 필터 없음
+        if (uploadDate) {
+          url.searchParams.append('upload_date', uploadDate)  // 동적 기간 필터
+        }
+        url.searchParams.append('sort_by', 'relevance')     // 기본 정렬 (빠른 응답)
+        url.searchParams.append('geo', 'KR')                // 한국 지역
+        url.searchParams.append('lang', 'ko')               // 한국어
 
         // Pagination: continuation이 있으면 다음 페이지 요청
         if (continuation) {
@@ -678,10 +681,11 @@ function transformYTAPIData(items: YTAPIVideo[]): ApifyDataItem[] {
  */
 export async function searchYouTubeWithRapidAPI(
   query: string,
-  targetCount: number = 40
+  targetCount: number = 40,
+  uploadDate?: string  // 'hour' | 'today' | 'week' | 'month' | 'year'
 ): Promise<ApifyDataItem[]> {
   try {
-    const items = await searchWithYTAPI(query, targetCount)
+    const items = await searchWithYTAPI(query, targetCount, uploadDate)
     const transformedItems = transformYTAPIData(items)
 
     return transformedItems

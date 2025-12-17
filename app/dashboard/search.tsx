@@ -214,31 +214,6 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
     }
   }, [user?.email])
 
-  // 기간 필터링 함수
-  const filterResultsByPeriod = (items: any[], period: string) => {
-    if (period === "all") return items;
-
-    const now = Date.now();
-    return items.filter((video) => {
-      const publishDate = new Date(video.publishedAt || "").getTime();
-      const daysAgo = (now - publishDate) / (1000 * 60 * 60 * 24);
-
-      // 단기 필터
-      if (period === "3days" && daysAgo > 3) return false;
-      if (period === "5days" && daysAgo > 5) return false;
-      if (period === "7days" && daysAgo > 7) return false;
-      if (period === "10days" && daysAgo > 10) return false;
-
-      // 장기 필터
-      if (period === "1month" && daysAgo > 30) return false;
-      if (period === "2months" && daysAgo > 60) return false;
-      if (period === "6months" && daysAgo > 180) return false;
-      if (period === "1year" && daysAgo > 365) return false;
-
-      return true;
-    });
-  };
-
   // Engagement 레벨 계산 함수
   const getEngagementLevel = (ratio: number): number => {
     if (ratio >= 3.0) return 5;
@@ -249,8 +224,9 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
   };
 
   // 기간, 길이, engagement ratio로 필터링하는 함수
-  const filterResults = (items: any[], period: string, length: string, ratios: string[]) => {
-    let filtered = filterResultsByPeriod(items, period);
+  const filterResults = (items: any[], length: string, ratios: string[]) => {
+    // period 파라미터는 API에서 이미 처리되므로 제거
+    let filtered = items;
 
     // 길이 필터
     if (length !== "all") {
@@ -359,10 +335,11 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
   // 필터링된 결과 계산 (메모이제이션)
   const results = useMemo(
     () => {
-      let filtered = filterResults(allResults, uploadPeriod, videoLength, engagementRatios);
+      // uploadPeriod는 API에서 이미 처리되므로 제외
+      let filtered = filterResults(allResults, videoLength, engagementRatios);
       return sortResults(filtered, sortBy);
     },
-    [allResults, uploadPeriod, videoLength, engagementRatios, sortBy]
+    [allResults, videoLength, engagementRatios, sortBy]
   );
 
   // 트렌딩 필터링된 결과 계산 (메모이제이션)
@@ -466,21 +443,24 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
     setShowTrending(false); // 검색 시 트렌딩 탭 숨기기
 
     try {
-      // 1차: 35개 빠르게 로딩 (중복 제거 후 ~32개)
-      const params20 = new URLSearchParams({
+      // 검색 API 호출 (40개)
+      const params = new URLSearchParams({
         q: searchInput,
-        maxResults: "35",
+        count: "40",
       });
+      // uploadPeriod가 'all'이 아니면 파라미터 추가
+      if (uploadPeriod !== 'all') {
+        params.append('upload_date', uploadPeriod);
+      }
 
-      console.log(`🔍 [1차] 35개 빠른 로딩 시작...`);
       const startTime = Date.now();
-      const response20 = await fetch(`/api/youtube_search?${params20}`);
-      const data20 = await response20.json();
-      const time20 = Date.now() - startTime;
+      const response = await fetch(`/api/youtube_search?${params}`);
+      const data = await response.json();
+      const fetchTime = Date.now() - startTime;
 
-      if (!response20.ok) {
+      if (!response.ok) {
         // 403 에러: 계정이 비활성화됨
-        if (response20.status === 403) {
+        if (response.status === 403) {
           addToast({
             type: 'error',
             title: '계정이 비활성화되었습니다',
@@ -491,9 +471,9 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
         }
 
         // 429 에러: API 사용 제한 초과
-        if (response20.status === 429) {
-          const used = data20.apiUsageToday?.used || 0;
-          const limit = data20.apiUsageToday?.limit || 0;
+        if (response.status === 429) {
+          const used = data.apiUsageToday?.used || 0;
+          const limit = data.apiUsageToday?.limit || 0;
           addToast({
             type: 'warning',
             title: '일일 검색 횟수 제한 초과',
@@ -507,54 +487,24 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
         addToast({
           type: 'error',
           title: '검색 실패',
-          message: data20.error || "알 수 없는 오류",
+          message: data.error || "알 수 없는 오류",
         });
         setIsLoading(false);
         return;
       }
 
-      console.log(`⏱️  [1차] 20개 로드 완료 (${time20}ms)`);
+      console.log(`✓ ${data.items?.length}개 | 필터: ${uploadPeriod} | ${fetchTime}ms`);
 
-      // 1차 결과 표시 (20개)
-      setAllResults(data20.items || []);
-      setTotalResults(data20.totalResults || 0);
+      // 결과 표시
+      setAllResults(data.items || []);
+      setTotalResults(data.totalResults || 0);
       setIsLoading(false);
-
-      // ✅ 1차 사용량 정보 로깅
-      if (data20.apiUsageToday) {
-        console.log(`✅ [1차] 검색 성공 - 사용량: ${data20.apiUsageToday.used}/${data20.apiUsageToday.limit}`);
-      }
-
-      // 2차: 45개 백그라운드 로딩 (중복 제거 후 ~41개, 목표: ~40개)
-      console.log(`🔍 [2차] 45개 백그라운드 로딩 시작...`);
-      const params50 = new URLSearchParams({
-        q: searchInput,
-        maxResults: "45",
-      });
-
-      // 비동기로 2차 로딩 (응답 대기 안함)
-      fetch(`/api/youtube_search?${params50}`)
-        .then(async (response50) => {
-          const data50 = await response50.json();
-          if (response50.ok) {
-            console.log(`⏱️  [2차] 50개 로드 완료 (${data50.items?.length || 0}개)`);
-            setAllResults(data50.items || []);
-            setTotalResults(data50.totalResults || 0);
-
-            if (data50.apiUsageToday) {
-              console.log(`✅ [2차] 검색 성공 - 사용량: ${data50.apiUsageToday.used}/${data50.apiUsageToday.limit}`);
-            }
-          }
-        })
-        .catch((error) => {
-          console.warn(`⚠️  [2차] 백그라운드 로딩 실패:`, error);
-        });
     } catch (error) {
       console.error("검색 오류:", error);
       alert("검색 중 오류가 발생했습니다");
       setIsLoading(false);
     }
-  }, [searchInput, searchHistory, addToast]);
+  }, [searchInput, searchHistory, uploadPeriod, addToast]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
