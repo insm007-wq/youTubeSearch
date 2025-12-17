@@ -443,10 +443,9 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
     setShowTrending(false); // 검색 시 트렌딩 탭 숨기기
 
     try {
-      // 검색 API 호출 (40개)
+      // 검색 API 호출 (기본값 사용 - 한 번만 호출)
       const params = new URLSearchParams({
         q: searchInput,
-        count: "40",
       });
       // uploadPeriod가 'all'이 아니면 파라미터 추가
       if (uploadPeriod !== 'all') {

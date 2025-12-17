@@ -484,7 +484,7 @@ function formatRelativeTime(relativeTime: string): string {
  */
 async function searchWithYTAPI(
   query: string,
-  targetCount: number = 40,
+  targetCount: number = 20,
   uploadDate?: string  // 'hour' | 'today' | 'week' | 'month' | 'year'
 ): Promise<YTAPIVideo[]> {
   if (!RAPIDAPI_KEY) {

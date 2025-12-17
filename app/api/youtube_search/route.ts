@@ -97,7 +97,7 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     const query = searchParams.get('q')?.trim()
-    let targetCount = parseInt(searchParams.get('count') || '40')  // 기본값: 40개 (YT-API Pagination)
+    let targetCount = parseInt(searchParams.get('count') || '20')  // 기본값: 20개 (한 번의 API 호출)
     const uploadDate = searchParams.get('upload_date') || undefined  // 'hour', 'today', 'week', 'month', 'year'
 
     // ✅ 입력값 검증
