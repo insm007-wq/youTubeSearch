@@ -55,7 +55,8 @@ export async function GET(request: NextRequest) {
 
     // ✅ 응답 반환
     return NextResponse.json({
-      country: videoInfo.country,
+      languageCode: videoInfo.languageCode,
+      keywords: videoInfo.keywords || [],
     })
   } catch (error) {
     console.error('❌ 비디오 조회 오류:', error)

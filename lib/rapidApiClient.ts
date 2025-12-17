@@ -6,7 +6,7 @@
  */
 
 import { RequestQueue } from '@/lib/utils/requestQueue'
-import { extractHashtagsFromTitle, removeHashtagsFromText } from '@/lib/hashtagUtils'
+import { removeHashtagsFromText } from '@/lib/hashtagUtils'
 
 // ============ 설정 ============
 const API_BASE_URL = 'https://yt-api.p.rapidapi.com'
@@ -618,10 +618,17 @@ function transformYTAPIData(items: YTAPIVideo[]): ApifyDataItem[] {
 
     // 첫 번째 항목만 디버깅
     if (index === 0) {
+      console.log('📊 [검색 결과] 첫 번째 비디오 전체 구조:', {
+        keys: Object.keys(item),
+        keywords: item.keywords,
+        tags: item.tags,
+      })
       console.log('📊 [검색 결과] 첫 번째 비디오:', {
         title: item.title.substring(0, 30),
         viewCount: viewCount,
         subscriberCount: item.subscriberCount ? parseSubscriberCount(String(item.subscriberCount)) : 0,
+        keywords: item.keywords,
+        tags: item.tags,
       })
     }
 
@@ -640,10 +647,8 @@ function transformYTAPIData(items: YTAPIVideo[]): ApifyDataItem[] {
       thumbnail = item.image
     }
 
-    // 제목에서 해시태그 추출 (tags 배열에 저장)
-    // 제목에서 해시태그는 제거 (tags 배열에만 포함)
+    // 제목에서 해시태그 제거 (사용자가 설정하지 않은 해시태그는 표시하지 않음)
     const titleWithoutHashtags = removeHashtagsFromText(item.title)
-    const extractedHashtags = extractHashtagsFromTitle(item.title)
 
     return {
       id: videoId,
@@ -662,11 +667,11 @@ function transformYTAPIData(items: YTAPIVideo[]): ApifyDataItem[] {
         ? parseSubscriberCount(String(item.subscriberCount))
         : parseSubscriberCount(item.channel?.subscribers),
       thumbnail,
-      // 키워드 또는 제목에서 추출한 해시태그
+      // 사용자가 설정한 키워드/태그만 표시 (설정하지 않으면 빈 배열)
       tags:
         item.keywords ||
         item.tags ||
-        extractedHashtags,
+        [],
       categoryId: '',
       categoryName: formatRelativeTime(
         item.publishedTimeText || item.publishDate || item.uploaded || item.publishedText || ''
@@ -789,9 +794,11 @@ export async function getChannelInfo(
     const response_data: any = await response.json()
 
     // 🔍 디버그: 채널 정보 확인
-    if (response_data.meta) {
-      console.log(`📍 [${channelId}] country:`, response_data.meta.country)
-    }
+    console.log(`📍 [채널 정보 - 전체 필드] ${channelId}:`, {
+      metaKeys: response_data.meta ? Object.keys(response_data.meta) : 'NO META',
+      country: response_data.meta?.country,
+      videosCountText: response_data.meta?.videosCountText,
+    })
 
     // YT-API 응답은 래핑된 구조: { meta, continuation, data, msg }
     // 채널 정보는 meta 필드에 있음!
@@ -911,7 +918,7 @@ export async function getChannelsInfo(
  * 개별 비디오 정보 조회 (YT-API /video/info)
  * 비디오 상세 정보 및 위치(country) 정보 포함
  */
-export async function getVideoInfo(videoId: string): Promise<{ country: string | null }> {
+export async function getVideoInfo(videoId: string): Promise<{ languageCode: string | null; keywords: string[] }> {
   try {
     const url = new URL(`${API_BASE_URL}/video/info`)
     url.searchParams.append('id', videoId)
@@ -927,7 +934,7 @@ export async function getVideoInfo(videoId: string): Promise<{ country: string |
 
     if (!response.ok) {
       console.warn(`⚠️  비디오 정보 조회 실패 (${response.status}):`, videoId)
-      return { country: null }
+      return { languageCode: null, keywords: [] }
     }
 
     const response_data: any = await response.json()
@@ -939,20 +946,19 @@ export async function getVideoInfo(videoId: string): Promise<{ country: string |
       data = response_data.data[0]
     }
 
-    // 🔍 디버그: 응답 구조 확인 (처음 몇 번만)
-    if (Math.random() < 0.1) { // 10% 샘플링
-      console.log(`🎥 [비디오 정보] ${videoId}:`, {
-        country: data.country,
-        topLevelKeys: data ? Object.keys(data).slice(0, 10) : [],
-      })
-    }
+    // 🔍 디버그: 응답 구조 확인
+    console.log(`🎥 [비디오 정보] ${videoId}:`, {
+      defaultVideoLanguageCode: data?.defaultVideoLanguageCode,
+      keywords: data?.keywords?.length || 0,
+    })
 
     return {
-      country: data.country || null,
+      languageCode: data.defaultVideoLanguageCode || null,
+      keywords: data.keywords || [],
     }
   } catch (error) {
     console.warn(`⚠️  비디오 정보 조회 실패 - ${videoId}:`, error)
-    return { country: null }
+    return { languageCode: null, keywords: [] }
   }
 }
 

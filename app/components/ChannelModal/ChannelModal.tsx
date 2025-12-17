@@ -128,8 +128,8 @@ export default function ChannelModal({
                   <div className="channel-stat-value">{formatNumber(videoCount)}</div>
                 </div>
                 <div className="channel-stat-box">
-                  <div className="channel-stat-label">채널 국가</div>
-                  <div className="channel-stat-value">{getCountryName(country)}</div>
+                  <div className="channel-stat-label">총 조회수</div>
+                  <div className="channel-stat-value">{formatNumber(viewCount)}</div>
                 </div>
               </div>
 

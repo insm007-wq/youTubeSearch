@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import TagAnalysis from "@/app/components/TagAnalysis/TagAnalysis";
 import { Tooltip } from "@/app/components/ui/Tooltip";
 import { calculateVPH } from "@/lib/vphUtils";
@@ -178,9 +178,10 @@ export default function VideoCard({ video, showVPH = false, vph, onChannelClick 
   const [subscriberCount, setSubscriberCount] = useState(initialSubscriberCount);
   const [isLoadingSubscribers, setIsLoadingSubscribers] = useState(false);
 
-  // 국가 정보 상태 관리 (API에서 조회)
-  const [videoCountry, setVideoCountry] = useState<string | null>(channelCountry || null);
-  const [isLoadingCountry, setIsLoadingCountry] = useState(false);
+  // 태그 정보 상태 관리 (API에서 조회)
+  const [videoTags, setVideoTags] = useState<string[]>(tags || []);
+  const [isLoadingTags, setIsLoadingTags] = useState(false);
+  const hasRequestedTags = useRef(false);
 
   // 구독자 수가 0이고 channelId가 있으면 실시간 조회
   useEffect(() => {
@@ -201,24 +202,25 @@ export default function VideoCard({ video, showVPH = false, vph, onChannelClick 
     }
   }, [subscriberCount, channelId]);
 
-  // 국가 정보가 없으면 비디오 정보 API에서 조회
+  // 비디오 태그 조회 (한 번만 요청)
   useEffect(() => {
-    if (!videoCountry && id) {
-      setIsLoadingCountry(true);
+    if ((!videoTags || videoTags.length === 0) && id && !hasRequestedTags.current) {
+      hasRequestedTags.current = true;
+      setIsLoadingTags(true);
       fetch(`/api/video-info?videoId=${encodeURIComponent(id)}`)
         .then(res => res.json())
         .then(data => {
-          if (data.country) {
-            setVideoCountry(data.country);
+          if (data.keywords && data.keywords.length > 0) {
+            setVideoTags(data.keywords);
           }
-          setIsLoadingCountry(false);
+          setIsLoadingTags(false);
         })
         .catch(error => {
-          console.warn(`⚠️  비디오 국가 정보 조회 실패 (${id}):`, error);
-          setIsLoadingCountry(false);
+          console.warn(`⚠️  비디오 태그 조회 실패 (${id}):`, error);
+          setIsLoadingTags(false);
         });
     }
-  }, [id, videoCountry]);
+  }, [id]);
 
   const viewCountText = viewCount === 0 ? "조회 불가" : formatNumber(viewCount);
   const subscriberText = isLoadingSubscribers
@@ -297,13 +299,9 @@ export default function VideoCard({ video, showVPH = false, vph, onChannelClick 
           {categoryName && (
             <div className="text-badge upload-time">{categoryName}</div>
           )}
-
-          <div className="text-badge country">
-            {isLoadingCountry ? '로딩...' : videoCountry || '국가 미등록'}
-          </div>
         </div>
 
-        <TagAnalysis tags={tags} title={title} />
+        <TagAnalysis tags={videoTags} title={title} />
 
         {/* Buttons */}
         <div className="video-buttons">
