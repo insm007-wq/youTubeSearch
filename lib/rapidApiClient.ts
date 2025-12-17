@@ -472,123 +472,137 @@ function formatRelativeTime(relativeTime: string): string {
 // ============ API 호출 ============
 
 /**
- * YT-API 검색
+ * YT-API 검색 (Pagination + 비디오/쇼츠 혼합)
+ * targetCount개의 영상을 얻을 때까지 여러 번 요청
+ * 비디오와 쇼츠를 동시에 검색하여 다양성 제공
+ * 기본: video ~20개 + shorts ~20개 = ~40개
+ *
+ * 최적화:
+ * - upload_date=year: 최근 1년 이내 영상만 검색
+ * - sort_by=views: 조회수 높은 순으로 정렬
+ * - geo=KR, lang=ko, local=1: 한국 로컬라이제이션
  */
 async function searchWithYTAPI(
   query: string,
-  maxResults: number = 50
+  targetCount: number = 40
 ): Promise<YTAPIVideo[]> {
   if (!RAPIDAPI_KEY) {
     throw new Error('RapidAPI 키가 설정되지 않았습니다')
   }
 
   const startTime = Date.now()
+  const allItems: YTAPIVideo[] = []
 
-  return withRetry(async () => {
-    const url = new URL(`${API_BASE_URL}/search`)
-    url.searchParams.append('query', query)
-    url.searchParams.append('type', 'video')
-    url.searchParams.append('gl', 'KR')
-    url.searchParams.append('hl', 'ko')
+  // 비디오와 쇼츠를 각각 검색
+  const searchTypes = ['video', 'shorts']
+  let totalFetchTime = 0
 
-    const fetchStart = Date.now()
-    const response = await fetch(url.toString(), {
-      method: 'GET',
-      headers: {
-        'x-rapidapi-key': RAPIDAPI_KEY,
-        'x-rapidapi-host': RAPIDAPI_HOST,
-      },
-      signal: AbortSignal.timeout(CONFIG.REQUEST_TIMEOUT),
-    })
-    const fetchTime = Date.now() - fetchStart
+  try {
+    for (const searchType of searchTypes) {
+      if (allItems.length >= targetCount) {
+        console.log(`📋 목표 개수 달성 (${allItems.length}개) - ${searchType} 검색 스킵`)
+        break
+      }
 
-    if (!response.ok) {
-      const error: any = new Error(`HTTP ${response.status}`)
-      error.status = response.status
-      throw error
-    }
+      console.log(`🎬 [${searchType.toUpperCase()}] 검색 시작`)
 
-    const data = await response.json()
+      let continuation: string | undefined = undefined
+      let pageCount = 0
 
-    // 🐛 디버깅: 실제 API 응답 구조 확인
-    console.log('📦 [YT-API 원본 응답]', {
-      type: typeof data,
-      is_array: Array.isArray(data),
-      keys: typeof data === 'object' ? Object.keys(data) : 'N/A',
-      sample: Array.isArray(data)
-        ? data[0]
-        : JSON.stringify(data).substring(0, 200)
-    })
+      // 각 타입별로 Pagination 처리
+      while (allItems.length < targetCount) {
+        pageCount++
 
-    // 🐛 첫 번째 항목의 전체 필드명 확인
-    let firstItem: any = null
-    if (Array.isArray(data) && data.length > 0) {
-      firstItem = data[0]
-    } else if (data?.data && Array.isArray(data.data) && data.data.length > 0) {
-      firstItem = data.data[0]
-    }
+        const fetchStart = Date.now()
+        const url = new URL(`${API_BASE_URL}/search`)
+        url.searchParams.append('query', query)
+        url.searchParams.append('type', searchType)  // 'video' 또는 'shorts'
 
-    if (firstItem) {
-      console.log('🔍 [첫번째 항목 필드명]', Object.keys(firstItem))
-      console.log('🔍 [첫번째 항목 전체 데이터]', JSON.stringify(firstItem, null, 2))
-      console.log('🔍 [채널 정보 확인]', {
-        channelId: firstItem.channel?.id,
-        channelName: firstItem.channel?.name,
-        subscribers: firstItem.channel?.subscribers,
-        views: firstItem.views,
-        viewCount: firstItem.viewCount,
-      })
-      console.log('🔍 [썸네일 정보 확인]', {
-        thumbnail: firstItem.thumbnail,
-        thumbnails: firstItem.thumbnails,
-        image: firstItem.image,
-        url: firstItem.url,
-        link: firstItem.link,
-      })
-    }
+        // ✅ 최적화 파라미터 추가
+        url.searchParams.append('upload_date', 'year')  // 1년치만 요청
+        url.searchParams.append('sort_by', 'views')     // 조회수순 정렬
+        url.searchParams.append('geo', 'KR')            // 한국 지역
+        url.searchParams.append('lang', 'ko')           // 한국어
+        url.searchParams.append('local', '1')           // 현지화 활성화
 
-    // 구조 파악 및 Shorts/Videos flatten
-    let items: YTAPIVideo[] = []
-
-    if (Array.isArray(data)) {
-      // Shorts와 Videos가 섞여 있는 배열
-      // type: "shorts_listing" → data 배열 flatten
-      // type: "video" → 직접 추가
-      items = data.flatMap((item: any) => {
-        if (item.type === 'shorts_listing' && item.data && Array.isArray(item.data)) {
-          return item.data
+        // Pagination: continuation이 있으면 다음 페이지 요청
+        if (continuation) {
+          url.searchParams.append('token', continuation)
+          console.log(`  📄 [${searchType} 페이지 ${pageCount}] 다음 페이지 요청`)
         }
-        return item
-      })
-      console.log('✅ 응답이 직접 배열 (Shorts/Videos 섞임)')
-    } else if (data?.data && Array.isArray(data.data)) {
-      items = data.data
-      console.log('✅ 응답이 data.data 구조')
-    } else if (data?.contents && Array.isArray(data.contents)) {
-      items = data.contents
-      console.log('✅ 응답이 data.contents 구조')
-    } else if (data?.videos && Array.isArray(data.videos)) {
-      items = data.videos
-      console.log('✅ 응답이 data.videos 구조')
-    } else if (data?.results && Array.isArray(data.results)) {
-      items = data.results
-      console.log('✅ 응답이 data.results 구조')
-    } else {
-      console.warn('❌ 응답 구조를 파악할 수 없음:', data)
-      items = []
-    }
 
-    // shorts_listing 타입 항목 제거 (flatten 후 불필요)
-    items = items.filter((item) => item.type !== 'shorts_listing')
+        const response = await fetch(url.toString(), {
+          method: 'GET',
+          headers: {
+            'x-rapidapi-key': RAPIDAPI_KEY,
+            'x-rapidapi-host': RAPIDAPI_HOST,
+          },
+          signal: AbortSignal.timeout(CONFIG.REQUEST_TIMEOUT),
+        })
+        const fetchTime = Date.now() - fetchStart
+        totalFetchTime += fetchTime
+
+        if (!response.ok) {
+          const error: any = new Error(`HTTP ${response.status}`)
+          error.status = response.status
+          throw error
+        }
+
+        const data = await response.json()
+
+        // 구조 파악 및 Shorts/Videos flatten
+        let items: YTAPIVideo[] = []
+
+        if (Array.isArray(data)) {
+          items = data.flatMap((item: any) => {
+            if (item.type === 'shorts_listing' && item.data && Array.isArray(item.data)) {
+              return item.data
+            }
+            return item
+          })
+        } else if (data?.data && Array.isArray(data.data)) {
+          items = data.data
+        } else if (data?.contents && Array.isArray(data.contents)) {
+          items = data.contents
+        } else if (data?.videos && Array.isArray(data.videos)) {
+          items = data.videos
+        } else if (data?.results && Array.isArray(data.results)) {
+          items = data.results
+        }
+
+        // shorts_listing 타입 항목 제거
+        items = items.filter((item) => item.type !== 'shorts_listing')
+
+        allItems.push(...items)
+
+        console.log(
+          `  ✅ [${searchType} 페이지 ${pageCount}] ${items.length}개 조회 (누적: ${allItems.length}개, ${fetchTime}ms)`
+        )
+
+        // 다음 페이지 continuation 저장
+        continuation = data.continuation || undefined
+
+        // 목표 개수 달성하거나 continuation이 없으면 중단
+        if (allItems.length >= targetCount || !continuation) {
+          if (allItems.length >= targetCount) {
+            console.log(`  📋 [${searchType}] 목표 개수 달성`)
+          }
+          break
+        }
+      }
+    }
 
     const totalTime = Date.now() - startTime
 
     console.log(
-      `✅ YT-API 요청 완료 - ${items.length}개 (${fetchTime}ms 조회, ${totalTime}ms 총시간)`
+      `✅ YT-API 검색 완료 - ${allItems.length}개 (video + shorts 혼합, ${totalFetchTime}ms 조회, ${totalTime}ms 총시간)`
     )
 
-    return items.slice(0, maxResults)
-  })
+    return allItems.slice(0, targetCount)
+  } catch (error) {
+    console.error('❌ YT-API 검색 실패:', error)
+    throw error
+  }
 }
 
 /**
@@ -659,14 +673,15 @@ function transformYTAPIData(items: YTAPIVideo[]): ApifyDataItem[] {
 // ============ 내보내기 ============
 
 /**
- * YouTube 검색 (YT-API 사용)
+ * YouTube 검색 (YT-API 사용 + Pagination)
+ * targetCount개의 영상 반환 (기본 40개)
  */
 export async function searchYouTubeWithRapidAPI(
   query: string,
-  maxResults: number = 50
+  targetCount: number = 40
 ): Promise<ApifyDataItem[]> {
   try {
-    const items = await searchWithYTAPI(query, maxResults)
+    const items = await searchWithYTAPI(query, targetCount)
     const transformedItems = transformYTAPIData(items)
 
     return transformedItems
