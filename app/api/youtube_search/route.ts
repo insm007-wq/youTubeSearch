@@ -97,7 +97,7 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     const query = searchParams.get('q')?.trim()
-    let targetCount = parseInt(searchParams.get('count') || '20')  // 기본값: 20개 (한 번의 API 호출)
+    let targetCount = parseInt(searchParams.get('count') || '50')  // 기본값: 50개 (필터링 후 충분한 데이터 확보)
     const uploadDate = searchParams.get('upload_date') || undefined  // 'hour', 'today', 'week', 'month', 'year'
 
     // ✅ 입력값 검증

@@ -484,7 +484,7 @@ function formatRelativeTime(relativeTime: string): string {
  */
 async function searchWithYTAPI(
   query: string,
-  targetCount: number = 20,
+  targetCount: number = 50,
   uploadDate?: string  // 'hour' | 'today' | 'week' | 'month' | 'year'
 ): Promise<YTAPIVideo[]> {
   if (!RAPIDAPI_KEY) {
@@ -494,24 +494,21 @@ async function searchWithYTAPI(
   const startTime = Date.now()
   const allItems: YTAPIVideo[] = []
 
-  // 비디오와 쇼츠를 각각 검색
-  const searchTypes = ['video', 'shorts']
+  // 첫 페이지의 결과만 반환 (한 번의 API 호출)
+  const searchTypes = ['video']
   let totalFetchTime = 0
 
   try {
     for (const searchType of searchTypes) {
-      if (allItems.length >= targetCount) {
-        console.log(`📋 목표 개수 달성 (${allItems.length}개) - ${searchType} 검색 스킵`)
-        break
-      }
-
       console.log(`🎬 [${searchType.toUpperCase()}] 검색 시작`)
 
-      let continuation: string | undefined = undefined
+      // 첫 페이지만 요청 (pagination 없음)
       let pageCount = 0
+      let continuation: string | undefined = undefined
+      const shouldContinue = true
 
-      // 각 타입별로 Pagination 처리
-      while (allItems.length < targetCount) {
+      // 첫 페이지만 처리
+      if (shouldContinue) {
         pageCount++
 
         const fetchStart = Date.now()
@@ -519,14 +516,14 @@ async function searchWithYTAPI(
         url.searchParams.append('query', query)
         url.searchParams.append('type', searchType)  // 'video' 또는 'shorts'
 
-        // ✅ 최적화 파라미터 추가
-        // uploadDate가 있으면 적용, 없으면 기간 필터 없음
+        // ✅ RapidAPI 파라미터 추가 (문서 기반)
         if (uploadDate) {
-          url.searchParams.append('upload_date', uploadDate)  // 동적 기간 필터
+          url.searchParams.append('upload_date', uploadDate)  // hour | today | week | month | year
         }
-        url.searchParams.append('sort_by', 'relevance')     // 기본 정렬 (빠른 응답)
-        url.searchParams.append('geo', 'KR')                // 한국 지역
+        url.searchParams.append('sort_by', 'relevance')     // relevance | rating | date | views
+        url.searchParams.append('geo', 'KR')                // 한국 지역 (ISO 3166-2)
         url.searchParams.append('lang', 'ko')               // 한국어
+        url.searchParams.append('local', '1')               // 지역화된 데이터
 
         // Pagination: continuation이 있으면 다음 페이지 요청
         if (continuation) {
@@ -579,29 +576,18 @@ async function searchWithYTAPI(
         allItems.push(...items)
 
         console.log(
-          `  ✅ [${searchType} 페이지 ${pageCount}] ${items.length}개 조회 (누적: ${allItems.length}개, ${fetchTime}ms)`
+          `  ✅ [${searchType} 페이지 ${pageCount}] ${items.length}개 조회 (${fetchTime}ms)`
         )
-
-        // 다음 페이지 continuation 저장
-        continuation = data.continuation || undefined
-
-        // 목표 개수 달성하거나 continuation이 없으면 중단
-        if (allItems.length >= targetCount || !continuation) {
-          if (allItems.length >= targetCount) {
-            console.log(`  📋 [${searchType}] 목표 개수 달성`)
-          }
-          break
-        }
       }
     }
 
     const totalTime = Date.now() - startTime
 
     console.log(
-      `✅ YT-API 검색 완료 - ${allItems.length}개 (video + shorts 혼합, ${totalFetchTime}ms 조회, ${totalTime}ms 총시간)`
+      `✅ YT-API 검색 완료 - ${allItems.length}개 (한 번의 API 호출, ${totalFetchTime}ms)`
     )
 
-    return allItems.slice(0, targetCount)
+    return allItems
   } catch (error) {
     console.error('❌ YT-API 검색 실패:', error)
     throw error
