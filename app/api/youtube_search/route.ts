@@ -97,7 +97,7 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     const query = searchParams.get('q')?.trim()
-    let maxResults = parseInt(searchParams.get('maxResults') || '50')  // 기본값: 50개
+    let targetCount = parseInt(searchParams.get('count') || '40')  // 기본값: 40개 (YT-API Pagination)
 
     // ✅ 입력값 검증
     if (!query || query.length < 1 || query.length > 100) {
@@ -107,9 +107,9 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // ✅ maxResults 범위 검증 (1-100)
-    if (isNaN(maxResults) || maxResults < 1 || maxResults > 100) {
-      maxResults = 50
+    // ✅ count 범위 검증 (1-100)
+    if (isNaN(targetCount) || targetCount < 1 || targetCount > 100) {
+      targetCount = 40
     }
 
     // ✅ RapidAPI + Google을 통한 YouTube 검색 (병렬 처리)
@@ -118,11 +118,11 @@ export async function GET(request: NextRequest) {
       const searchStartTime = Date.now()
       console.log(`🔍 RapidAPI 검색 시작 - query: ${query}`)
 
-      // 1️⃣ RapidAPI로 검색
+      // 1️⃣ RapidAPI로 검색 (Pagination으로 targetCount개 확보)
       const rapidApiStart = Date.now()
-      items = await searchYouTubeWithRapidAPI(query, maxResults)
+      items = await searchYouTubeWithRapidAPI(query, targetCount)
       const rapidApiTime = Date.now() - rapidApiStart
-      console.log(`⏱️  [1단계] RapidAPI: ${rapidApiTime}ms (${items.length}개)`)
+      console.log(`⏱️  [1단계] RapidAPI: ${rapidApiTime}ms (${items.length}개, targetCount: ${targetCount})`)
 
       if (!items || items.length === 0) {
         console.log(`⚠️  검색 결과 없음`)

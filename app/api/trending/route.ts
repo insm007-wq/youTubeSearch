@@ -87,7 +87,8 @@ export async function GET(request: NextRequest) {
       const query = sectionQueryMap[section] || '유튜브'
 
       // 조회수가 높은 영상들을 검색 (조회수 기준 내림차순)
-      items = await searchYouTubeWithRapidAPI(query, 50)
+      // Pagination으로 40개 확보 (~20개 * 2페이지)
+      items = await searchYouTubeWithRapidAPI(query, 40)
 
       // 최근 7일 이내의 영상만 필터링
       const sevenDaysAgo = new Date()
