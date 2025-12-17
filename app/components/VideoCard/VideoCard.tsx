@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import TagAnalysis from "@/app/components/TagAnalysis/TagAnalysis";
 import { Tooltip } from "@/app/components/ui/Tooltip";
 import { calculateVPH } from "@/lib/vphUtils";
@@ -92,17 +93,21 @@ const formatNumber = (num: number): string => {
   return num.toString();
 };
 
-// VPH 포맷팅 함수 (비정상적으로 큰 값 방지)
+// VPH 포맷팅 함수
 const formatVPH = (vph: number): string => {
   if (vph <= 0) return "N/A";
 
-  // 비정상적으로 큰 VPH (1,000,000 이상)는 에러로 간주
-  if (vph >= 1000000) {
+  // 매우 비정상적인 VPH (10,000,000 이상)는 에러로 간주
+  // 1,000,000~9,999,999는 정상 범위 (최근 높은 조회수 비디오)
+  if (vph >= 10000000) {
     console.warn(`⚠️  비정상적으로 큰 VPH 값: ${vph}`);
     return "오류";
   }
 
   // 일반적인 포맷팅
+  if (vph >= 1000000) {
+    return (vph / 1000000).toFixed(1) + "M";
+  }
   if (vph >= 1000) {
     return (vph / 1000).toFixed(1) + "K";
   }
@@ -159,7 +164,7 @@ export default function VideoCard({ video, showVPH = false, vph, onChannelClick 
     channelTitle,
     thumbnail,
     viewCount,
-    subscriberCount,
+    subscriberCount: initialSubscriberCount,
     duration,
     publishedAt,
     tags,
@@ -169,8 +174,58 @@ export default function VideoCard({ video, showVPH = false, vph, onChannelClick 
     channelCountry,
   } = video;
 
+  // 구독자 수 상태 관리 (API에서 0이면 실시간 조회)
+  const [subscriberCount, setSubscriberCount] = useState(initialSubscriberCount);
+  const [isLoadingSubscribers, setIsLoadingSubscribers] = useState(false);
+
+  // 국가 정보 상태 관리 (API에서 조회)
+  const [videoCountry, setVideoCountry] = useState<string | null>(channelCountry || null);
+  const [isLoadingCountry, setIsLoadingCountry] = useState(false);
+
+  // 구독자 수가 0이고 channelId가 있으면 실시간 조회
+  useEffect(() => {
+    if (subscriberCount === 0 && channelId) {
+      setIsLoadingSubscribers(true);
+      fetch(`/api/channel-info?channelId=${encodeURIComponent(channelId)}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.subscriberCount > 0) {
+            setSubscriberCount(data.subscriberCount);
+          }
+          setIsLoadingSubscribers(false);
+        })
+        .catch(error => {
+          console.warn(`⚠️  구독자 수 조회 실패 (${channelId}):`, error);
+          setIsLoadingSubscribers(false);
+        });
+    }
+  }, [subscriberCount, channelId]);
+
+  // 국가 정보가 없으면 비디오 정보 API에서 조회
+  useEffect(() => {
+    if (!videoCountry && id) {
+      setIsLoadingCountry(true);
+      fetch(`/api/video-info?videoId=${encodeURIComponent(id)}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.country) {
+            setVideoCountry(data.country);
+          }
+          setIsLoadingCountry(false);
+        })
+        .catch(error => {
+          console.warn(`⚠️  비디오 국가 정보 조회 실패 (${id}):`, error);
+          setIsLoadingCountry(false);
+        });
+    }
+  }, [id, videoCountry]);
+
   const viewCountText = viewCount === 0 ? "조회 불가" : formatNumber(viewCount);
-  const subscriberText = subscriberCount > 0 ? formatNumber(subscriberCount) : "미공개";
+  const subscriberText = isLoadingSubscribers
+    ? "로딩..."
+    : subscriberCount > 0
+      ? formatNumber(subscriberCount)
+      : "미공개";
 
   const durationSeconds = parseDuration(duration || "");
   const durationText = formatDuration(durationSeconds);
@@ -243,7 +298,9 @@ export default function VideoCard({ video, showVPH = false, vph, onChannelClick 
             <div className="text-badge upload-time">{categoryName}</div>
           )}
 
-          <div className="text-badge country">{channelCountry || '국가 미등록'}</div>
+          <div className="text-badge country">
+            {isLoadingCountry ? '로딩...' : videoCountry || '국가 미등록'}
+          </div>
         </div>
 
         <TagAnalysis tags={tags} title={title} />

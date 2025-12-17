@@ -11,6 +11,7 @@ interface ChannelModalProps {
   customUrl: string
   country: string | null
   channelId: string
+  channelHandle: string
   isLoading: boolean
   onClose: () => void
 }
@@ -65,6 +66,7 @@ export default function ChannelModal({
   customUrl,
   country,
   channelId,
+  channelHandle,
   isLoading,
   onClose,
 }: ChannelModalProps) {
@@ -112,8 +114,8 @@ export default function ChannelModal({
 
               <div className="channel-stats-grid">
                 <div className="channel-stat-box">
-                  <div className="channel-stat-label">총 조회수</div>
-                  <div className="channel-stat-value">{formatNumber(viewCount)}</div>
+                  <div className="channel-stat-label">채널 핸들</div>
+                  <div className="channel-stat-value">{channelHandle || 'N/A'}</div>
                 </div>
                 <div className="channel-stat-box">
                   <div className="channel-stat-label">구독자 수</div>

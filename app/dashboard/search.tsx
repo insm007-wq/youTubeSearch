@@ -172,6 +172,7 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
     customUrl: "",
     country: null as string | null,
     channelId: "",
+    channelHandle: "",
     isLoading: false,
   });
 
@@ -494,6 +495,23 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
 
       console.log(`✓ ${data.items?.length}개 | 필터: ${uploadPeriod} | ${fetchTime}ms`);
 
+      // 🔍 첫 번째 항목의 데이터 구조 확인
+      if (data.items && data.items.length > 0) {
+        const firstItem = data.items[0];
+        console.log('📊 첫 번째 항목 데이터 구조:', {
+          id: firstItem.id,
+          title: firstItem.title,
+          viewCount: firstItem.viewCount,
+          subscriberCount: firstItem.subscriberCount,
+          duration: firstItem.duration,
+          publishedAt: firstItem.publishedAt,
+          channelId: firstItem.channelId,
+          channelTitle: firstItem.channelTitle,
+          thumbnail: firstItem.thumbnail ? '있음' : '없음',
+          keys: Object.keys(firstItem)
+        });
+      }
+
       // 결과 표시
       setAllResults(data.items || []);
       setTotalResults(data.totalResults || 0);
@@ -606,6 +624,7 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
         videoCount: data.videoCount,
         customUrl: data.customUrl,
         country: data.country || null,
+        channelHandle: data.channelHandle || '',
         isLoading: false,
       }));
     } catch (error) {
@@ -813,6 +832,7 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
         customUrl={channelModalData.customUrl}
         country={channelModalData.country}
         channelId={channelModalData.channelId}
+        channelHandle={channelModalData.channelHandle}
         isLoading={channelModalData.isLoading}
         onClose={() => setShowChannelModal(false)}
       />

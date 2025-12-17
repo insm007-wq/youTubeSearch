@@ -6,7 +6,7 @@
  */
 
 import { RequestQueue } from '@/lib/utils/requestQueue'
-import { extractHashtagsFromTitle } from '@/lib/hashtagUtils'
+import { extractHashtagsFromTitle, removeHashtagsFromText } from '@/lib/hashtagUtils'
 
 // ============ 설정 ============
 const API_BASE_URL = 'https://yt-api.p.rapidapi.com'
@@ -105,12 +105,16 @@ interface YTAPIChannelInfo {
   title: string
   description?: string
   subscribers?: string // "454M" 형식
+  subscriberCount?: number // 숫자 형식
+  subscriberCountText?: string // "8.51K" 형식
   videos?: number | string
   views?: string | number
   avatar?: Array<{ url: string; width?: number; height?: number }>
   banner?: Array<{ url: string; width?: number; height?: number }>
   country?: string
   verified?: boolean
+  channelHandle?: string
+  videosCountText?: string
 }
 
 /**
@@ -127,6 +131,7 @@ interface YouTubeChannelInfo {
   banner: string
   country: string | null
   verified: boolean
+  channelHandle: string  // 채널 핸들 (예: @송하영)
 }
 
 interface ApifyDataItem {
@@ -305,7 +310,7 @@ function parseSubscriberCount(subscriberStr?: string): number {
 }
 
 /**
- * 조회수 문자열 파싱 ("1.5M views" → 1500000)
+ * 조회수 문자열 파싱 ("1.5M views" → 1500000, "조회수 913,678회" → 913678)
  */
 function parseViewCount(viewStr?: string | number): number {
   if (!viewStr) {
@@ -316,12 +321,16 @@ function parseViewCount(viewStr?: string | number): number {
     return viewStr
   }
 
-  // "11,695,093 views" → "11695093"
+  // 문자열에서 숫자만 추출 (모든 언어, 포맷 지원)
   const cleaned = String(viewStr)
     .trim()
     .toUpperCase()
-    .replace(/VIEWS?/, '')  // "views" 제거
-    .replace(/,/g, '')  // 쉼표 제거
+    .replace(/VIEWS?/g, '')     // "views" 제거 (영어)
+    .replace(/조회수/g, '')      // "조회수" 제거 (한글)
+    .replace(/회/g, '')          // "회" 제거 (한글)
+    .replace(/VUE?S?/g, '')      // 기타 언어 변형
+    .replace(/,/g, '')           // 쉼표 제거
+    .trim()
 
   // "1.5M" → 1500000
   if (cleaned.includes('M')) {
@@ -341,7 +350,7 @@ function parseViewCount(viewStr?: string | number): number {
     return isNaN(num) ? 0 : Math.floor(num)
   }
 
-  // 순수 숫자 ("11695093" → 11695093)
+  // 순수 숫자 ("913678" → 913678)
   const num = parseInt(cleaned, 10)
   return isNaN(num) ? 0 : num
 }
@@ -573,6 +582,7 @@ async function searchWithYTAPI(
         // shorts_listing 타입 항목 제거
         items = items.filter((item) => item.type !== 'shorts_listing')
 
+
         allItems.push(...items)
 
         console.log(
@@ -598,7 +608,7 @@ async function searchWithYTAPI(
  * YT-API 응답을 내부 형식으로 변환
  */
 function transformYTAPIData(items: YTAPIVideo[]): ApifyDataItem[] {
-  return items.map((item) => {
+  return items.map((item, index) => {
     const videoId = extractVideoId(item)
     const channelId = item.channelId || extractChannelId(item.channel)
     // YT-API는 viewCountText ("11,695,093 views"), viewCount ("11695093"), 또는 views 제공
@@ -606,11 +616,13 @@ function transformYTAPIData(items: YTAPIVideo[]): ApifyDataItem[] {
       item.viewCountText || item.viewCount || item.views
     )
 
-    // 조회수가 0이거나 없으면 경고
-    if (!viewCount || viewCount === 0) {
-      console.warn(
-        `⚠️  조회수 0 - 제목: ${item.title}, videoId: ${videoId}`
-      )
+    // 첫 번째 항목만 디버깅
+    if (index === 0) {
+      console.log('📊 [검색 결과] 첫 번째 비디오:', {
+        title: item.title.substring(0, 30),
+        viewCount: viewCount,
+        subscriberCount: item.subscriberCount ? parseSubscriberCount(String(item.subscriberCount)) : 0,
+      })
     }
 
     // 썸네일 URL 추출 (YT-API는 thumbnail 배열 제공)
@@ -628,9 +640,14 @@ function transformYTAPIData(items: YTAPIVideo[]): ApifyDataItem[] {
       thumbnail = item.image
     }
 
+    // 제목에서 해시태그 추출 (tags 배열에 저장)
+    // 제목에서 해시태그는 제거 (tags 배열에만 포함)
+    const titleWithoutHashtags = removeHashtagsFromText(item.title)
+    const extractedHashtags = extractHashtagsFromTitle(item.title)
+
     return {
       id: videoId,
-      title: item.title,
+      title: titleWithoutHashtags,
       description: item.description || '',
       channelId: item.channelId || channelId,  // YT-API는 직접 channelId 제공
       channelTitle: item.channelTitle || item.channel?.name || '',  // YT-API는 직접 제공
@@ -645,11 +662,11 @@ function transformYTAPIData(items: YTAPIVideo[]): ApifyDataItem[] {
         ? parseSubscriberCount(String(item.subscriberCount))
         : parseSubscriberCount(item.channel?.subscribers),
       thumbnail,
-      // 키워드 또는 제목에서 추출
+      // 키워드 또는 제목에서 추출한 해시태그
       tags:
         item.keywords ||
         item.tags ||
-        extractHashtagsFromTitle(item.title),
+        extractedHashtags,
       categoryId: '',
       categoryName: formatRelativeTime(
         item.publishedTimeText || item.publishDate || item.uploaded || item.publishedText || ''
@@ -729,15 +746,19 @@ export async function getTrendingVideos(
 }
 
 /**
- * YouTube 채널 정보 조회 (YT-API /channel/info)
- * title, description, thumbnail, banner 등 상세 정보 포함
+ * YouTube 채널 정보 조회 (YT-API /channel/videos)
+ * 채널 비디오 목록 + 채널 상세 정보 (조회수, 영상 수, 구독자 수 포함)
  */
 export async function getChannelInfo(
   channelId: string
 ): Promise<YouTubeChannelInfo> {
   try {
-    const url = new URL(`${API_BASE_URL}/channel/info`)
-    url.searchParams.append('channel_id', channelId)
+    // 채널 정보 조회 (RapidAPI YT-API 문서)
+    // /channel/videos: 채널 비디오 목록 + 채널 정보 (views, videos 포함)
+    // /channel/about: 채널 정보만 (현재 비디오 데이터만 반환하는 문제 있음)
+    // /channel/home: 채널 홈 피드 (비디오만)
+    const url = new URL(`${API_BASE_URL}/channel/videos`)
+    url.searchParams.append('id', channelId)
 
     const response = await fetch(url.toString(), {
       method: 'GET',
@@ -749,6 +770,7 @@ export async function getChannelInfo(
     })
 
     if (!response.ok) {
+      console.warn(`⚠️  채널 정보 조회 실패 (${response.status}):`, channelId)
       return {
         id: channelId,
         title: '',
@@ -760,10 +782,24 @@ export async function getChannelInfo(
         banner: '',
         country: null,
         verified: false,
+        channelHandle: '',
       }
     }
 
-    const data: YTAPIChannelInfo = await response.json()
+    const response_data: any = await response.json()
+
+    // 🔍 디버그: 채널 정보 확인
+    if (response_data.meta) {
+      console.log(`📍 [${channelId}] country:`, response_data.meta.country)
+    }
+
+    // YT-API 응답은 래핑된 구조: { meta, continuation, data, msg }
+    // 채널 정보는 meta 필드에 있음!
+    let data: YTAPIChannelInfo = response_data.meta || response_data
+    if (!response_data.meta && response_data.data && Array.isArray(response_data.data) && response_data.data.length > 0) {
+      data = response_data.data[0]
+    }
+
 
     // 썸네일 추출 (avatar 배열에서)
     let thumbnail = ''
@@ -782,16 +818,22 @@ export async function getChannelInfo(
     return {
       id: data.channel_id || channelId,
       title: data.title || '',
-      subscriberCount: parseSubscriberCount(data.subscribers),
+      subscriberCount: typeof data.subscriberCount === 'number'
+        ? data.subscriberCount
+        : parseSubscriberCount(data.subscriberCountText || data.subscribers),
       viewCount: data.views ? parseViewCount(data.views) : 0,
-      videoCount: typeof data.videos === 'string'
-        ? parseInt(data.videos.replace(/[^0-9]/g, ''), 10) || 0
-        : (data.videos || 0) as number,
+      // videosCountText: "1K videos", "623 videos", "1.3K videos" 형식 → 숫자로 파싱
+      videoCount: data.videosCountText
+        ? parseViewCount(data.videosCountText)  // "1K videos" → 1000
+        : typeof data.videos === 'string'
+          ? parseInt(data.videos.replace(/[^0-9]/g, ''), 10) || 0
+          : (data.videos || 0) as number,
       description: data.description || '',
       thumbnail,
       banner,
       country: data.country || null,
       verified: data.verified || false,
+      channelHandle: data.channelHandle || '',  // 채널 핸들 (예: @송하영)
     }
   } catch (error) {
     console.warn(`⚠️  채널 정보 조회 실패 - ${channelId}:`, error)
@@ -806,6 +848,7 @@ export async function getChannelInfo(
       banner: '',
       country: null,
       verified: false,
+      channelHandle: '',
     }
   }
 }
@@ -817,19 +860,15 @@ export async function getChannelInfo(
 export async function getChannelsInfo(
   channelIds: string[]
 ): Promise<Map<string, { subscriberCount: number; country: string | null }>> {
-  const startTime = Date.now()
-
   if (channelIds.length === 0) {
     return new Map()
   }
 
-  console.log(`📊 채널 정보 조회 시작 (${channelIds.length}개)`)
-
-  // 1단계: 캐시에서 조회
   const result = new Map<string, { subscriberCount: number; country: string | null }>()
   const uncachedIds: string[] = []
   let cacheHits = 0
 
+  // 캐시에서 조회
   channelIds.forEach(id => {
     const cached = getCachedChannelInfo(id)
     if (cached) {
@@ -843,42 +882,78 @@ export async function getChannelsInfo(
     }
   })
 
-  console.log(
-    `📊 캐시 상태: ${cacheHits}/${channelIds.length}개 히트, API 요청 필요: ${uncachedIds.length}개`
-  )
-
-  // 2단계: 캐시 미스 항목만 API 요청
+  // 캐시 미스 항목만 API 요청
   if (uncachedIds.length > 0) {
     try {
-      // Promise.all로 병렬 요청 (RequestQueue가 동시성 제어)
       const results = await Promise.all(
         uncachedIds.map(id => getChannelInfo(id))
       )
 
-      // 결과 병합 및 캐시 저장
       results.forEach((channel, index) => {
         const channelId = uncachedIds[index]
         result.set(channelId, {
           subscriberCount: channel.subscriberCount,
           country: channel.country,
         })
-        // 캐시에 저장
         setCachedChannelInfo(channelId, channel.subscriberCount, channel.country)
       })
 
-      const totalTime = Date.now() - startTime
-      console.log(
-        `✅ 채널 정보 조회 완료 (${totalTime}ms) - 캐시: ${cacheHits}개, API: ${uncachedIds.length}개`
-      )
+      console.log(`📊 구독자 조회: 캐시 ${cacheHits}개, API 요청 ${uncachedIds.length}개 → ${result.size}개 구독자 정보 획득`)
     } catch (error) {
       console.error(`❌ 채널 정보 조회 실패:`, error)
     }
-  } else {
-    const totalTime = Date.now() - startTime
-    console.log(`✅ 채널 정보 조회 완료 (${totalTime}ms) - 캐시만 사용`)
   }
 
   return result
+}
+
+/**
+ * 개별 비디오 정보 조회 (YT-API /video/info)
+ * 비디오 상세 정보 및 위치(country) 정보 포함
+ */
+export async function getVideoInfo(videoId: string): Promise<{ country: string | null }> {
+  try {
+    const url = new URL(`${API_BASE_URL}/video/info`)
+    url.searchParams.append('id', videoId)
+
+    const response = await fetch(url.toString(), {
+      method: 'GET',
+      headers: {
+        'x-rapidapi-key': process.env.RAPIDAPI_KEY || '',
+        'x-rapidapi-host': RAPIDAPI_HOST,
+      },
+      signal: AbortSignal.timeout(CONFIG.REQUEST_TIMEOUT),
+    })
+
+    if (!response.ok) {
+      console.warn(`⚠️  비디오 정보 조회 실패 (${response.status}):`, videoId)
+      return { country: null }
+    }
+
+    const response_data: any = await response.json()
+
+    // YT-API 응답은 래핑된 구조: { meta, data, msg }
+    // 비디오 정보는 meta 필드에 있을 수 있음
+    let data: any = response_data.meta || response_data
+    if (!response_data.meta && response_data.data && Array.isArray(response_data.data) && response_data.data.length > 0) {
+      data = response_data.data[0]
+    }
+
+    // 🔍 디버그: 응답 구조 확인 (처음 몇 번만)
+    if (Math.random() < 0.1) { // 10% 샘플링
+      console.log(`🎥 [비디오 정보] ${videoId}:`, {
+        country: data.country,
+        topLevelKeys: data ? Object.keys(data).slice(0, 10) : [],
+      })
+    }
+
+    return {
+      country: data.country || null,
+    }
+  } catch (error) {
+    console.warn(`⚠️  비디오 정보 조회 실패 - ${videoId}:`, error)
+    return { country: null }
+  }
 }
 
 /**
