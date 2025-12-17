@@ -44,6 +44,11 @@ export function calculateVPH(
   try {
     if (!publishedAt || !viewCount) return 0;
 
+    // vidIQ 방식: 50회 미만 조회수는 신뢰할 수 있는 데이터 없음
+    if (viewCount < 50) {
+      return 0;
+    }
+
     const now = new Date();
     const uploadDate = new Date(publishedAt);
 
@@ -64,11 +69,9 @@ export function calculateVPH(
       return 0;
     }
 
-    // hoursElapsed가 매우 작으면 (0.1시간 미만 = 6분 미만) 경고
-    if (hoursElapsed < 0.1) {
-      console.warn(
-        `⚠️  VPH 계산: 매우 최근 영상 (${hoursElapsed.toFixed(4)}시간 전) - publishedAt: ${publishedAt}`
-      );
+    // vidIQ 방식: 1시간 미만 영상은 신뢰할 수 있는 VPH 계산 불가
+    if (hoursElapsed < 1.0) {
+      return 0;
     }
 
     // 기본 VPH = 조회수 / 경과 시간

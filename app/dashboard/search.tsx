@@ -285,6 +285,17 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
         sorted.sort((a, b) => {
           const vphA = calculateVPH(a.viewCount, a.publishedAt);
           const vphB = calculateVPH(b.viewCount, b.publishedAt);
+
+          // 둘 다 VPH = 0인 경우: 최근 발행 순
+          if (vphA === 0 && vphB === 0) {
+            return new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime();
+          }
+
+          // 하나만 VPH = 0인 경우: VPH가 있는 쪽을 우선
+          if (vphA === 0) return 1;  // A를 뒤로
+          if (vphB === 0) return -1; // B를 뒤로
+
+          // 둘 다 VPH가 있는 경우: VPH 높은 순
           return vphB - vphA;
         });
         break;

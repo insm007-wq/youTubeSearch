@@ -759,10 +759,10 @@ export async function getChannelInfo(
 ): Promise<YouTubeChannelInfo> {
   try {
     // 채널 정보 조회 (RapidAPI YT-API 문서)
-    // /channel/videos: 채널 비디오 목록 + 채널 정보 (views, videos 포함)
-    // /channel/about: 채널 정보만 (현재 비디오 데이터만 반환하는 문제 있음)
+    // /channel/about: 채널 상세 정보 (views, videos 포함)
+    // /channel/videos: 채널 비디오 목록 + 채널 정보 (views 필드 없음)
     // /channel/home: 채널 홈 피드 (비디오만)
-    const url = new URL(`${API_BASE_URL}/channel/videos`)
+    const url = new URL(`${API_BASE_URL}/channel/about`)
     url.searchParams.append('id', channelId)
 
     const response = await fetch(url.toString(), {
@@ -794,11 +794,17 @@ export async function getChannelInfo(
     const response_data: any = await response.json()
 
     // 🔍 디버그: 채널 정보 확인
-    console.log(`📍 [채널 정보 - 전체 필드] ${channelId}:`, {
-      metaKeys: response_data.meta ? Object.keys(response_data.meta) : 'NO META',
-      country: response_data.meta?.country,
-      videosCountText: response_data.meta?.videosCountText,
+    console.log(`📍 [채널 정보 - /channel/about 전체 응답] ${channelId}:`, {
+      topLevelKeys: Object.keys(response_data),
+      meta: response_data.meta,
+      data: response_data.data,
+      contents: response_data.contents,
     })
+
+    // data 배열 첫 항목 정보
+    if (response_data.data && Array.isArray(response_data.data) && response_data.data.length > 0) {
+      console.log(`📍 [data[0] 필드] ${channelId}:`, Object.keys(response_data.data[0]).slice(0, 20))
+    }
 
     // YT-API 응답은 래핑된 구조: { meta, continuation, data, msg }
     // 채널 정보는 meta 필드에 있음!
@@ -823,15 +829,16 @@ export async function getChannelInfo(
     }
 
     return {
-      id: data.channel_id || channelId,
+      id: data.channelId || channelId,
       title: data.title || '',
       subscriberCount: typeof data.subscriberCount === 'number'
         ? data.subscriberCount
         : parseSubscriberCount(data.subscriberCountText || data.subscribers),
-      viewCount: data.views ? parseViewCount(data.views) : 0,
-      // videosCountText: "1K videos", "623 videos", "1.3K videos" 형식 → 숫자로 파싱
-      videoCount: data.videosCountText
-        ? parseViewCount(data.videosCountText)  // "1K videos" → 1000
+      // RapidAPI YT-API는 채널 총 조회수를 직접 제공하지 않음 (0으로 설정)
+      viewCount: 0,
+      // videosCountText: "156", "1K" 형식 → 숫자로 파싱
+      videoCount: data.videosCountText || data.videosCount
+        ? parseInt((data.videosCountText || data.videosCount).toString().replace(/[^0-9]/g, ''), 10) || 0
         : typeof data.videos === 'string'
           ? parseInt(data.videos.replace(/[^0-9]/g, ''), 10) || 0
           : (data.videos || 0) as number,
@@ -840,7 +847,7 @@ export async function getChannelInfo(
       banner,
       country: data.country || null,
       verified: data.verified || false,
-      channelHandle: data.channelHandle || '',  // 채널 핸들 (예: @송하영)
+      channelHandle: data.channelHandle || '',  // 채널 핸들 (예: @TED)
     }
   } catch (error) {
     console.warn(`⚠️  채널 정보 조회 실패 - ${channelId}:`, error)
