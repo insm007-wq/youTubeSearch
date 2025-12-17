@@ -108,13 +108,14 @@ interface YTAPIChannelInfo {
   subscriberCount?: number // 숫자 형식
   subscriberCountText?: string // "8.51K" 형식
   videos?: number | string
+  videosCount?: number | string // 비디오 개수
+  videosCountText?: string
   views?: string | number
   avatar?: Array<{ url: string; width?: number; height?: number }>
   banner?: Array<{ url: string; width?: number; height?: number }>
   country?: string
   verified?: boolean
   channelHandle?: string
-  videosCountText?: string
 }
 
 /**
@@ -829,7 +830,7 @@ export async function getChannelInfo(
     }
 
     return {
-      id: data.channelId || channelId,
+      id: data.channel_id || channelId,
       title: data.title || '',
       subscriberCount: typeof data.subscriberCount === 'number'
         ? data.subscriberCount
@@ -837,11 +838,13 @@ export async function getChannelInfo(
       // RapidAPI YT-API는 채널 총 조회수를 직접 제공하지 않음 (0으로 설정)
       viewCount: 0,
       // videosCountText: "156", "1K" 형식 → 숫자로 파싱
-      videoCount: data.videosCountText || data.videosCount
-        ? parseInt((data.videosCountText || data.videosCount).toString().replace(/[^0-9]/g, ''), 10) || 0
-        : typeof data.videos === 'string'
-          ? parseInt(data.videos.replace(/[^0-9]/g, ''), 10) || 0
-          : (data.videos || 0) as number,
+      videoCount: data.videosCountText
+        ? parseInt(data.videosCountText.toString().replace(/[^0-9]/g, ''), 10) || 0
+        : data.videosCount
+          ? parseInt(data.videosCount.toString().replace(/[^0-9]/g, ''), 10) || 0
+          : typeof data.videos === 'string'
+            ? parseInt(data.videos.replace(/[^0-9]/g, ''), 10) || 0
+            : (data.videos || 0) as number,
       description: data.description || '',
       thumbnail,
       banner,
