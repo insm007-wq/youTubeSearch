@@ -24,9 +24,9 @@ interface User {
 
 export default function Search({ user, signOut }: { user?: User; signOut?: (options?: any) => void }) {
   const [searchInput, setSearchInput] = useState("");
-  const [uploadPeriod, setUploadPeriod] = useState("all");
+  const [uploadPeriod, setUploadPeriod] = useState("week");
   const [videoLength, setVideoLength] = useState("all");
-  const [engagementRatios, setEngagementRatios] = useState<string[]>(["4", "5"]);
+  const [engagementRatios, setEngagementRatios] = useState<string[]>(["all"]);
   const [isLoading, setIsLoading] = useState(false);
   const [allResults, setAllResults] = useState<any[]>([]);
   const [totalResults, setTotalResults] = useState(0);
