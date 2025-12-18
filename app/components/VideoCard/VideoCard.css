@@ -32,7 +32,7 @@
 .video-thumbnail.shorts-thumbnail {
   aspect-ratio: 16 / 9;
   object-fit: contain;
-  background-color: #f5f5f5;
+  background-color: #000000;
 }
 
 /* Duration Badge */
