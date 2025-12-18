@@ -1,7 +1,7 @@
 "use client";
 
-import { Tooltip } from "@/app/components/ui/Tooltip";
-import { Users, Video, Eye, LinkIcon } from "lucide-react";
+import React from "react";
+import { Users, Video, Eye } from "lucide-react";
 import "./ChannelCard.css";
 
 interface ChannelCardProps {
@@ -34,105 +34,89 @@ export default function ChannelCard({ channel }: ChannelCardProps) {
   const {
     id,
     title,
-    description,
     thumbnail,
+    description,
     subscriberCount,
     videoCount,
     viewCount,
   } = channel;
 
+  const [imageLoadError, setImageLoadError] = React.useState(false);
+
   const subscriberText = subscriberCount > 0
     ? formatNumber(subscriberCount)
     : "미공개";
-
-  const viewCountText = viewCount && viewCount > 0
-    ? formatNumber(viewCount)
-    : null;
 
   const videoCountText = videoCount
     ? videoCount.toLocaleString()
     : null;
 
+  const viewCountText = viewCount && viewCount > 0
+    ? formatNumber(viewCount)
+    : null;
+
+  // 채널 설명 (최대 80자)
+  const shortDescription = description && description.length > 80
+    ? description.substring(0, 80) + "..."
+    : description;
+
   const channelLink = `https://www.youtube.com/channel/${id}`;
 
+  const handleCardClick = () => {
+    window.open(channelLink, "_blank");
+  };
+
   return (
-    <div className="channel-card">
-      <a
-        href={channelLink}
-        target="_blank"
-        rel="noopener noreferrer"
-        style={{ position: "relative", textDecoration: "none" }}
-      >
-        <div className="channel-thumbnail-container">
-          {thumbnail ? (
+    <div
+      className="channel-card"
+      onClick={handleCardClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          handleCardClick();
+        }
+      }}
+    >
+      {/* 왼쪽: 프로필 이미지 */}
+      <div className="channel-profile-link">
+        <div className="channel-profile-image">
+          {thumbnail && !imageLoadError ? (
             <img
               src={thumbnail}
               alt={title}
               className="channel-thumbnail"
+              onError={() => setImageLoadError(true)}
             />
           ) : (
-            <div className="channel-thumbnail-placeholder">
-              이미지 없음
-            </div>
+            <div className="channel-thumbnail-placeholder" />
           )}
         </div>
-      </a>
+      </div>
 
-      <div className="channel-info">
-        <div className="channel-title">{title}</div>
+      {/* 오른쪽: 채널 정보 */}
+      <div className="channel-content">
+        {/* 헤더: 채널명 */}
+        <div className="channel-header">
+          <div className="channel-title">{title}</div>
+        </div>
 
-        {/* Description - 2줄 제한 */}
-        {description && (
-          <div className="channel-description">
-            {description}
-          </div>
-        )}
-
-        {/* Stats */}
-        <div className="channel-stats">
-          <Tooltip content="채널의 총 구독자 수" placement="top" variant="glassmorphic">
-            <div className="stat-item">
-              <Users size={16} style={{ marginRight: "4px" }} />
-              {subscriberText}
-            </div>
-          </Tooltip>
-
+        {/* 메타 정보: 구독자 + 비디오 개수 + 조회수 */}
+        <div className="channel-meta">
+          <Users size={16} />
+          <span className="channel-stat-value">{subscriberText}</span>
           {videoCountText && (
-            <Tooltip content="채널의 총 비디오 개수" placement="top" variant="glassmorphic">
-              <div className="stat-item">
-                <Video size={16} style={{ marginRight: "4px" }} />
-                {videoCountText}개
-              </div>
-            </Tooltip>
+            <>
+              <Video size={16} />
+              <span className="channel-stat-value">{videoCountText}개</span>
+            </>
           )}
-
           {viewCountText && (
-            <Tooltip content="채널의 총 조회수" placement="top" variant="glassmorphic">
-              <div className="stat-item">
-                <Eye size={16} style={{ marginRight: "4px" }} />
-                {viewCountText}
-              </div>
-            </Tooltip>
+            <>
+              <Eye size={16} />
+              <span className="channel-stat-value">{viewCountText}</span>
+            </>
           )}
-        </div>
-
-        {/* Badge - 채널 타입 표시 */}
-        <div className="badge-container">
-          <div className="channel-type-badge">채널</div>
-        </div>
-
-        {/* Button */}
-        <div className="channel-buttons">
-          <button
-            className="btn-channel-link"
-            onClick={(e) => {
-              e.preventDefault();
-              window.open(channelLink, "_blank");
-            }}
-          >
-            <LinkIcon size={12} />
-            채널 방문
-          </button>
         </div>
       </div>
     </div>

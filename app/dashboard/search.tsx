@@ -188,7 +188,6 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
         })
       }
     } catch (error) {
-      console.error("❌ 오프라인 처리 실패:", error)
     } finally {
       // signOut 호출
       signOut?.({ redirectTo: "/" })
@@ -355,18 +354,8 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
   const results = useMemo(
     () => {
       // uploadPeriod, videoLength는 API에서 이미 처리되므로 제외
-      console.log(`📌 필터링 전 allResults: ${allResults.length}개`);
       let filtered = filterResults(allResults, engagementRatios);
-      console.log(`📌 filterResults 후: ${filtered.length}개`, {
-        engagementRatios,
-        typeCount: {
-          video: filtered.filter((i) => i.type === 'video').length,
-          shorts: filtered.filter((i) => i.type === 'shorts').length,
-          channel: filtered.filter((i) => i.type === 'channel').length,
-        }
-      });
       const sorted = sortResults(filtered, sortBy);
-      console.log(`📌 sortResults 후: ${sorted.length}개`);
       return sorted;
     },
     [allResults, engagementRatios, sortBy]
@@ -487,12 +476,6 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
       }
 
       const requestUrl = `/api/youtube_search?${params}`;
-      console.log(`🔍 검색 요청:`, {
-        query: searchInput,
-        videoLength,
-        uploadPeriod,
-        requestUrl,
-      });
 
       const startTime = Date.now();
       const response = await fetch(requestUrl);
@@ -534,51 +517,12 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
         return;
       }
 
-      console.log(`✓ ${data.items?.length}개 | 필터: ${uploadPeriod} | ${fetchTime}ms`);
-
-      // 🔍 type별 개수 분석
-      if (data.items && data.items.length > 0) {
-        const typeCount = { video: 0, shorts: 0, channel: 0, unknown: 0 };
-        data.items.forEach((item: any) => {
-          if (item.type === 'video') typeCount.video++;
-          else if (item.type === 'shorts') typeCount.shorts++;
-          else if (item.type === 'channel') typeCount.channel++;
-          else typeCount.unknown++;
-        });
-
-        console.log(`📊 Type 분석:`, typeCount);
-
-        // 첫 10개 항목의 타입 상세 출력
-        console.log(`📋 첫 10개 항목 상세 정보:`);
-        data.items.slice(0, 10).forEach((item: any, idx: number) => {
-          console.log(
-            `[${idx}] type="${item.type}" | duration="${item.duration}" | channel="${item.channelTitle}" | title="${item.title}"`
-          );
-        });
-
-        // 첫 번째 항목 상세
-        const firstItem = data.items[0];
-        console.log('📊 첫 번째 항목 데이터 구조:', {
-          id: firstItem.id,
-          title: firstItem.title,
-          type: firstItem.type,
-          duration: firstItem.duration,
-          viewCount: firstItem.viewCount,
-          subscriberCount: firstItem.subscriberCount,
-          publishedAt: firstItem.publishedAt,
-          channelId: firstItem.channelId,
-          channelTitle: firstItem.channelTitle,
-          thumbnail: firstItem.thumbnail ? '있음' : '없음',
-          keys: Object.keys(firstItem)
-        });
-      }
 
       // 결과 표시
       setAllResults(data.items || []);
       setTotalResults(data.totalResults || 0);
       setIsLoading(false);
     } catch (error) {
-      console.error("검색 오류:", error);
       alert("검색 중 오류가 발생했습니다");
       setIsLoading(false);
     }
@@ -626,12 +570,7 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
       }
 
       setTrendingResults(data.items || []);
-
-      if (data.apiUsageToday) {
-        console.log(`✅ 트렌딩 조회 성공 - 사용량: ${data.apiUsageToday.used}/${data.apiUsageToday.limit}`);
-      }
     } catch (error) {
-      console.error("트렌딩 조회 오류:", error);
       addToast({
         type: 'error',
         title: '트렌딩 조회 실패',
@@ -689,7 +628,6 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
         isLoading: false,
       }));
     } catch (error) {
-      console.error("채널 조회 오류:", error);
       alert("채널 정보 조회 중 오류가 발생했습니다");
       setChannelModalData((prev) => ({ ...prev, isLoading: false }));
     }

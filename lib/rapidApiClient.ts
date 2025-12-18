@@ -81,7 +81,6 @@ const errorLogger = {
       message,
       ...context,
     }
-    console.log(JSON.stringify(structured))
   },
 
   error: (message: string, error?: Error | APIError, context?: Record<string, any>) => {

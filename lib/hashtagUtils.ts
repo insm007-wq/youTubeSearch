@@ -35,7 +35,6 @@ export function extractHashtagsFromTitle(title: string): string[] {
     // 최대 10개까지만 반환
     return uniqueHashtags.slice(0, 10)
   } catch (error) {
-    console.warn('❌ 해시태그 추출 오류:', error)
     return []
   }
 }

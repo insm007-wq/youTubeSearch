@@ -12,7 +12,6 @@ export async function GET(request: NextRequest) {
     try {
       session = await auth()
     } catch (authError) {
-      console.error('❌ auth() 호출 실패:', authError)
       return NextResponse.json(
         { error: '인증 처리 중 오류가 발생했습니다' },
         { status: 500 }
@@ -20,7 +19,6 @@ export async function GET(request: NextRequest) {
     }
 
     if (!session?.user) {
-      console.log('⚠️  세션 없음 - 로그인 필요')
       return NextResponse.json(
         { error: '인증이 필요합니다. 로그인해주세요.' },
         { status: 401 }
@@ -28,14 +26,12 @@ export async function GET(request: NextRequest) {
     }
 
     const userEmail = session.user.email || 'unknown@example.com'
-    console.log(`🔥 트렌딩 API 호출 - email: ${userEmail}`)
 
     // ✅ API 사용량 확인
     let usageCheck
     try {
       usageCheck = await checkApiUsage(userEmail)
     } catch (usageError) {
-      console.error('❌ checkApiUsage 호출 실패:', usageError)
       return NextResponse.json(
         { error: 'API 사용량 확인 중 오류 발생' },
         { status: 500 }
@@ -43,7 +39,6 @@ export async function GET(request: NextRequest) {
     }
 
     if (!usageCheck.allowed) {
-      console.log(`❌ 트렌딩 거부 - allowed: ${usageCheck.allowed}`)
       return NextResponse.json(
         {
           error: 'QUOTA_EXCEEDED',
@@ -59,8 +54,6 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    console.log(`✅ 트렌딩 허용 - used: ${usageCheck.used}/${usageCheck.limit}`)
-
     const { searchParams } = new URL(request.url)
     const section = searchParams.get('section') || 'Now'
 
@@ -68,7 +61,6 @@ export async function GET(request: NextRequest) {
     let items
     try {
       const trendingStartTime = Date.now()
-      console.log(`🔥 트렌딩 조회 시작 - section: ${section}`)
 
       // 섹션별 검색어 매핑
       const sectionQueryMap: Record<string, string> = {
@@ -112,12 +104,9 @@ export async function GET(request: NextRequest) {
         return true
       })
 
-      console.log(`✅ 트렌딩 조회 완료 - query: ${query}, ${items.length}개 (최근 7일 이내, 조회수 기준 정렬, 중복 제거)`)
       const trendingTime = Date.now() - trendingStartTime
-      console.log(`⏱️  [1단계] 트렌딩 영상: ${trendingTime}ms (${items.length}개)`)
 
       if (!items || items.length === 0) {
-        console.log(`⚠️  트렌딩 결과 없음`)
         return NextResponse.json({
           items: [],
           totalResults: 0,
@@ -134,7 +123,6 @@ export async function GET(request: NextRequest) {
       const channelStart = Date.now()
       const channelIds = [...new Set(items.map((v) => v.channelId).filter(Boolean))]
       const channelExtractTime = Date.now() - channelStart
-      console.log(`⏱️  [2단계] 채널 추출: ${channelExtractTime}ms (${channelIds.length}개)`)
 
       // 3️⃣ 채널 정보 조회
       let channelInfoMap = new Map<string, { subscriberCount: number; country: string | null }>()
@@ -142,14 +130,9 @@ export async function GET(request: NextRequest) {
       if (channelIds.length > 0) {
         try {
           channelInfoMap = await getChannelsInfo(channelIds)
-          const channelsTime = Date.now() - channelsStartTime
-          console.log(`⏱️  [3단계] 채널 정보: ${channelsTime}ms (${channelInfoMap.size}/${channelIds.length}개)`)
         } catch (channelsError) {
-          const channelsTime = Date.now() - channelsStartTime
-          console.warn(`⚠️  [3단계] 채널 정보 조회 실패 (${channelsTime}ms):`, channelsError)
+          // 채널 정보 조회 실패 시 계속 진행
         }
-      } else {
-        console.log(`⏱️  [3단계] 채널 정보: 0ms (채널 없음)`)
       }
 
       // 4️⃣ 데이터 병합
@@ -162,16 +145,11 @@ export async function GET(request: NextRequest) {
           channelCountry: channelInfo.country,
         }
       })
-      const mergeTime = Date.now() - mergeStart
-      console.log(`⏱️  [4단계] 병합: ${mergeTime}ms (${items.length}개)`)
-
-      const totalTime = Date.now() - requestStartTime
-      console.log(`✅ 트렌딩 완료 - 최종 ${items.length}개 (총 ${totalTime}ms)`)
 
       // 비동기로 API 사용량 증가 (응답은 즉시 반환)
       incrementApiUsage(userEmail, `trending:${section}`)
-        .catch((error) => {
-          console.warn(`⚠️  API 사용량 증가 실패:`, error)
+        .catch(() => {
+          // API 사용량 증가 실패 시 무시
         })
 
       return NextResponse.json({
@@ -186,8 +164,6 @@ export async function GET(request: NextRequest) {
         resetTime: usageCheck.resetTime,
       })
     } catch (error) {
-      const totalTime = Date.now() - requestStartTime
-      console.error(`❌ 트렌딩 실패 (${totalTime}ms):`, error)
       return NextResponse.json(
         {
           error: 'TRENDING_FAILED',
@@ -197,7 +173,6 @@ export async function GET(request: NextRequest) {
       )
     }
   } catch (error) {
-    console.error('❌ 트렌딩 API 에러:', error)
     return NextResponse.json(
       {
         error: '서버 에러가 발생했습니다',

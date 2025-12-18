@@ -33,7 +33,6 @@ export async function GET(request: NextRequest) {
       )
     }
   } catch (error) {
-    console.error('❌ 비활성화 체크 에러:', error)
     // 에러가 발생해도 진행
   }
 
@@ -50,7 +49,6 @@ export async function GET(request: NextRequest) {
 
   try {
     // ✅ RapidAPI로 채널 정보 조회
-    console.log(`📺 채널 상세 정보 조회: ${channelId}`)
     const channel = await getChannelInfo(channelId)
 
     if (!channel) {
@@ -76,7 +74,6 @@ export async function GET(request: NextRequest) {
       channelHandle: channel.channelHandle,
     })
   } catch (error) {
-    console.error('❌ 채널 조회 오류:', error)
     return NextResponse.json(
       { error: '채널 정보 조회 중 오류가 발생했습니다' },
       { status: 500 }

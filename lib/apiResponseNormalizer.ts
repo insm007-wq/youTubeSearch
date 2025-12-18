@@ -393,19 +393,6 @@ export function normalizeVideo(raw: RawYTAPIVideo): NormalizedVideo {
     type = 'shorts'
   }
 
-  // 로깅 (첫 항목만 + type 감지 정보)
-  if (process.env.DEBUG_NORMALIZATION === 'true') {
-    console.log('[정규화] 비디오:', {
-      videoId: videoId.substring(0, 5),
-      title: title.substring(0, 30),
-      viewCount,
-      subscriberCount,
-      duration,
-      type,
-      typeField: extractor.getString('type'),
-      isShorts: extractor.getBoolean('isShorts'),
-    })
-  }
 
   return {
     videoId,

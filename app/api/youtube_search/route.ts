@@ -12,7 +12,6 @@ export async function GET(request: NextRequest) {
     try {
       session = await auth()
     } catch (authError) {
-      console.error('❌ auth() 호출 실패:', authError)
       return NextResponse.json(
         { error: '인증 처리 중 오류가 발생했습니다' },
         { status: 500 }
@@ -20,7 +19,6 @@ export async function GET(request: NextRequest) {
     }
 
     if (!session?.user) {
-      console.log('⚠️  세션 없음 - 로그인 필요')
       return NextResponse.json(
         { error: '인증이 필요합니다. 로그인해주세요.' },
         { status: 401 }
@@ -28,30 +26,20 @@ export async function GET(request: NextRequest) {
     }
 
     const userEmail = session.user.email || 'unknown@example.com'
-    console.log(`🔍 검색 API 호출 - email: ${userEmail}`)
 
     // ✅ API 사용량 확인
     let usageCheck
     try {
       usageCheck = await checkApiUsage(userEmail)
     } catch (usageError) {
-      console.error('❌ checkApiUsage 호출 실패:', usageError)
       return NextResponse.json(
         { error: 'API 사용량 확인 중 오류 발생' },
         { status: 500 }
       )
     }
-    console.log(`📊 사용량 확인:`, {
-      email: userEmail,
-      used: usageCheck.used,
-      limit: usageCheck.limit,
-      remaining: usageCheck.remaining,
-      allowed: usageCheck.allowed
-    })
 
     // ✅ 할당량이 없거나 제한된 경우
     if (!usageCheck.allowed) {
-      console.log(`❌ 검색 거부 - allowed: ${usageCheck.allowed}, limit: ${usageCheck.limit}`)
 
       let statusCode: number
       let errorType: string
@@ -75,8 +63,6 @@ export async function GET(request: NextRequest) {
         message = `오늘 검색 가능한 횟수(${usageCheck.limit}회)를 모두 사용했습니다`
       }
 
-      console.log(`  → Status: ${statusCode}, Type: ${errorType}, Message: ${message}`)
-
       return NextResponse.json(
         {
           error: errorType,
@@ -91,9 +77,6 @@ export async function GET(request: NextRequest) {
         { status: statusCode }
       )
     }
-
-    console.log(`✅ 검색 허용 - used: ${usageCheck.used}/${usageCheck.limit}`)
-
 
     const { searchParams } = new URL(request.url)
     const query = searchParams.get('q')?.trim()
@@ -110,15 +93,6 @@ export async function GET(request: NextRequest) {
       'all': 'all',
     }
     const videoType = videoTypeMap[videoLengthParam] || 'all'
-
-    console.log(`🎬 검색 파라미터:`, {
-      query,
-      videoLengthParam,
-      videoType,
-      uploadDate,
-      channel,
-      targetCount,
-    })
 
     if (!query || query.length < 1 || query.length > 100) {
       return NextResponse.json(
@@ -140,7 +114,6 @@ export async function GET(request: NextRequest) {
       items = await searchYouTubeWithRapidAPI(query, targetCount, uploadDate, channel, videoType)
 
       searchTime = Date.now() - searchStartTime
-      console.log(`✅ YT-API 검색 완료: ${query} - ${items.length}개 (${searchTime}ms)`)
 
       if (!items || items.length === 0) {
         return NextResponse.json({
@@ -155,9 +128,6 @@ export async function GET(request: NextRequest) {
         })
       }
 
-      console.log(`🔍 [route.ts] searchYouTubeWithRapidAPI 후: ${items.length}개`)
-      console.log(`🔍 [route.ts] 첫 5개 item IDs:`, items.slice(0, 5).map(i => ({ id: i.id, type: i.type })))
-
       const uniqueIds = new Set<string>()
       let duplicateCount = 0
       items = items.filter((video) => {
@@ -169,29 +139,16 @@ export async function GET(request: NextRequest) {
         return true
       })
 
-      console.log(`🔍 [route.ts] 중복제거 후: ${items.length}개 (제거됨: ${duplicateCount}개)`)
-      console.log(`🔍 [route.ts] 중복제거 후 첫 5개:`, items.slice(0, 5).map(i => ({ id: i.id, channelId: i.channelId, type: i.type })))
-
       const channelIds = [...new Set(items.map((v) => v.channelId).filter(Boolean))]
-      console.log(`🔍 [route.ts] 추출된 channelIds: ${channelIds.length}개`)
-      if (channelIds.length > 0) {
-        console.log(`🔍 [route.ts] 첫 3개 channelId:`, channelIds.slice(0, 3))
-      }
 
       let channelInfoMap = new Map<string, { subscriberCount: number; country: string | null }>()
       if (channelIds.length > 0) {
         try {
-          console.log(`🔍 [route.ts] getChannelsInfo 호출 전 (items: ${items.length}개, channelIds: ${channelIds.length}개)`)
           channelInfoMap = await getChannelsInfo(channelIds)
-          console.log(`🔍 [route.ts] 채널정보 조회 후: Map 크기 ${channelInfoMap.size}개`)
-          console.log(`🔍 [route.ts] getChannelsInfo 호출 후 items: ${items.length}개`)
         } catch (channelsError) {
-          console.warn(`⚠️  채널 정보 조회 실패:`, channelsError)
-          console.log(`🔍 [route.ts] Error 발생 후 items: ${items.length}개`)
+          // 채널 정보 조회 실패 시 계속 진행
         }
       }
-
-      console.log(`🔍 [route.ts] map 변환 전: ${items.length}개`)
       items = items.map((item) => {
         const channelInfo = channelInfoMap.get(item.channelId) || { subscriberCount: 0, country: null }
         const finalSubscriberCount = channelInfo.subscriberCount > 0
@@ -204,18 +161,9 @@ export async function GET(request: NextRequest) {
           channelCountry: channelInfo.country,
         }
       })
-      console.log(`🔍 [route.ts] map 변환 후: ${items.length}개`)
 
     } catch (error) {
-      const totalTime = Date.now() - requestStartTime
       const errorMessage = error instanceof Error ? error.message : '검색 중 오류 발생'
-
-      console.error(`❌ 검색 실패 (${totalTime}ms):`, {
-        query,
-        error: errorMessage,
-        statusCode: (error as any).statusCode || 500,
-        stack: error instanceof Error ? error.stack : undefined,
-      })
 
       // APIError 인 경우 상태 코드 확인
       const statusCode = (error as any).statusCode || 500
@@ -270,8 +218,8 @@ export async function GET(request: NextRequest) {
     // ✅ API 사용량 증가 (비동기 처리 - await 제거)
     // incrementApiUsage를 비동기로 처리하여 응답 시간 단축
     incrementApiUsage(userEmail, query)
-      .catch((error) => {
-        console.warn(`⚠️  API 사용량 증가 실패:`, error)
+      .catch(() => {
+        // API 사용량 증가 실패 시 무시
       })
 
     // 현재 사용량 정보 반환 (checkApiUsage에서 이미 조회함)
@@ -282,13 +230,6 @@ export async function GET(request: NextRequest) {
       remaining: usageCheck.remaining - 1
     }
 
-    console.log(`📦 최종 응답 - items: ${items.length}개`)
-    console.log(`📦 type별 분포:`, {
-      video: items.filter((i) => i.type === 'video').length,
-      shorts: items.filter((i) => i.type === 'shorts').length,
-      channel: items.filter((i) => i.type === 'channel').length,
-    })
-
     return NextResponse.json({
       items,
       totalResults: items.length,
@@ -296,14 +237,6 @@ export async function GET(request: NextRequest) {
       resetTime: usageCheck.resetTime
     })
   } catch (error) {
-    console.error('❌ YouTube 검색 API 에러:', error)
-
-    // 상세 에러 로깅
-    if (error instanceof Error) {
-      console.error('에러 메시지:', error.message)
-      console.error('에러 스택:', error.stack)
-    }
-
     return NextResponse.json(
       {
         error: '서버 에러가 발생했습니다',

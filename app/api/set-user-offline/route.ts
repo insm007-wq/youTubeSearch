@@ -16,7 +16,6 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error('Failed to set user offline:', error)
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }
