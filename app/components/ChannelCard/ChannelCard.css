@@ -18,17 +18,15 @@
   transform: translateY(-2px);
 }
 
-/* Channel Thumbnail - 원형 프로필 (1:1 비율) */
+/* Channel Thumbnail - 16:9 비율 (VideoCard와 동일) */
 .channel-thumbnail {
   width: 100%;
-  aspect-ratio: 1 / 1;
+  aspect-ratio: 16 / 9;
   background-color: #f0f0f0;
   object-fit: cover;
   position: relative;
   display: block;
-  border-radius: 50%;
-  padding: 20px;
-  box-sizing: border-box;
+  border-radius: 4px;
 }
 
 .channel-thumbnail-placeholder {
@@ -38,6 +36,8 @@
   color: #999;
   font-size: 12px;
   background-color: #f0f0f0;
+  width: 100%;
+  aspect-ratio: 16 / 9;
 }
 
 /* Channel Info */
@@ -45,20 +45,19 @@
   padding: 12px;
   display: grid;
   grid-template-rows:
-    auto          /* 채널명: 2줄 고정 */
-    auto          /* 설명: 2줄 고정 */
+    40px          /* 채널명: 2줄 고정 */
     auto          /* 통계 정보 */
     30px          /* 배지 컨테이너: 1줄 고정 */
     1fr           /* 여유 공간 */
     auto;         /* 버튼: 컨텐츠 크기 */
-  gap: 8px;
+  gap: 6px;
   overflow: visible;
 }
 
 /* Channel Title */
 .channel-title {
-  font-size: 14px;
-  font-weight: 700;
+  font-size: 13px;
+  font-weight: 600;
   color: #000;
   margin-bottom: 0;
   display: -webkit-box;
@@ -68,16 +67,9 @@
   line-height: 1.5;
 }
 
-/* Channel Description */
+/* Channel Description - 숨김 */
 .channel-description {
-  font-size: 11px;
-  color: #666;
-  margin-bottom: 0;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  line-height: 1.4;
+  display: none;
 }
 
 /* Channel Stats */
