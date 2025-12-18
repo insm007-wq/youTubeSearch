@@ -3,10 +3,21 @@
  * - 검색, 트렌딩, 채널 정보 등 모든 기능 제공
  * - 동접 500명 지원 설계
  * - RequestQueue를 통한 동시성 제어
+ * - Rate-limiting 헤더 기반 자동 백오프
+ * - API 응답 정규화 계층 사용
+ * - Pagination 지원
  */
 
 import { RequestQueue } from '@/lib/utils/requestQueue'
 import { removeHashtagsFromText } from '@/lib/hashtagUtils'
+import {
+  normalizeVideo,
+  normalizeChannelInfo,
+  extractDataArray,
+  filterShortsListing,
+  NormalizedVideo,
+  NormalizedChannelInfo,
+} from '@/lib/apiResponseNormalizer'
 
 // ============ 설정 ============
 const API_BASE_URL = 'https://yt-api.p.rapidapi.com'
@@ -17,125 +28,81 @@ const RAPIDAPI_HOST = 'yt-api.p.rapidapi.com'
 const CONFIG = {
   // API 속도 제한 (동접별 요청 큐)
   MAX_CONCURRENT_REQUESTS: 20, // 동시 요청 수
-  REQUEST_TIMEOUT: 10000, // 요청 타임아웃 (10초 - 더 빠른 API)
-  RETRY_COUNT: 2, // 재시도 횟수
-  RETRY_DELAY: 500, // 재시도 간격 (500ms)
+  REQUEST_TIMEOUT: 10000, // 요청 타임아웃 (10초)
+  RETRY_COUNT: 3, // 재시도 횟수
+  RETRY_DELAY: 500, // 초기 재시도 간격 (500ms, 지수 백오프 적용)
 
   // 캐싱 설정
   ENABLE_CACHING: true,
   CACHE_TTL: 3600000, // 1시간
+
+  // Rate-limiting 설정
+  RATE_LIMIT_DELAY: 2000, // Rate limit 시 기본 대기시간 (2초)
+  MAX_RETRIES_ON_RATE_LIMIT: 5, // Rate limit 최대 재시도 횟수
+}
+
+// ============ 에러 추적 ============
+
+/**
+ * API 에러 클래스 (구조화된 로깅)
+ */
+class APIError extends Error {
+  public headers?: Headers
+
+  constructor(
+    message: string,
+    public statusCode: number = 500,
+    public retryable: boolean = false,
+    public context: Record<string, any> = {}
+  ) {
+    super(message)
+    this.name = 'APIError'
+  }
+
+  toJSON() {
+    return {
+      error: this.message,
+      statusCode: this.statusCode,
+      retryable: this.retryable,
+      context: this.context,
+    }
+  }
+}
+
+/**
+ * 에러 로거 (구조화된 로깅)
+ */
+const errorLogger = {
+  log: (level: 'error' | 'warn' | 'info', message: string, context?: Record<string, any>) => {
+    const timestamp = new Date().toISOString()
+    const structured = {
+      timestamp,
+      level,
+      message,
+      ...context,
+    }
+  },
+
+  error: (message: string, error?: Error | APIError, context?: Record<string, any>) => {
+    const errorObj = error instanceof APIError ? error.toJSON() : { message: error?.message }
+    errorLogger.log('error', message, { error: errorObj, ...context })
+  },
+
+  warn: (message: string, context?: Record<string, any>) => {
+    errorLogger.log('warn', message, context)
+  },
+
+  info: (message: string, context?: Record<string, any>) => {
+    errorLogger.log('info', message, context)
+  },
 }
 
 // ============ 인터페이스 ============
 
 /**
- * YT-API 검색 응답 구조
- * YT-API는 shorts와 video 두 가지 타입으로 응답
+ * ApifyDataItem 형식 (기존과 호환)
  */
-interface YTAPIVideo {
-  // 타입 정보
-  type?: string  // "video", "shorts", "shorts_listing"
-
-  // 비디오 식별자
-  videoId?: string
-  id?: string
-  vid?: string
-
-  // 기본 정보
-  title: string
-  description?: string
-
-  // 채널 정보 (직접 제공 또는 channel 객체)
-  channelId?: string
-  channelTitle?: string
-  channel?: {
-    id?: string
-    channelId?: string
-    name?: string
-    subscribers?: string
-    avatar?: string
-    url?: string
-  }
-
-  // 시간 정보
-  duration?: string
-  lengthText?: string
-  uploaded?: string
-  publishedText?: string
-  publishedTimeText?: string  // YT-API: "6 months ago"
-  publishDate?: string  // YT-API: "2025-06-15"
-  publishedAt?: string
-
-  // 조회수 정보
-  views?: string | number
-  viewCount?: string | number
-  viewCountText?: string  // YT-API: "11,695,093 views"
-
-  // 썸네일
-  thumbnail?: string | Array<{ url: string; width?: number; height?: number }>
-  thumbnails?: Array<{ url: string; width?: number; height?: number }>
-  richThumbnail?: Array<{ url: string; width?: number; height?: number }>
-  image?: string
-  imgUrl?: string
-  poster?: string
-  thumb?: string
-
-  // URL
-  url?: string
-  link?: string
-
-  // 태그 및 키워드
-  keywords?: string[]
-  tags?: string[]
-
-  // Shorts listing용 nested data
-  data?: Array<any>
-
-  // 참여도 정보 (트렌딩 API에서 제공)
-  likeCount?: string | number | null
-  commentCount?: number | null
-  subscriberCount?: string | number
-}
-
-/**
- * YT-API 채널 정보 응답 구조
- */
-interface YTAPIChannelInfo {
-  channel_id: string
-  title: string
-  description?: string
-  subscribers?: string // "454M" 형식
-  subscriberCount?: number // 숫자 형식
-  subscriberCountText?: string // "8.51K" 형식
-  videos?: number | string
-  videosCount?: number | string // 비디오 개수
-  videosCountText?: string
-  views?: string | number
-  avatar?: Array<{ url: string; width?: number; height?: number }>
-  banner?: Array<{ url: string; width?: number; height?: number }>
-  country?: string
-  verified?: boolean
-  channelHandle?: string
-}
-
-/**
- * 채널 정보 응답 (내부 형식)
- */
-interface YouTubeChannelInfo {
-  id: string
-  title: string
-  subscriberCount: number
-  viewCount: number
-  videoCount: number
-  description: string
-  thumbnail: string
-  banner: string
-  country: string | null
-  verified: boolean
-  channelHandle: string  // 채널 핸들 (예: @송하영)
-}
-
-interface ApifyDataItem {
+export interface ApifyDataItem {
   id: string
   title: string
   description: string
@@ -152,10 +119,23 @@ interface ApifyDataItem {
   categoryId: string
   categoryName: string
   categoryIcon: string
+  type: 'video' | 'shorts' | 'channel'
+  videoCount?: number
   _needsDetailsFetch?: boolean
 }
 
-// ============ 요청 큐 관리 (동접 제어) ============
+/**
+ * 검색 응답 메타데이터
+ */
+export interface SearchMetadata {
+  hasMore: boolean
+  continuation?: string
+  itemsReturned: number
+  rateLimitRemaining?: number
+  rateLimitReset?: number
+}
+
+// ============ 요청 큐 관리 ============
 const requestQueue = new RequestQueue(CONFIG.MAX_CONCURRENT_REQUESTS)
 
 // ============ 채널 정보 캐싱 ============
@@ -193,513 +173,481 @@ function setCachedChannelInfo(
   })
 }
 
-// ============ 유틸리티 함수 ============
+// ============ Rate-Limiting 헤더 파싱 ============
 
 /**
- * YT-API 응답에서 비디오 ID 추출
- * YT-API는 'videoId' 필드 사용
+ * Rate-limiting 정보 추출
  */
-function extractVideoId(item: any): string {
-  // 1. videoId 필드 (YT-API 표준)
-  if (item.videoId && typeof item.videoId === 'string' && item.videoId.length > 0) {
-    return item.videoId
-  }
+function parseRateLimitHeaders(headers: Headers): {
+  remaining: number
+  reset: number
+  limit: number
+} {
+  const remaining = parseInt(headers.get('x-ratelimit-requests-remaining') || '0', 10)
+  const reset = parseInt(headers.get('x-ratelimit-requests-reset') || '0', 10)
+  const limit = parseInt(headers.get('x-ratelimit-requests-limit') || '100', 10)
 
-  // 2. 직접 id 필드 (대체)
-  if (item.id && typeof item.id === 'string' && item.id.length > 0) {
-    return item.id
+  return {
+    remaining: isNaN(remaining) ? 0 : remaining,
+    reset: isNaN(reset) ? 0 : reset,
+    limit: isNaN(limit) ? 100 : limit,
   }
-
-  // 3. vid 필드 (대체)
-  if (item.vid && typeof item.vid === 'string' && item.vid.length > 0) {
-    return item.vid
-  }
-
-  // 4. URL에서 추출 (https://www.youtube.com/watch?v=<videoId>)
-  const urlField = item.url || item.link || ''
-  const videoIdMatch = urlField.match(/[?&]v=([a-zA-Z0-9_-]{11})/)
-  if (videoIdMatch && videoIdMatch[1]) {
-    return videoIdMatch[1]
-  }
-
-  console.warn('⚠️  비디오 ID를 추출할 수 없음:', {
-    title: item.title,
-    fields: Object.keys(item).slice(0, 10),
-  })
-  return ''
 }
 
 /**
- * 다양한 필드명에서 채널 ID 추출
+ * 429 응답에서 Retry-After 헤더 추출
  */
-function extractChannelId(channel: any): string {
-  if (!channel) return ''
+function parseRetryAfter(headers: Headers): number {
+  const retryAfter = headers.get('retry-after')
+  if (!retryAfter) return CONFIG.RATE_LIMIT_DELAY
 
-  // 1. id 필드
-  if (channel.id && typeof channel.id === 'string' && channel.id.length > 0) {
-    return channel.id
+  // "120" (초) 또는 HTTP-date 형식
+  const seconds = parseInt(retryAfter, 10)
+  if (!isNaN(seconds)) {
+    return seconds * 1000
   }
 
-  // 2. channelId 필드
-  if (channel.channelId && typeof channel.channelId === 'string' && channel.channelId.length > 0) {
-    return channel.channelId
+  // HTTP-date 형식 파싱
+  try {
+    const retryDate = new Date(retryAfter)
+    const delay = retryDate.getTime() - Date.now()
+    return Math.max(delay, CONFIG.RATE_LIMIT_DELAY)
+  } catch {
+    return CONFIG.RATE_LIMIT_DELAY
   }
-
-  return ''
 }
 
-// ============ 재시도 로직 ============
+// ============ 재시도 로직 (개선) ============
+
+/**
+ * 개선된 재시도 로직 (Rate-limiting 헤더 인식)
+ */
 async function withRetry<T>(
-  fn: () => Promise<T>,
+  fn: () => Promise<{ data: T; headers: Headers; metadata?: SearchMetadata }>,
   retries = CONFIG.RETRY_COUNT,
-  delay = CONFIG.RETRY_DELAY
-): Promise<T> {
+  delay = CONFIG.RETRY_DELAY,
+  context: Record<string, any> = {}
+): Promise<{ data: T; metadata?: SearchMetadata }> {
   try {
     return await fn()
   } catch (error: any) {
     if (retries <= 0) {
+      errorLogger.error('최대 재시도 횟수 초과', error, {
+        ...context,
+        remainingRetries: retries,
+      })
       throw error
     }
 
-    // 429 Too Many Requests나 5xx 에러만 재시도
-    if (
-      error.status === 429 ||
-      (error.status >= 500 && error.status < 600)
-    ) {
-      console.warn(`⚠️  재시도 예정 (남은 시도: ${retries - 1})...`)
-      await new Promise((resolve) => setTimeout(resolve, delay))
-      return withRetry(fn, retries - 1, delay * 2)
+    // 재시도 가능 여부 판단
+    const statusCode = error.statusCode || error.status
+    const isRateLimitError = statusCode === 429
+    const isServerError = statusCode >= 500 && statusCode < 600
+    const isTimeout = error.message?.includes('timeout')
+
+    if (!isRateLimitError && !isServerError && !isTimeout) {
+      // 재시도 불가능한 에러
+      errorLogger.error('재시도 불가능한 에러', error, context)
+      throw error
     }
 
-    throw error
-  }
-}
-
-// ============ 유틸리티 함수 ============
-
-/**
- * 구독자 수 문자열 파싱 ("1.5M" → 1500000)
- */
-function parseSubscriberCount(subscriberStr?: string): number {
-  if (!subscriberStr || typeof subscriberStr !== 'string') {
-    return 0
-  }
-
-  const cleaned = subscriberStr.trim().toUpperCase()
-
-  // "1.5M" → 1500000
-  if (cleaned.includes('M')) {
-    const num = parseFloat(cleaned.replace('M', '')) * 1000000
-    return isNaN(num) ? 0 : Math.floor(num)
-  }
-
-  // "150K" → 150000
-  if (cleaned.includes('K')) {
-    const num = parseFloat(cleaned.replace('K', '')) * 1000
-    return isNaN(num) ? 0 : Math.floor(num)
-  }
-
-  // "150B" → 150000000000 (억 단위)
-  if (cleaned.includes('B')) {
-    const num = parseFloat(cleaned.replace('B', '')) * 1000000000
-    return isNaN(num) ? 0 : Math.floor(num)
-  }
-
-  // 순수 숫자
-  const num = parseInt(cleaned, 10)
-  return isNaN(num) ? 0 : num
-}
-
-/**
- * 조회수 문자열 파싱 ("1.5M views" → 1500000, "조회수 913,678회" → 913678)
- */
-function parseViewCount(viewStr?: string | number): number {
-  if (!viewStr) {
-    return 0
-  }
-
-  if (typeof viewStr === 'number') {
-    return viewStr
-  }
-
-  // 문자열에서 숫자만 추출 (모든 언어, 포맷 지원)
-  const cleaned = String(viewStr)
-    .trim()
-    .toUpperCase()
-    .replace(/VIEWS?/g, '')     // "views" 제거 (영어)
-    .replace(/조회수/g, '')      // "조회수" 제거 (한글)
-    .replace(/회/g, '')          // "회" 제거 (한글)
-    .replace(/VUE?S?/g, '')      // 기타 언어 변형
-    .replace(/,/g, '')           // 쉼표 제거
-    .trim()
-
-  // "1.5M" → 1500000
-  if (cleaned.includes('M')) {
-    const num = parseFloat(cleaned.replace('M', '')) * 1000000
-    return isNaN(num) ? 0 : Math.floor(num)
-  }
-
-  // "150K" → 150000
-  if (cleaned.includes('K')) {
-    const num = parseFloat(cleaned.replace('K', '')) * 1000
-    return isNaN(num) ? 0 : Math.floor(num)
-  }
-
-  // "150B" → 150000000000
-  if (cleaned.includes('B')) {
-    const num = parseFloat(cleaned.replace('B', '')) * 1000000000
-    return isNaN(num) ? 0 : Math.floor(num)
-  }
-
-  // 순수 숫자 ("913678" → 913678)
-  const num = parseInt(cleaned, 10)
-  return isNaN(num) ? 0 : num
-}
-
-/**
- * 상대 시간을 ISO 8601 형식으로 변환
- * "2 days ago" / "2일 전" → "2024-12-14T00:00:00Z"
- */
-function convertRelativeTimeToISO8601(relativeTime: string): string {
-  if (!relativeTime) return new Date().toISOString()
-
-  // 정규식으로 숫자와 시간 단위 추출
-  const match = relativeTime.match(/(\d+)\s*(second|minute|hour|day|week|month|year|초|분|시간|일|주|달|년)/)
-
-  if (!match) {
-    return new Date().toISOString()
-  }
-
-  const value = parseInt(match[1], 10)
-  const unit = match[2].toLowerCase()
-
-  const now = new Date()
-
-  if (unit.includes('second') || unit === '초') {
-    now.setSeconds(now.getSeconds() - value)
-  } else if (unit.includes('minute') || unit === '분') {
-    now.setMinutes(now.getMinutes() - value)
-  } else if (unit.includes('hour') || unit === '시간') {
-    now.setHours(now.getHours() - value)
-  } else if (unit.includes('day') || unit === '일') {
-    now.setDate(now.getDate() - value)
-  } else if (unit.includes('week') || unit === '주') {
-    now.setDate(now.getDate() - value * 7)
-  } else if (unit.includes('month') || unit === '달') {
-    now.setMonth(now.getMonth() - value)
-  } else if (unit.includes('year') || unit === '년') {
-    now.setFullYear(now.getFullYear() - value)
-  }
-
-  return now.toISOString()
-}
-
-/**
- * Duration을 ISO 8601 형식으로 변환
- * "12:34" → "PT12M34S"
- * "1:23:45" → "PT1H23M45S"
- */
-function convertDurationToISO8601(durationStr: string | number): string {
-  if (!durationStr || durationStr === 'SHORTS') {
-    return 'PT0S'
-  }
-
-  const str = String(durationStr).trim()
-
-  // 이미 ISO 8601 형식이면 그대로 반환
-  if (str.startsWith('PT')) {
-    return str
-  }
-
-  const parts = str.split(':').map((p) => parseInt(p, 10))
-
-  let hours = 0
-  let minutes = 0
-  let seconds = 0
-
-  if (parts.length === 3) {
-    [hours, minutes, seconds] = parts
-  } else if (parts.length === 2) {
-    [minutes, seconds] = parts
-  } else if (parts.length === 1) {
-    [seconds] = parts
-  }
-
-  let iso = 'PT'
-  if (hours > 0) iso += `${hours}H`
-  if (minutes > 0) iso += `${minutes}M`
-  if (seconds > 0) iso += `${seconds}S`
-
-  return iso === 'PT' ? 'PT0S' : iso
-}
-
-/**
- * 격식 있는 시간 포맷 (카테고리용)
- * "2 days ago" → "2일 전"
- */
-function formatRelativeTime(relativeTime: string): string {
-  if (!relativeTime) return '시간 불명'
-
-  // 1단계: 숫자와 시간 단위 추출
-  const match = relativeTime.match(
-    /^(\d+)\s+(second|minute|hour|day|week|month|year|초|분|시간|일|주|달|년)s?\s+(ago)?$/i
-  )
-
-  if (match) {
-    const value = parseInt(match[1], 10)
-    const unit = match[2]
-
-    const unitMap: Record<string, string> = {
-      'second': '초 전',
-      'minute': '분 전',
-      'hour': '시간 전',
-      'day': '일 전',
-      'week': '주 전',
-      'month': '달 전',
-      'year': '년 전',
-      '초': '초 전',
-      '분': '분 전',
-      '시간': '시간 전',
-      '일': '일 전',
-      '주': '주 전',
-      '달': '달 전',
-      '년': '년 전',
+    // 재시도 전 대기
+    let waitTime = delay
+    if (isRateLimitError && error.headers) {
+      waitTime = parseRetryAfter(error.headers)
+      errorLogger.warn('Rate limit 감지 - 대기', {
+        waitTime,
+        retryAfter: error.headers.get('retry-after'),
+        ...context,
+      })
+    } else {
+      errorLogger.warn('재시도 예정', {
+        statusCode,
+        remainingRetries: retries - 1,
+        waitTime,
+        ...context,
+      })
     }
 
-    return `${value}${unitMap[unit] || ''}`
-  }
+    await new Promise(resolve => setTimeout(resolve, waitTime))
 
-  // 2단계: "스트리밍 시간: 7시간 전" 형식 처리
-  const streamingMatch = relativeTime.match(/(\d+)(초|분|시간|일|주|달|년)\s*전/)
-  if (streamingMatch) {
-    return `${streamingMatch[1]}${streamingMatch[2]} 전`
+    // 지수 백오프: 다음 재시도는 더 오래 대기
+    return withRetry(
+      fn,
+      retries - 1,
+      delay * 2, // 지수 백오프
+      { ...context, attemptNumber: CONFIG.RETRY_COUNT - retries + 1 }
+    )
   }
-
-  // 3단계: 그 외 형식은 그대로 표시
-  return relativeTime
 }
 
 // ============ API 호출 ============
 
 /**
- * YT-API 검색 (Pagination + 비디오/쇼츠 혼합)
+ * 안전한 fetch 래퍼 (에러 구조화)
+ */
+async function safeFetch(
+  url: string,
+  options: RequestInit & { context?: Record<string, any> } = {}
+): Promise<{
+  response: Response
+  data: any
+  metadata: SearchMetadata
+}> {
+  const { context = {}, ...fetchOptions } = options
+
+  try {
+    const response = await fetch(url, fetchOptions as RequestInit)
+
+    // Rate-limit 정보 추출
+    const rateLimitInfo = parseRateLimitHeaders(response.headers)
+
+    if (!response.ok) {
+      const error = new APIError(
+        `HTTP ${response.status} ${response.statusText}`,
+        response.status,
+        response.status === 429 || response.status >= 500,
+        { url, rateLimitInfo, ...context }
+      )
+      error.headers = response.headers
+      throw error
+    }
+
+    const data = await response.json()
+
+    const metadata: SearchMetadata = {
+      hasMore: !!data.continuation,
+      continuation: data.continuation,
+      itemsReturned: data.itemsReturned || 0,
+      rateLimitRemaining: rateLimitInfo.remaining,
+      rateLimitReset: rateLimitInfo.reset,
+    }
+
+    return { response, data, metadata }
+  } catch (error: any) {
+    if (error instanceof APIError) {
+      throw error
+    }
+
+    // 네트워크 에러 등
+    const apiError = new APIError(
+      error.message || '알 수 없는 에러',
+      0,
+      true, // 네트워크 에러는 재시도 가능
+      { url, originalError: error.message, ...context }
+    )
+    throw apiError
+  }
+}
+
+/**
+ * YT-API 검색 (Pagination 지원)
  * targetCount개의 영상을 얻을 때까지 여러 번 요청
- * 비디오와 쇼츠를 동시에 검색하여 다양성 제공
- * 기본: video ~20개 + shorts ~20개 = ~40개
  *
  * 최적화:
  * - upload_date=year: 최근 1년 이내 영상만 검색
- * - sort_by=views: 조회수 높은 순으로 정렬
+ * - sort_by=relevance: 관련도순 정렬
  * - geo=KR, lang=ko, local=1: 한국 로컬라이제이션
+ * - token으로 pagination 지원
+ * - type: video, shorts 구분
  */
 async function searchWithYTAPI(
   query: string,
   targetCount: number = 50,
-  uploadDate?: string  // 'hour' | 'today' | 'week' | 'month' | 'year'
-): Promise<YTAPIVideo[]> {
+  uploadDate?: string, // 'hour' | 'today' | 'week' | 'month' | 'year'
+  continuation?: string, // Pagination 토큰
+  videoType: 'video' | 'shorts' | 'channel' | 'all' = 'video', // 비디오 타입
+  channel?: string // 채널 필터
+): Promise<{
+  items: NormalizedVideo[]
+  metadata: SearchMetadata
+}> {
   if (!RAPIDAPI_KEY) {
-    throw new Error('RapidAPI 키가 설정되지 않았습니다')
+    throw new APIError('RapidAPI 키가 설정되지 않았습니다', 500, false)
   }
 
   const startTime = Date.now()
-  const allItems: YTAPIVideo[] = []
-
-  // 첫 페이지의 결과만 반환 (한 번의 API 호출)
-  const searchTypes = ['video']
-  let totalFetchTime = 0
+  const allItems: NormalizedVideo[] = []
+  let currentContinuation = continuation
+  let pageCount = 0
+  let totalFetched = 0
 
   try {
+    // videoType에 따라 검색 타입 결정
+    const searchTypes: ('video' | 'shorts' | 'channel')[] =
+      videoType === 'all'
+        ? ['video', 'shorts']  // 전체: 비디오 + 쇼츠
+        : videoType === 'channel'
+        ? ['channel']  // 채널만
+        : [videoType as 'video' | 'shorts']  // 특정 타입만
+
     for (const searchType of searchTypes) {
-      console.log(`🎬 [${searchType.toUpperCase()}] 검색 시작`)
+      errorLogger.info(`🎬 [${searchType.toUpperCase()}] 검색 시작`, {
+        query,
+        targetCount,
+        uploadDate,
+        channel,
+      })
 
-      // 첫 페이지만 요청 (pagination 없음)
-      let pageCount = 0
-      let continuation: string | undefined = undefined
-      const shouldContinue = true
-
-      // 첫 페이지만 처리
-      if (shouldContinue) {
+      // Pagination 루프
+      while (totalFetched < targetCount && pageCount < 3) {
         pageCount++
 
         const fetchStart = Date.now()
         const url = new URL(`${API_BASE_URL}/search`)
         url.searchParams.append('query', query)
-        url.searchParams.append('type', searchType)  // 'video' 또는 'shorts'
+        url.searchParams.append('type', searchType)
 
-        // ✅ RapidAPI 파라미터 추가 (문서 기반)
         if (uploadDate) {
-          url.searchParams.append('upload_date', uploadDate)  // hour | today | week | month | year
+          url.searchParams.append('upload_date', uploadDate)
         }
-        url.searchParams.append('sort_by', 'relevance')     // relevance | rating | date | views
-        url.searchParams.append('geo', 'KR')                // 한국 지역 (ISO 3166-2)
-        url.searchParams.append('lang', 'ko')               // 한국어
-        url.searchParams.append('local', '1')               // 지역화된 데이터
-
-        // Pagination: continuation이 있으면 다음 페이지 요청
-        if (continuation) {
-          url.searchParams.append('token', continuation)
-          console.log(`  📄 [${searchType} 페이지 ${pageCount}] 다음 페이지 요청`)
+        if (channel) {
+          url.searchParams.append('channel', channel)
         }
+        url.searchParams.append('sort_by', 'relevance')
+        url.searchParams.append('geo', 'KR')
+        url.searchParams.append('lang', 'ko')
+        url.searchParams.append('local', '1')
 
-        const response = await fetch(url.toString(), {
-          method: 'GET',
-          headers: {
-            'x-rapidapi-key': RAPIDAPI_KEY,
-            'x-rapidapi-host': RAPIDAPI_HOST,
-          },
-          signal: AbortSignal.timeout(CONFIG.REQUEST_TIMEOUT),
-        })
-        const fetchTime = Date.now() - fetchStart
-        totalFetchTime += fetchTime
-
-        if (!response.ok) {
-          const error: any = new Error(`HTTP ${response.status}`)
-          error.status = response.status
-          throw error
-        }
-
-        const data = await response.json()
-
-        // 구조 파악 및 Shorts/Videos flatten
-        let items: YTAPIVideo[] = []
-
-        if (Array.isArray(data)) {
-          items = data.flatMap((item: any) => {
-            if (item.type === 'shorts_listing' && item.data && Array.isArray(item.data)) {
-              return item.data
-            }
-            return item
+        // Pagination 토큰
+        if (currentContinuation) {
+          url.searchParams.append('token', currentContinuation)
+          errorLogger.info(`  📄 [${searchType} 페이지 ${pageCount}] 다음 페이지 요청`, {
+            token: currentContinuation.substring(0, 20),
           })
-        } else if (data?.data && Array.isArray(data.data)) {
-          items = data.data
-        } else if (data?.contents && Array.isArray(data.contents)) {
-          items = data.contents
-        } else if (data?.videos && Array.isArray(data.videos)) {
-          items = data.videos
-        } else if (data?.results && Array.isArray(data.results)) {
-          items = data.results
         }
 
-        // shorts_listing 타입 항목 제거
-        items = items.filter((item) => item.type !== 'shorts_listing')
+        const { data, metadata } = await withRetry(
+          async () => {
+            const result = await safeFetch(url.toString(), {
+              method: 'GET',
+              headers: {
+                'x-rapidapi-key': RAPIDAPI_KEY,
+                'x-rapidapi-host': RAPIDAPI_HOST,
+              },
+              signal: AbortSignal.timeout(CONFIG.REQUEST_TIMEOUT),
+              context: { query, searchType, pageCount },
+            })
 
-
-        allItems.push(...items)
-
-        console.log(
-          `  ✅ [${searchType} 페이지 ${pageCount}] ${items.length}개 조회 (${fetchTime}ms)`
+            return {
+              data: result.data,
+              headers: result.response.headers,
+              metadata: result.metadata,
+            }
+          },
+          CONFIG.RETRY_COUNT,
+          CONFIG.RETRY_DELAY,
+          { query, searchType, pageCount }
         )
+
+        const fetchTime = Date.now() - fetchStart
+
+        // 응답에서 데이터 배열 추출
+        let items: any[] = extractDataArray(data)
+
+        // Shorts listing 필터링
+        items = filterShortsListing(items)
+
+        // 정규화
+        const normalizedItems = items
+          .map((item, idx) => {
+            try {
+              // 🔍 첫 3개 항목의 상세 로깅
+              if (idx < 3) {
+                errorLogger.info(`📍 [${searchType} 항목 ${idx}] 정규화 전`, {
+                  rawType: item.type,
+                  rawIsShorts: item.isShorts,
+                  rawTitle: item.title?.substring(0, 50),
+                  rawDuration: item.duration,
+                  rawLengthText: item.lengthText,
+                })
+              }
+
+              const normalized = normalizeVideo(item)
+
+              // 정규화 후 type 확인
+              if (idx < 3) {
+                errorLogger.info(`📍 [${searchType} 항목 ${idx}] 정규화 후`, {
+                  normalizedType: normalized.type,
+                  normalizedTitle: normalized.title.substring(0, 50),
+                  normalizedDuration: normalized.duration,
+                })
+              }
+
+              return normalized
+            } catch (error) {
+              errorLogger.warn('비디오 정규화 실패', {
+                error: error instanceof Error ? error.message : String(error),
+                title: item.title?.substring(0, 30),
+              })
+              return null
+            }
+          })
+          .filter((item): item is NormalizedVideo => item !== null)
+          // ✅ 요청한 타입과 일치하는 항목만 필터링 (클라이언트 사이드 검증)
+          .filter(item => {
+            const matches =
+              (searchType === 'video' && item.type === 'video') ||
+              (searchType === 'shorts' && item.type === 'shorts') ||
+              (searchType === 'channel' && item.type === 'channel')
+
+            // 필터 실패한 항목 로깅
+            if (!matches) {
+              errorLogger.warn(`타입 필터 불일치`, {
+                searchType,
+                itemType: item.type,
+                title: item.title.substring(0, 40),
+              })
+            }
+
+            return matches
+          })
+
+        allItems.push(...normalizedItems)
+        totalFetched += normalizedItems.length
+
+        errorLogger.info(`  ✅ [${searchType} 페이지 ${pageCount}] ${normalizedItems.length}개 조회`, {
+          fetchTime,
+          totalFetched,
+          rateLimitRemaining: metadata?.rateLimitRemaining,
+        })
+
+        // 다음 페이지 토큰 업데이트
+        currentContinuation = metadata?.continuation
+        if (!currentContinuation) {
+          errorLogger.info(`  ⏹️  [${searchType}] 더 이상의 페이지 없음`, {
+            totalPages: pageCount,
+            itemsFetched: totalFetched,
+          })
+          break
+        }
+
+        // Rate limit 체크
+        if (
+          metadata?.rateLimitRemaining !== undefined &&
+          metadata?.rateLimitRemaining < 5
+        ) {
+          errorLogger.warn('Rate limit 부족 - 검색 중단', {
+            remaining: metadata?.rateLimitRemaining,
+            itemsFetched: totalFetched,
+          })
+          break
+        }
+
+        // 충분히 수집했으면 중단
+        if (totalFetched >= targetCount) {
+          break
+        }
       }
     }
 
     const totalTime = Date.now() - startTime
 
-    console.log(
-      `✅ YT-API 검색 완료 - ${allItems.length}개 (한 번의 API 호출, ${totalFetchTime}ms)`
-    )
+    errorLogger.info(`✅ YT-API 검색 완료`, {
+      query,
+      itemsReturned: allItems.length,
+      pagesRequested: pageCount,
+      totalTime,
+      continuation: currentContinuation,
+    })
 
-    return allItems
+    return {
+      items: allItems.slice(0, targetCount),
+      metadata: {
+        hasMore: !!currentContinuation,
+        continuation: currentContinuation,
+        itemsReturned: allItems.length,
+      },
+    }
   } catch (error) {
-    console.error('❌ YT-API 검색 실패:', error)
+    errorLogger.error('❌ YT-API 검색 실패', error as Error, {
+      query,
+      pageCount,
+      itemsFetched: totalFetched,
+    })
     throw error
   }
 }
 
 /**
- * YT-API 응답을 내부 형식으로 변환
+ * 내부 형식으로 변환 (기존 호환성 유지)
  */
-function transformYTAPIData(items: YTAPIVideo[]): ApifyDataItem[] {
-  return items.map((item, index) => {
-    const videoId = extractVideoId(item)
-    const channelId = item.channelId || extractChannelId(item.channel)
-    // YT-API는 viewCountText ("11,695,093 views"), viewCount ("11695093"), 또는 views 제공
-    const viewCount = parseViewCount(
-      item.viewCountText || item.viewCount || item.views
-    )
+function normalizedToApifyItem(normalized: NormalizedVideo): ApifyDataItem {
+  // 제목에서 해시태그 제거
+  const titleWithoutHashtags = removeHashtagsFromText(normalized.title)
 
-    // 첫 번째 항목만 디버깅
-    if (index === 0) {
-      console.log('📊 [검색 결과] 첫 번째 비디오 전체 구조:', {
-        keys: Object.keys(item),
-        keywords: item.keywords,
-        tags: item.tags,
-      })
-      console.log('📊 [검색 결과] 첫 번째 비디오:', {
-        title: item.title.substring(0, 30),
-        viewCount: viewCount,
-        subscriberCount: item.subscriberCount ? parseSubscriberCount(String(item.subscriberCount)) : 0,
-        keywords: item.keywords,
-        tags: item.tags,
-      })
-    }
+  // 발행 시간 포맷 (한국어)
+  const publishedDate = new Date(normalized.publishedAt)
+  const now = new Date()
+  const isValidDate = !isNaN(publishedDate.getTime())
+  const daysOld = isValidDate
+    ? Math.floor((now.getTime() - publishedDate.getTime()) / (1000 * 60 * 60 * 24))
+    : 0
 
-    // 썸네일 URL 추출 (YT-API는 thumbnail 배열 제공)
-    let thumbnail = ''
-    if (item.thumbnail && Array.isArray(item.thumbnail) && item.thumbnail.length > 0) {
-      // 마지막 항목이 가장 고해상도
-      const lastThumb = item.thumbnail[item.thumbnail.length - 1]
-      thumbnail = lastThumb.url || ''
-    } else if (item.thumbnail && typeof item.thumbnail === 'string') {
-      thumbnail = item.thumbnail
-    } else if (item.richThumbnail && Array.isArray(item.richThumbnail) && item.richThumbnail.length > 0) {
-      // richThumbnail 대체
-      thumbnail = item.richThumbnail[0].url || ''
-    } else if (item.image && typeof item.image === 'string') {
-      thumbnail = item.image
-    }
+  let categoryName = ''
+  if (daysOld === 0) {
+    categoryName = '오늘'
+  } else if (daysOld === 1) {
+    categoryName = '어제'
+  } else if (daysOld < 7) {
+    categoryName = `${daysOld}일 전`
+  } else if (daysOld < 30) {
+    const weeks = Math.floor(daysOld / 7)
+    categoryName = `${weeks}주 전`
+  } else if (daysOld < 365) {
+    const months = Math.floor(daysOld / 30)
+    categoryName = `${months}개월 전`
+  } else {
+    const years = Math.floor(daysOld / 365)
+    categoryName = `${years}년 전`
+  }
 
-    // 제목에서 해시태그 제거 (사용자가 설정하지 않은 해시태그는 표시하지 않음)
-    const titleWithoutHashtags = removeHashtagsFromText(item.title)
-
-    return {
-      id: videoId,
-      title: titleWithoutHashtags,
-      description: item.description || '',
-      channelId: item.channelId || channelId,  // YT-API는 직접 channelId 제공
-      channelTitle: item.channelTitle || item.channel?.name || '',  // YT-API는 직접 제공
-      publishedAt: item.publishedAt || convertRelativeTimeToISO8601(
-        item.publishedTimeText || item.publishDate || item.uploaded || item.publishedText || ''
-      ),
-      viewCount,
-      likeCount: item.likeCount ? parseViewCount(item.likeCount) : 0, // 트렌딩은 좋아요 수 제공
-      commentCount: typeof item.commentCount === 'number' ? item.commentCount : 0, // 트렌딩은 댓글 수 제공
-      duration: convertDurationToISO8601(item.lengthText || item.duration || ''),
-      subscriberCount: item.subscriberCount
-        ? parseSubscriberCount(String(item.subscriberCount))
-        : parseSubscriberCount(item.channel?.subscribers),
-      thumbnail,
-      // 사용자가 설정한 키워드/태그만 표시 (설정하지 않으면 빈 배열)
-      tags:
-        item.keywords ||
-        item.tags ||
-        [],
-      categoryId: '',
-      categoryName: formatRelativeTime(
-        item.publishedTimeText || item.publishDate || item.uploaded || item.publishedText || ''
-      ),
-      categoryIcon: 'Video',
-    }
-  })
+  return {
+    id: normalized.type === 'channel' ? normalized.channelId : normalized.videoId,
+    title: titleWithoutHashtags,
+    description: normalized.description,
+    channelId: normalized.channelId,
+    channelTitle: normalized.channelTitle,
+    publishedAt: normalized.publishedAt,
+    viewCount: normalized.viewCount,
+    likeCount: normalized.likeCount,
+    commentCount: normalized.commentCount,
+    duration: normalized.duration,
+    subscriberCount: normalized.subscriberCount,
+    thumbnail: normalized.thumbnail,
+    tags: normalized.keywords,
+    categoryId: '',
+    categoryName,
+    categoryIcon: 'Video',
+    type: normalized.type,
+    videoCount: normalized.videoCount,
+  }
 }
 
 // ============ 내보내기 ============
 
 /**
- * YouTube 검색 (YT-API 사용 + Pagination)
- * targetCount개의 영상 반환 (기본 40개)
+ * YouTube 검색 (YT-API 사용 + Pagination + 비디오 타입 필터링)
+ * targetCount개의 영상 반환 (기본 50개)
+ *
+ * videoType:
+ * - 'video': 일반 비디오만
+ * - 'shorts': 쇼츠만
+ * - 'all': 비디오 + 쇼츠 혼합
  */
 export async function searchYouTubeWithRapidAPI(
   query: string,
-  targetCount: number = 40,
-  uploadDate?: string  // 'hour' | 'today' | 'week' | 'month' | 'year'
+  targetCount: number = 50,
+  uploadDate?: string, // 'hour' | 'today' | 'week' | 'month' | 'year'
+  channel?: string, // 채널 필터
+  videoType: 'video' | 'shorts' | 'channel' | 'all' = 'video' // 비디오 타입
 ): Promise<ApifyDataItem[]> {
   try {
-    const items = await searchWithYTAPI(query, targetCount, uploadDate)
-    const transformedItems = transformYTAPIData(items)
+    const { items } = await searchWithYTAPI(query, targetCount, uploadDate, undefined, videoType, channel)
 
-    return transformedItems
+    return items.map(normalizedToApifyItem)
   } catch (error) {
-    console.error('❌ YouTube 검색 실패:', error)
+    errorLogger.error('❌ YouTube 검색 실패', error as Error, { query })
     throw error
   }
 }
@@ -711,156 +659,122 @@ export async function getTrendingVideos(
   section: string = 'NOW'
 ): Promise<ApifyDataItem[]> {
   if (!RAPIDAPI_KEY) {
-    throw new Error('RapidAPI 키가 설정되지 않았습니다')
+    throw new APIError('RapidAPI 키가 설정되지 않았습니다', 500, false)
   }
 
   const startTime = Date.now()
 
-  return withRetry(async () => {
-    const url = new URL(`${API_BASE_URL}/trending`)
-    url.searchParams.append('gl', 'KR')
-    url.searchParams.append('hl', 'ko')
+  try {
+    const { data, metadata } = await withRetry(
+      async () => {
+        const url = new URL(`${API_BASE_URL}/trending`)
+        url.searchParams.append('gl', 'KR')
+        url.searchParams.append('hl', 'ko')
 
-    const fetchStart = Date.now()
-    const response = await fetch(url.toString(), {
-      method: 'GET',
-      headers: {
-        'x-rapidapi-key': RAPIDAPI_KEY,
-        'x-rapidapi-host': RAPIDAPI_HOST,
+        const result = await safeFetch(url.toString(), {
+          method: 'GET',
+          headers: {
+            'x-rapidapi-key': RAPIDAPI_KEY,
+            'x-rapidapi-host': RAPIDAPI_HOST,
+          },
+          signal: AbortSignal.timeout(CONFIG.REQUEST_TIMEOUT),
+          context: { section },
+        })
+
+        return {
+          data: result.data,
+          headers: result.response.headers,
+          metadata: result.metadata,
+        }
       },
-      signal: AbortSignal.timeout(CONFIG.REQUEST_TIMEOUT),
-    })
-    const fetchTime = Date.now() - fetchStart
-
-    if (!response.ok) {
-      const error: any = new Error(`HTTP ${response.status}`)
-      error.status = response.status
-      throw error
-    }
-
-    const data = await response.json()
-    const items = data.data || data.contents || []
-    const totalTime = Date.now() - startTime
-
-    console.log(
-      `✅ 트렌딩 조회 완료 - ${items.length}개 (${fetchTime}ms 조회, ${totalTime}ms 총시간)`
+      CONFIG.RETRY_COUNT,
+      CONFIG.RETRY_DELAY,
+      { section }
     )
 
-    const transformed = transformYTAPIData(items)
-    return transformed
-  })
+    const rawItems = extractDataArray(data)
+    const normalizedItems = rawItems
+      .map(item => {
+        try {
+          return normalizeVideo(item)
+        } catch (error) {
+          errorLogger.warn('트렌딩 비디오 정규화 실패', {
+            error: error instanceof Error ? error.message : String(error),
+          })
+          return null
+        }
+      })
+      .filter((item): item is NormalizedVideo => item !== null)
+
+    const totalTime = Date.now() - startTime
+
+    errorLogger.info(`✅ 트렌딩 조회 완료`, {
+      section,
+      itemsReturned: normalizedItems.length,
+      totalTime,
+      rateLimitRemaining: metadata?.rateLimitRemaining,
+    })
+
+    return normalizedItems.map(normalizedToApifyItem)
+  } catch (error) {
+    errorLogger.error('❌ 트렌딩 조회 실패', error as Error, { section })
+    throw error
+  }
 }
 
 /**
- * YouTube 채널 정보 조회 (YT-API /channel/videos)
- * 채널 비디오 목록 + 채널 상세 정보 (조회수, 영상 수, 구독자 수 포함)
+ * YouTube 채널 정보 조회 (YT-API /channel/about)
  */
 export async function getChannelInfo(
   channelId: string
-): Promise<YouTubeChannelInfo> {
+): Promise<NormalizedChannelInfo> {
   try {
-    // 채널 정보 조회 (RapidAPI YT-API 문서)
-    // /channel/about: 채널 상세 정보 (views, videos 포함)
-    // /channel/videos: 채널 비디오 목록 + 채널 정보 (views 필드 없음)
-    // /channel/home: 채널 홈 피드 (비디오만)
     const url = new URL(`${API_BASE_URL}/channel/about`)
     url.searchParams.append('id', channelId)
 
-    const response = await fetch(url.toString(), {
-      method: 'GET',
-      headers: {
-        'x-rapidapi-key': process.env.RAPIDAPI_KEY || '',
-        'x-rapidapi-host': RAPIDAPI_HOST,
+    const result = await withRetry(
+      async () => {
+        const fetchResult = await safeFetch(url.toString(), {
+          method: 'GET',
+          headers: {
+            'x-rapidapi-key': RAPIDAPI_KEY || '',
+            'x-rapidapi-host': RAPIDAPI_HOST,
+          },
+          signal: AbortSignal.timeout(CONFIG.REQUEST_TIMEOUT),
+          context: { channelId },
+        })
+
+        return {
+          data: fetchResult.data,
+          headers: fetchResult.response.headers,
+          metadata: fetchResult.metadata,
+        }
       },
-      signal: AbortSignal.timeout(CONFIG.REQUEST_TIMEOUT),
+      CONFIG.RETRY_COUNT,
+      CONFIG.RETRY_DELAY,
+      { channelId }
+    )
+
+    errorLogger.info(`📍 채널 정보 조회 성공`, {
+      channelId,
+      rateLimitRemaining: result.metadata?.rateLimitRemaining,
     })
 
-    if (!response.ok) {
-      console.warn(`⚠️  채널 정보 조회 실패 (${response.status}):`, channelId)
-      return {
-        id: channelId,
-        title: '',
-        subscriberCount: 0,
-        viewCount: 0,
-        videoCount: 0,
-        description: '',
-        thumbnail: '',
-        banner: '',
-        country: null,
-        verified: false,
-        channelHandle: '',
-      }
-    }
-
-    const response_data: any = await response.json()
-
-    // 🔍 디버그: 채널 정보 확인
-    console.log(`📍 [채널 정보 - /channel/about 전체 응답] ${channelId}:`, {
-      topLevelKeys: Object.keys(response_data),
-      meta: response_data.meta,
-      data: response_data.data,
-      contents: response_data.contents,
-    })
-
-    // data 배열 첫 항목 정보
-    if (response_data.data && Array.isArray(response_data.data) && response_data.data.length > 0) {
-      console.log(`📍 [data[0] 필드] ${channelId}:`, Object.keys(response_data.data[0]).slice(0, 20))
-    }
-
-    // YT-API 응답은 래핑된 구조: { meta, continuation, data, msg }
-    // 채널 정보는 meta 필드에 있음!
-    let data: YTAPIChannelInfo = response_data.meta || response_data
-    if (!response_data.meta && response_data.data && Array.isArray(response_data.data) && response_data.data.length > 0) {
-      data = response_data.data[0]
-    }
-
-
-    // 썸네일 추출 (avatar 배열에서)
-    let thumbnail = ''
-    if (data.avatar && Array.isArray(data.avatar) && data.avatar.length > 0) {
-      // 마지막 항목이 가장 고해상도
-      const lastAvatar = data.avatar[data.avatar.length - 1]
-      thumbnail = lastAvatar.url || ''
-    }
-
-    // 배너 추출 (banner 배열에서)
-    let banner = ''
-    if (data.banner && Array.isArray(data.banner) && data.banner.length > 0) {
-      banner = data.banner[0].url || ''
-    }
-
-    return {
-      id: data.channel_id || channelId,
-      title: data.title || '',
-      subscriberCount: typeof data.subscriberCount === 'number'
-        ? data.subscriberCount
-        : parseSubscriberCount(data.subscriberCountText || data.subscribers),
-      // RapidAPI YT-API는 채널 총 조회수를 직접 제공하지 않음 (0으로 설정)
-      viewCount: 0,
-      // videosCountText: "156", "1K" 형식 → 숫자로 파싱
-      videoCount: data.videosCountText
-        ? parseInt(data.videosCountText.toString().replace(/[^0-9]/g, ''), 10) || 0
-        : data.videosCount
-          ? parseInt(data.videosCount.toString().replace(/[^0-9]/g, ''), 10) || 0
-          : typeof data.videos === 'string'
-            ? parseInt(data.videos.replace(/[^0-9]/g, ''), 10) || 0
-            : (data.videos || 0) as number,
-      description: data.description || '',
-      thumbnail,
-      banner,
-      country: data.country || null,
-      verified: data.verified || false,
-      channelHandle: data.channelHandle || '',  // 채널 핸들 (예: @TED)
-    }
+    return normalizeChannelInfo(result.data)
   } catch (error) {
-    console.warn(`⚠️  채널 정보 조회 실패 - ${channelId}:`, error)
+    errorLogger.warn(`⚠️  채널 정보 조회 실패`, {
+      channelId,
+      error: error instanceof Error ? error.message : String(error),
+    })
+
+    // Graceful degradation: 빈 채널 정보 반환
     return {
-      id: channelId,
+      channelId,
       title: '',
-      subscriberCount: 0,
-      viewCount: 0,
-      videoCount: 0,
       description: '',
+      subscriberCount: 0,
+      videoCount: 0,
+      viewCount: 0,
       thumbnail: '',
       banner: '',
       country: null,
@@ -872,7 +786,6 @@ export async function getChannelInfo(
 
 /**
  * 여러 채널 정보 조회 (배치 + 캐싱)
- * 캐시에 있는 항목은 API 호출 없이 반환, 없는 항목만 조회
  */
 export async function getChannelsInfo(
   channelIds: string[]
@@ -899,7 +812,7 @@ export async function getChannelsInfo(
     }
   })
 
-  // 캐시 미스 항목만 API 요청
+  // 캐시 미스 항목만 병렬 API 요청
   if (uncachedIds.length > 0) {
     try {
       const results = await Promise.all(
@@ -915,9 +828,15 @@ export async function getChannelsInfo(
         setCachedChannelInfo(channelId, channel.subscriberCount, channel.country)
       })
 
-      console.log(`📊 구독자 조회: 캐시 ${cacheHits}개, API 요청 ${uncachedIds.length}개 → ${result.size}개 구독자 정보 획득`)
+      errorLogger.info(`📊 구독자 조회 완료`, {
+        cacheHits,
+        apiRequests: uncachedIds.length,
+        total: result.size,
+      })
     } catch (error) {
-      console.error(`❌ 채널 정보 조회 실패:`, error)
+      errorLogger.error(`❌ 채널 정보 배치 조회 실패`, error as Error, {
+        requestedCount: uncachedIds.length,
+      })
     }
   }
 
@@ -926,48 +845,46 @@ export async function getChannelsInfo(
 
 /**
  * 개별 비디오 정보 조회 (YT-API /video/info)
- * 비디오 상세 정보 및 위치(country) 정보 포함
  */
 export async function getVideoInfo(videoId: string): Promise<{ languageCode: string | null; keywords: string[] }> {
   try {
     const url = new URL(`${API_BASE_URL}/video/info`)
     url.searchParams.append('id', videoId)
 
-    const response = await fetch(url.toString(), {
-      method: 'GET',
-      headers: {
-        'x-rapidapi-key': process.env.RAPIDAPI_KEY || '',
-        'x-rapidapi-host': RAPIDAPI_HOST,
+    const result = await withRetry(
+      async () => {
+        const fetchResult = await safeFetch(url.toString(), {
+          method: 'GET',
+          headers: {
+            'x-rapidapi-key': RAPIDAPI_KEY || '',
+            'x-rapidapi-host': RAPIDAPI_HOST,
+          },
+          signal: AbortSignal.timeout(CONFIG.REQUEST_TIMEOUT),
+          context: { videoId },
+        })
+
+        return {
+          data: fetchResult.data,
+          headers: fetchResult.response.headers,
+          metadata: fetchResult.metadata,
+        }
       },
-      signal: AbortSignal.timeout(CONFIG.REQUEST_TIMEOUT),
-    })
+      CONFIG.RETRY_COUNT,
+      CONFIG.RETRY_DELAY,
+      { videoId }
+    )
 
-    if (!response.ok) {
-      console.warn(`⚠️  비디오 정보 조회 실패 (${response.status}):`, videoId)
-      return { languageCode: null, keywords: [] }
-    }
-
-    const response_data: any = await response.json()
-
-    // YT-API 응답은 래핑된 구조: { meta, data, msg }
-    // 비디오 정보는 meta 필드에 있을 수 있음
-    let data: any = response_data.meta || response_data
-    if (!response_data.meta && response_data.data && Array.isArray(response_data.data) && response_data.data.length > 0) {
-      data = response_data.data[0]
-    }
-
-    // 🔍 디버그: 응답 구조 확인
-    console.log(`🎥 [비디오 정보] ${videoId}:`, {
-      defaultVideoLanguageCode: data?.defaultVideoLanguageCode,
-      keywords: data?.keywords?.length || 0,
-    })
+    const data = result.data.meta || result.data.data?.[0] || result.data
 
     return {
       languageCode: data.defaultVideoLanguageCode || null,
       keywords: data.keywords || [],
     }
   } catch (error) {
-    console.warn(`⚠️  비디오 정보 조회 실패 - ${videoId}:`, error)
+    errorLogger.warn(`⚠️  비디오 정보 조회 실패`, {
+      videoId,
+      error: error instanceof Error ? error.message : String(error),
+    })
     return { languageCode: null, keywords: [] }
   }
 }
@@ -984,4 +901,11 @@ export function getQueueStatus() {
  */
 export function getConfig() {
   return CONFIG
+}
+
+/**
+ * 에러 로거 조회 (테스트용)
+ */
+export function getErrorLogger() {
+  return errorLogger
 }

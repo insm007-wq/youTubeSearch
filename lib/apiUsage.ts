@@ -60,18 +60,9 @@ export async function checkApiUsage(email: string): Promise<ApiUsageResponse> {
 
     // users에서 사용자 정보 조회 (할당량 및 상태)
     let user = await usersCollection.findOne({ email })
-    console.log(`🔍 checkApiUsage - 사용자 조회 결과:`, {
-      email,
-      found: !!user,
-      isActive: user?.isActive,
-      isBanned: user?.isBanned,
-      dailyLimit: user?.dailyLimit
-    })
 
     // ✅ 사용자가 없으면 자동 재생성 시도 (기존 사용자 복구)
     if (!user) {
-      console.log(`⚠️ checkApiUsage - 사용자 없음, 자동 재생성 시도: ${email}`)
-
       try {
         // 기본 사용자 정보로 재생성 시도
         const { upsertUser } = await import('./userLimits')
@@ -81,17 +72,11 @@ export async function checkApiUsage(email: string): Promise<ApiUsageResponse> {
         user = await usersCollection.findOne({ email })
 
         if (user) {
-          console.log(`✅ checkApiUsage - 사용자 자동 생성 성공: ${email}`)
           // 정상 플로우로 계속 진행
         } else {
           throw new Error('재생성 후에도 조회 실패')
         }
       } catch (error) {
-        console.error(`❌ checkApiUsage - 사용자 자동 생성 실패: ${email}`, {
-          error: error instanceof Error ? error.message : String(error),
-          timestamp: new Date().toISOString()
-        })
-
         // ✅ 재생성 실패 → limit: -1 (특별한 에러 코드: "재로그인 필요")
         return {
           allowed: false,
@@ -105,7 +90,6 @@ export async function checkApiUsage(email: string): Promise<ApiUsageResponse> {
 
     // 비활성화 또는 밴된 사용자 체크
     if (!user.isActive || user.isBanned) {
-      console.log(`❌ checkApiUsage - 사용자 비활성/차단됨, isActive: ${user.isActive}, isBanned: ${user.isBanned}`)
       return {
         allowed: false,
         used: 0,
@@ -141,13 +125,10 @@ export async function checkApiUsage(email: string): Promise<ApiUsageResponse> {
             }
           }
         )
-        console.log(`🔄 할당량 리셋 - email: ${email}, limit: ${limit}`)
       } catch (resetError) {
-        console.log(`⚠️  할당량 리셋 실패 (무시됨):`, resetError)
+        // 할당량 리셋 실패 시 계속 진행
       }
     }
-
-    console.log(`📊 checkApiUsage - email: ${email}, used: ${used}/${limit}, allowed: ${allowed}`)
 
     return {
       allowed,
@@ -157,10 +138,6 @@ export async function checkApiUsage(email: string): Promise<ApiUsageResponse> {
       resetTime: getTomorrowMidnight()
     }
   } catch (error) {
-    console.error('❌ API 사용량 확인 에러:', {
-      email,
-      error: error instanceof Error ? error.message : error
-    })
     throw error
   }
 }
@@ -223,12 +200,9 @@ export async function incrementApiUsage(email: string, query?: string): Promise<
           }
         }
       )
-      console.log(`✅ users 컬렉션 업데이트 - email: ${email}, remaining: ${remaining}, used: ${updatedCount}`)
     } catch (updateError) {
-      console.warn(`⚠️  users 컬렉션 업데이트 실패 (계속 진행):`, updateError)
+      // users 컬렉션 업데이트 실패 시 계속 진행
     }
-
-    console.log(`📈 incrementApiUsage - email: ${email}, count: ${updatedCount}/${dailyLimit}`)
 
     return {
       allowed,
@@ -238,10 +212,6 @@ export async function incrementApiUsage(email: string, query?: string): Promise<
       resetTime: getTomorrowMidnight()
     }
   } catch (error) {
-    console.error('❌ API 사용량 업데이트 에러:', {
-      email,
-      error: error instanceof Error ? error.message : error
-    })
     throw error
   }
 }
@@ -273,10 +243,6 @@ export async function getUserApiUsageHistory(
 
     return records
   } catch (error) {
-    console.error('❌ API 사용 기록 조회 에러:', {
-      email,
-      error: error instanceof Error ? error.message : error
-    })
     throw error
   }
 }
@@ -309,10 +275,6 @@ export async function getTodayUsage(email: string) {
       limit: dailyLimit
     }
   } catch (error) {
-    console.error('❌ 오늘 사용량 조회 에러:', {
-      email,
-      error: error instanceof Error ? error.message : error
-    })
     throw error
   }
 }
@@ -344,11 +306,6 @@ export async function getUsageByDate(email: string, date: string) {
       email: record?.email ?? 'unknown'
     }
   } catch (error) {
-    console.error('❌ 날짜별 사용량 조회 에러:', {
-      email,
-      date,
-      error: error instanceof Error ? error.message : error
-    })
     throw error
   }
 }
@@ -385,7 +342,6 @@ export async function getGlobalStats() {
       defaultLimit: DEFAULT_DAILY_LIMIT
     }
   } catch (error) {
-    console.error('❌ 전역 통계 조회 에러:', error)
     throw error
   }
 }

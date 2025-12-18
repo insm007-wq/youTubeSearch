@@ -28,6 +28,13 @@
   display: block;
 }
 
+/* Shorts Thumbnail - Display vertical within same card size */
+.video-thumbnail.shorts-thumbnail {
+  aspect-ratio: 16 / 9;
+  object-fit: contain;
+  background-color: #000000;
+}
+
 /* Duration Badge */
 .video-duration {
   position: absolute;

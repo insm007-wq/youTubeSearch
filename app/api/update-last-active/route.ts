@@ -14,12 +14,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log(`✅ [updateLastActive] 사용자 업데이트: ${email}`)
     await updateLastActive(email)
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error(`❌ [updateLastActive] 오류 (${email}):`, error)
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }

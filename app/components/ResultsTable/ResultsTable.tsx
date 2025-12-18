@@ -143,19 +143,33 @@ export default function ResultsTable({ results, showVPH }: ResultsTableProps) {
           {results.map((video) => {
             const ratio = video.subscriberCount > 0 ? video.viewCount / video.subscriberCount : 0
             const level = getEngagementLevel(ratio)
+            const videoType = video.type || 'video'
 
             return (
               <tr key={video.id}>
                 <td>
-                  <img
-                    src={video.thumbnail || '/placeholder.png'}
-                    alt={video.title}
-                    className="table-thumbnail"
-                    onError={(e) => {
-                      const img = e.target as HTMLImageElement
-                      img.src = '/placeholder.png'
+                  <div
+                    className={`table-thumbnail-container ${videoType === 'shorts' ? 'table-thumbnail-shorts' : ''}`}
+                    style={{
+                      backgroundColor: '#e8e8e8',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      minHeight: '60px'
                     }}
-                  />
+                  >
+                    {video.thumbnail ? (
+                      <img
+                        src={video.thumbnail}
+                        alt={video.title}
+                        className="table-thumbnail"
+                        onError={(e) => {
+                          const img = e.target as HTMLImageElement
+                          img.style.display = 'none'
+                        }}
+                      />
+                    ) : null}
+                  </div>
                 </td>
                 <td className="table-title" title={video.title}>
                   {video.title}

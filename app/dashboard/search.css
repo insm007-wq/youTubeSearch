@@ -562,6 +562,13 @@
   transform: scale(1.05);
 }
 
+.table-thumbnail.table-thumbnail-shorts {
+  width: 60px;
+  height: 45px;
+  object-fit: contain;
+  background-color: #f5f5f5;
+}
+
 .table-title {
   max-width: 300px;
   white-space: normal;

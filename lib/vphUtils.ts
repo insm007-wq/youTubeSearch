@@ -54,7 +54,6 @@ export function calculateVPH(
 
     // uploadDate가 유효한 날짜인지 확인
     if (isNaN(uploadDate.getTime())) {
-      console.warn(`⚠️  VPH 계산: 잘못된 publishedAt 형식 - "${publishedAt}"`);
       return 0;
     }
 
@@ -63,9 +62,6 @@ export function calculateVPH(
 
     // hoursElapsed가 0 이하이거나 유한하지 않으면 반환
     if (hoursElapsed <= 0 || !isFinite(hoursElapsed)) {
-      console.warn(
-        `⚠️  VPH 계산: 비정상적인 경과 시간 - hoursElapsed: ${hoursElapsed}, publishedAt: ${publishedAt}`
-      );
       return 0;
     }
 
@@ -83,15 +79,11 @@ export function calculateVPH(
 
     // 최종 VPH가 유한한 수인지 확인
     if (!isFinite(adjustedVPH)) {
-      console.warn(
-        `⚠️  VPH 계산: 결과가 무한대 또는 NaN - baseVPH: ${baseVPH}, decayFactor: ${decayFactor}`
-      );
       return 0;
     }
 
     return Math.round(adjustedVPH);
   } catch (error) {
-    console.error('VPH 계산 오류:', error);
     return 0;
   }
 }

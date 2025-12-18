@@ -105,7 +105,6 @@ export async function getUserDailyLimit(email: string): Promise<number> {
     const user = await collection.findOne({ email })
     return user?.dailyLimit ?? 20 // 기본값: 20
   } catch (error) {
-    console.error('❌ 사용자 할당량 조회 에러:', error)
     return 20
   }
 }
@@ -161,14 +160,8 @@ export async function updateLastActive(email: string): Promise<boolean> {
       { returnDocument: 'after' }
     )
 
-    if (result) {
-      console.log(`✅ [updateLastActive] 성공: ${email}`)
-    } else {
-      console.warn(`⚠️ [updateLastActive] 사용자를 찾을 수 없음: ${email}`)
-    }
     return result !== null
   } catch (error) {
-    console.error(`❌ [updateLastActive] 데이터베이스 오류 (${email}):`, error)
     return false
   }
 }
@@ -195,7 +188,6 @@ export async function setUserOffline(email: string): Promise<boolean> {
 
     return result !== null
   } catch (error) {
-    console.error('❌ setUserOffline 실패:', error)
     return false
   }
 }
@@ -212,7 +204,6 @@ export async function getUserById(email: string): Promise<User | null> {
     const user = await collection.findOne({ email })
     return user || null
   } catch (error) {
-    console.error('❌ getUserById 실패:', error)
     return null
   }
 }

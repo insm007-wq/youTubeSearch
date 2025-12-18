@@ -66,7 +66,7 @@ interface VideoCardProps {
     title: string;
     channelTitle: string;
     thumbnail: string;
-    viewCount: number;
+    viewCount?: number;
     subscriberCount: number;
     duration?: string;
     publishedAt?: string;
@@ -76,6 +76,7 @@ interface VideoCardProps {
     categoryIcon?: string;
     categoryId?: string;
     channelCountry?: string | null;
+    type?: 'video' | 'shorts';
   };
   showVPH?: boolean;
   vph?: number;
@@ -163,7 +164,7 @@ export default function VideoCard({ video, showVPH = false, vph, onChannelClick 
     title,
     channelTitle,
     thumbnail,
-    viewCount,
+    viewCount = 0,
     subscriberCount: initialSubscriberCount,
     duration,
     publishedAt,
@@ -172,6 +173,7 @@ export default function VideoCard({ video, showVPH = false, vph, onChannelClick 
     categoryName,
     categoryIcon,
     channelCountry,
+    type = 'video',
   } = video;
 
   // 구독자 수 상태 관리 (API에서 0이면 실시간 조회)
@@ -222,7 +224,7 @@ export default function VideoCard({ video, showVPH = false, vph, onChannelClick 
     }
   }, [id]);
 
-  const viewCountText = viewCount === 0 ? "조회 불가" : formatNumber(viewCount);
+  const viewCountText = viewCount === 0 || viewCount === undefined ? "조회 불가" : formatNumber(viewCount);
   const subscriberText = isLoadingSubscribers
     ? "로딩..."
     : subscriberCount > 0
@@ -232,11 +234,17 @@ export default function VideoCard({ video, showVPH = false, vph, onChannelClick 
   const durationSeconds = parseDuration(duration || "");
   const durationText = formatDuration(durationSeconds);
 
-  const engagementRatio = calculateEngagementRatio(viewCount, subscriberCount);
+  const engagementRatio = viewCount
+    ? calculateEngagementRatio(viewCount, subscriberCount)
+    : 0;
   const engagementLevel = getEngagementLevel(engagementRatio);
-  const ratioText = subscriberCount > 0 ? engagementRatio.toFixed(2) : "N/A";
+  const ratioText = subscriberCount > 0
+    ? engagementRatio.toFixed(2)
+    : "N/A";
 
-  const calculatedVPH = calculateVPH(viewCount, publishedAt || "");
+  const calculatedVPH = publishedAt
+    ? calculateVPH(viewCount || 0, publishedAt)
+    : 0;
   const vphText = formatVPH(calculatedVPH);
 
   const badgeClass = `engagement-badge engagement-${engagementLevel}`;
@@ -246,13 +254,13 @@ export default function VideoCard({ video, showVPH = false, vph, onChannelClick 
     <div className="video-card">
       <a href={videoLink} target="_blank" rel="noopener noreferrer" style={{ position: "relative", textDecoration: "none" }}>
         {thumbnail ? (
-          <img src={thumbnail} alt={title} className="video-thumbnail" />
+          <img src={thumbnail} alt={title} className={`video-thumbnail ${type === 'shorts' ? 'shorts-thumbnail' : ''}`} />
         ) : (
-          <div className="video-thumbnail" style={{ backgroundColor: "#e5e5e5", display: "flex", alignItems: "center", justifyContent: "center", color: "#999" }}>
+          <div className={`video-thumbnail ${type === 'shorts' ? 'shorts-thumbnail' : ''}`} style={{ backgroundColor: "#e5e5e5", display: "flex", alignItems: "center", justifyContent: "center", color: "#999" }}>
             이미지 없음
           </div>
         )}
-        <div className="video-duration">{durationText}</div>
+        {duration && <div className="video-duration">{durationText}</div>}
       </a>
       <div className="video-info">
         <div className="video-title">{title}</div>

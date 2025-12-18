@@ -26,8 +26,6 @@ export async function GET(request: NextRequest) {
 
     const channelInfo = await getChannelInfo(channelId)
 
-    console.log(`📊 구독자수: ${channelInfo.subscriberCount} (${channelId})`)
-
     return NextResponse.json({
       subscriberCount: channelInfo.subscriberCount,
       country: channelInfo.country,
@@ -35,7 +33,6 @@ export async function GET(request: NextRequest) {
       verified: channelInfo.verified,
     })
   } catch (error) {
-    console.error('❌ 채널 정보 조회 실패:', error)
     return NextResponse.json(
       {
         error: '채널 정보 조회 중 오류 발생',

@@ -31,8 +31,6 @@ export async function connectToDatabase() {
     cachedClient = client
     cachedDb = db
 
-    console.log('✓ Connected to MongoDB')
-
     // 인덱스 초기화 (최초 1회만)
     if (!indexesInitialized) {
       await initializeIndexes(db)
@@ -41,7 +39,6 @@ export async function connectToDatabase() {
 
     return { client, db }
   } catch (error) {
-    console.error('✗ Failed to connect to MongoDB:', error)
     throw error
   }
 }
@@ -70,14 +67,11 @@ async function initializeIndexes(db: Db) {
     await usersCollection.createIndex({ isActive: 1, isBanned: 1 })
     await usersCollection.createIndex({ lastActive: -1 })
     await usersCollection.createIndex({ createdAt: -1 })
-
-    console.log('✓ MongoDB 인덱스 생성 완료')
   } catch (error) {
     if ((error as any).code === 48 || (error as any).code === 68) {
       // 인덱스 이미 존재 (정상)
       return
     }
-    console.warn('⚠️ MongoDB 인덱스 생성 경고:', (error as any).message)
   }
 }
 
@@ -86,6 +80,5 @@ export async function closeDatabase() {
     await cachedClient.close()
     cachedClient = null
     cachedDb = null
-    console.log('✓ Disconnected from MongoDB')
   }
 }

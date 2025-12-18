@@ -33,7 +33,6 @@ export async function GET(request: NextRequest) {
       )
     }
   } catch (error) {
-    console.error('❌ 비활성화 체크 에러:', error)
     // 에러가 발생해도 진행
   }
 
@@ -50,7 +49,6 @@ export async function GET(request: NextRequest) {
 
   try {
     // ✅ RapidAPI로 비디오 정보 조회
-    console.log(`🎥 비디오 정보 조회: ${videoId}`)
     const videoInfo = await getVideoInfo(videoId)
 
     // ✅ 응답 반환
@@ -59,7 +57,6 @@ export async function GET(request: NextRequest) {
       keywords: videoInfo.keywords || [],
     })
   } catch (error) {
-    console.error('❌ 비디오 조회 오류:', error)
     return NextResponse.json(
       { error: '비디오 정보 조회 중 오류가 발생했습니다' },
       { status: 500 }

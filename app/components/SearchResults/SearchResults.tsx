@@ -1,6 +1,7 @@
 'use client'
 
 import VideoCard from '@/app/components/VideoCard/VideoCard'
+import ChannelCard from '@/app/components/ChannelCard/ChannelCard'
 import ResultsTable from '@/app/components/ResultsTable/ResultsTable'
 // import TagAnalysisDashboard from '@/app/components/TagAnalysisDashboard/TagAnalysisDashboard'
 import Spinner from '@/app/components/ui/Spinner'
@@ -51,14 +52,27 @@ export default function SearchResults({
             padding: '20px',
             alignContent: 'flex-start',
           }}>
-            {results.map((video) => (
-              <VideoCard
-                key={video.id}
-                video={video}
-                showVPH={showVPH}
-                onChannelClick={onChannelClick}
-              />
-            ))}
+            {results.map((item) => {
+              // 채널 타입인 경우 ChannelCard 사용
+              if (item.type === 'channel') {
+                return (
+                  <ChannelCard
+                    key={item.id}
+                    channel={item}
+                  />
+                )
+              }
+
+              // 비디오/쇼츠 타입인 경우 VideoCard 사용
+              return (
+                <VideoCard
+                  key={item.id}
+                  video={item}
+                  showVPH={showVPH}
+                  onChannelClick={onChannelClick}
+                />
+              )
+            })}
           </div>
         ) : (
           <ResultsTable results={results} showVPH={showVPH} />
