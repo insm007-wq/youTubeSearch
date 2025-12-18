@@ -63,19 +63,19 @@ export default function ChannelCard({ channel }: ChannelCardProps) {
         rel="noopener noreferrer"
         style={{ position: "relative", textDecoration: "none" }}
       >
-        {thumbnail ? (
-          <img
-            src={thumbnail}
-            alt={title}
-            className="channel-thumbnail"
-          />
-        ) : (
-          <div
-            className="channel-thumbnail channel-thumbnail-placeholder"
-          >
-            이미지 없음
-          </div>
-        )}
+        <div className="channel-thumbnail-container">
+          {thumbnail ? (
+            <img
+              src={thumbnail}
+              alt={title}
+              className="channel-thumbnail"
+            />
+          ) : (
+            <div className="channel-thumbnail-placeholder">
+              이미지 없음
+            </div>
+          )}
+        </div>
       </a>
 
       <div className="channel-info">

@@ -18,15 +18,27 @@
   transform: translateY(-2px);
 }
 
-/* Channel Thumbnail - 16:9 비율 (VideoCard와 동일) */
-.channel-thumbnail {
+/* Channel Thumbnail Container - 16:9 비율 (VideoCard와 동일) */
+.channel-thumbnail-container {
   width: 100%;
   aspect-ratio: 16 / 9;
   background-color: #f0f0f0;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+}
+
+/* Channel Thumbnail - 동그란 프로필 이미지 */
+.channel-thumbnail {
+  width: 140px;
+  height: 140px;
+  background-color: #e0e0e0;
+  border-radius: 50%;
   object-fit: cover;
   position: relative;
   display: block;
-  border-radius: 4px;
 }
 
 .channel-thumbnail-placeholder {
@@ -36,8 +48,9 @@
   color: #999;
   font-size: 12px;
   background-color: #f0f0f0;
-  width: 100%;
-  aspect-ratio: 16 / 9;
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
 }
 
 /* Channel Info */
