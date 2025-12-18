@@ -76,8 +76,7 @@ interface VideoCardProps {
     categoryIcon?: string;
     categoryId?: string;
     channelCountry?: string | null;
-    type?: 'video' | 'shorts' | 'channel';
-    videoCount?: number;
+    type?: 'video' | 'shorts';
   };
   showVPH?: boolean;
   vph?: number;
@@ -175,7 +174,6 @@ export default function VideoCard({ video, showVPH = false, vph, onChannelClick 
     categoryIcon,
     channelCountry,
     type = 'video',
-    videoCount,
   } = video;
 
   // 구독자 수 상태 관리 (API에서 0이면 실시간 조회)
@@ -236,25 +234,21 @@ export default function VideoCard({ video, showVPH = false, vph, onChannelClick 
   const durationSeconds = parseDuration(duration || "");
   const durationText = formatDuration(durationSeconds);
 
-  const engagementRatio = type !== 'channel' && viewCount
+  const engagementRatio = viewCount
     ? calculateEngagementRatio(viewCount, subscriberCount)
     : 0;
-  const engagementLevel = type !== 'channel'
-    ? getEngagementLevel(engagementRatio)
-    : 0;
-  const ratioText = type !== 'channel' && subscriberCount > 0
+  const engagementLevel = getEngagementLevel(engagementRatio);
+  const ratioText = subscriberCount > 0
     ? engagementRatio.toFixed(2)
     : "N/A";
 
-  const calculatedVPH = type !== 'channel' && publishedAt
+  const calculatedVPH = publishedAt
     ? calculateVPH(viewCount || 0, publishedAt)
     : 0;
   const vphText = formatVPH(calculatedVPH);
 
   const badgeClass = `engagement-badge engagement-${engagementLevel}`;
-  const videoLink = type === 'channel'
-    ? `https://www.youtube.com/channel/${id}`
-    : `https://www.youtube.com/watch?v=${id}`;
+  const videoLink = `https://www.youtube.com/watch?v=${id}`;
 
   return (
     <div className="video-card">
@@ -266,7 +260,7 @@ export default function VideoCard({ video, showVPH = false, vph, onChannelClick 
             이미지 없음
           </div>
         )}
-        {type !== 'channel' && <div className="video-duration">{durationText}</div>}
+        {duration && <div className="video-duration">{durationText}</div>}
       </a>
       <div className="video-info">
         <div className="video-title">{title}</div>
@@ -274,77 +268,61 @@ export default function VideoCard({ video, showVPH = false, vph, onChannelClick 
 
         {/* stats */}
         <div className="video-stats">
-          {type !== 'channel' && (
-            <Tooltip content="영상의 총 조회수" placement="top" variant="glassmorphic">
-              <div className="stat-item">
-                <Eye size={16} style={{ marginRight: "4px" }} />
-                {viewCountText}
-              </div>
-            </Tooltip>
-          )}
+          <Tooltip content="영상의 총 조회수" placement="top" variant="glassmorphic">
+            <div className="stat-item">
+              <Eye size={16} style={{ marginRight: "4px" }} />
+              {viewCountText}
+            </div>
+          </Tooltip>
           <Tooltip content="채널의 총 구독자 수" placement="top" variant="glassmorphic">
             <div className="stat-item">
               <Users size={16} style={{ marginRight: "4px" }} />
               {subscriberText}
             </div>
           </Tooltip>
-          {type === 'channel' && videoCount !== undefined && (
-            <Tooltip content="채널의 총 비디오 개수" placement="top" variant="glassmorphic">
+        </div>
+
+        <div className="video-stats">
+          <Tooltip content="조회수/구독자 비율" placement="top" variant="glassmorphic">
+            <div className="stat-item">
+              <TrendingUp size={16} style={{ marginRight: "4px" }} />
+              {ratioText}
+            </div>
+          </Tooltip>
+
+          {showVPH && (
+            <Tooltip content="시간당 조회수" placement="top" variant="glassmorphic">
               <div className="stat-item">
-                <Video size={16} style={{ marginRight: "4px" }} />
-                {videoCount}개
+                <Zap size={16} style={{ marginRight: "4px" }} />
+                VPH: {vphText}
               </div>
             </Tooltip>
           )}
         </div>
 
-        {type !== 'channel' && (
-          <div className="video-stats">
-            <Tooltip content="조회수/구독자 비율" placement="top" variant="glassmorphic">
-              <div className="stat-item">
-                <TrendingUp size={16} style={{ marginRight: "4px" }} />
-                {ratioText}
-              </div>
-            </Tooltip>
-
-            {showVPH && (
-              <Tooltip content="시간당 조회수" placement="top" variant="glassmorphic">
-                <div className="stat-item">
-                  <Zap size={16} style={{ marginRight: "4px" }} />
-                  VPH: {vphText}
-                </div>
-              </Tooltip>
-            )}
-          </div>
-        )}
-
         {/* badge */}
-        {type !== 'channel' && (
-          <div className="badge-container">
-            <div className={badgeClass}>{engagementLevel}단계</div>
+        <div className="badge-container">
+          <div className={badgeClass}>{engagementLevel}단계</div>
 
-            {categoryName && (
-              <div className="text-badge upload-time">{categoryName}</div>
-            )}
-          </div>
-        )}
+          {categoryName && (
+            <div className="text-badge upload-time">{categoryName}</div>
+          )}
+        </div>
 
-        {type !== 'channel' && <TagAnalysis tags={videoTags} title={title} />}
+        <TagAnalysis tags={videoTags} title={title} />
 
         {/* Buttons */}
         <div className="video-buttons">
-          {type !== 'channel' && (
-            <button
-              className="btn-view-channel"
-              onClick={(e) => {
-                e.preventDefault();
-                onChannelClick?.(channelId || id, channelTitle);
-              }}
-            >
-              <Play size={12} />
-              채널
-            </button>
-          )}
+          <button
+            className="btn-view-channel"
+            onClick={(e) => {
+              e.preventDefault();
+              onChannelClick?.(channelId || id, channelTitle);
+            }}
+          >
+            <Play size={12} />
+            채널
+          </button>
 
           <button
             className="btn-view-link"
