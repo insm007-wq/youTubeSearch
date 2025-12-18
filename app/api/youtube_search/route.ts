@@ -112,9 +112,15 @@ export async function GET(request: NextRequest) {
     }
 
     let items
+    let searchTime = 0
     try {
       const searchStartTime = Date.now()
+
+      // 검색 API 호출
       items = await searchYouTubeWithRapidAPI(query, targetCount, uploadDate)
+
+      searchTime = Date.now() - searchStartTime
+      console.log(`✅ YT-API 검색 완료: ${query} - ${items.length}개 (${searchTime}ms)`)
 
       if (!items || items.length === 0) {
         return NextResponse.json({
@@ -162,17 +168,51 @@ export async function GET(request: NextRequest) {
         }
       })
 
-      const searchTime = Date.now() - searchStartTime
-      console.log(`✅ 검색 완료: ${query} - ${items.length}개 (${searchTime}ms)`)
     } catch (error) {
-      const searchTime = Date.now() - requestStartTime
-      console.error(`❌ 검색 실패 (${searchTime}ms):`, error)
+      const totalTime = Date.now() - requestStartTime
+      const errorMessage = error instanceof Error ? error.message : '검색 중 오류 발생'
+
+      console.error(`❌ 검색 실패 (${totalTime}ms):`, {
+        query,
+        error: errorMessage,
+        statusCode: (error as any).statusCode || 500,
+        stack: error instanceof Error ? error.stack : undefined,
+      })
+
+      // APIError 인 경우 상태 코드 확인
+      const statusCode = (error as any).statusCode || 500
+      const isRateLimitError = statusCode === 429
+      const isAuthError = statusCode === 401 || statusCode === 403
+
+      // 429 에러: 이미 API에서 처리함
+      if (isRateLimitError) {
+        return NextResponse.json(
+          {
+            error: 'SEARCH_RATE_LIMITED',
+            message: 'API 호출이 제한되었습니다. 잠시 후 다시 시도해주세요.',
+          },
+          { status: 429 }
+        )
+      }
+
+      // 401/403 에러
+      if (isAuthError) {
+        return NextResponse.json(
+          {
+            error: 'SEARCH_AUTH_ERROR',
+            message: '인증 오류가 발생했습니다. 다시 로그인해주세요.',
+          },
+          { status: statusCode }
+        )
+      }
+
+      // 기타 에러
       return NextResponse.json(
         {
           error: 'SEARCH_FAILED',
-          message: error instanceof Error ? error.message : '검색 중 오류 발생',
+          message: errorMessage,
         },
-        { status: 500 }
+        { status: statusCode }
       )
     }
 
