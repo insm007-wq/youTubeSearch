@@ -22,7 +22,8 @@ export interface NormalizedVideo {
   subscriberCount: number
   thumbnail: string
   keywords: string[]
-  type: 'video' | 'shorts'
+  type: 'video' | 'shorts' | 'channel'
+  videoCount?: number
 }
 
 /**
@@ -331,6 +332,18 @@ export function normalizeVideo(raw: RawYTAPIVideo): NormalizedVideo {
     )
   }
 
+  // 비디오 개수 (채널 전용)
+  let videoCount: number | undefined
+  if (extractor.getNumber('videoCount')) {
+    videoCount = extractor.getNumber('videoCount')
+  } else if (raw.channel) {
+    const channelExtractor = new FieldExtractor(raw.channel)
+    const count = channelExtractor.getNumber('videoCount')
+    if (count) {
+      videoCount = count
+    }
+  }
+
   // 제목
   const title = extractor.getString('title')
 
@@ -359,10 +372,28 @@ export function normalizeVideo(raw: RawYTAPIVideo): NormalizedVideo {
   // 키워드/태그
   const keywords = extractor.getArray('keywords', 'tags')
 
-  // 타입 (기본: video)
-  const type = (extractor.getString('type') === 'shorts' ? 'shorts' : 'video') as 'video' | 'shorts'
+  // 타입 감지 (개선된 로직)
+  let type: 'video' | 'shorts' | 'channel' = 'video'
 
-  // 로깅 (첫 항목만)
+  // 1차: type 필드 확인 (케이스 무시)
+  const typeField = extractor.getString('type').toLowerCase()
+  if (typeField === 'shorts') {
+    type = 'shorts'
+  }
+  // 1-1차: channel 타입 확인
+  else if (typeField === 'channel') {
+    type = 'channel'
+  }
+  // 2차: isShorts boolean 필드 확인
+  else if (extractor.getBoolean('isShorts')) {
+    type = 'shorts'
+  }
+  // 3차: duration이 SHORTS 또는 PT0S 인 경우
+  else if (extractor.getString('lengthText') === 'SHORTS' || duration === 'PT0S') {
+    type = 'shorts'
+  }
+
+  // 로깅 (첫 항목만 + type 감지 정보)
   if (process.env.DEBUG_NORMALIZATION === 'true') {
     console.log('[정규화] 비디오:', {
       videoId: videoId.substring(0, 5),
@@ -370,6 +401,9 @@ export function normalizeVideo(raw: RawYTAPIVideo): NormalizedVideo {
       viewCount,
       subscriberCount,
       duration,
+      type,
+      typeField: extractor.getString('type'),
+      isShorts: extractor.getBoolean('isShorts'),
     })
   }
 
@@ -388,6 +422,7 @@ export function normalizeVideo(raw: RawYTAPIVideo): NormalizedVideo {
     thumbnail,
     keywords,
     type,
+    videoCount,
   }
 }
 

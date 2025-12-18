@@ -40,6 +40,16 @@ export default function VideoLengthFilter({ value, onChange }: VideoLengthFilter
           />
           <label>롱폼(&gt;3분)</label>
         </label>
+        <label className="filter-option">
+          <input
+            type="radio"
+            name="videoLength"
+            value="channel"
+            checked={value === 'channel'}
+            onChange={(e) => onChange(e.target.value)}
+          />
+          <label>채널</label>
+        </label>
       </div>
     </div>
   )

@@ -224,35 +224,19 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
     return 1;
   };
 
-  // 기간, 길이, engagement ratio로 필터링하는 함수
-  const filterResults = (items: any[], length: string, ratios: string[]) => {
-    // period 파라미터는 API에서 이미 처리되므로 제거
+  // Engagement ratio로 필터링하는 함수
+  // ✅ 길이 필터는 API에서 처리되므로 클라이언트 사이드 필터링 제거
+  const filterResults = (items: any[], ratios: string[]) => {
     let filtered = items;
-
-    // 길이 필터
-    if (length !== "all") {
-      filtered = filtered.filter((video) => {
-        const durationStr = video.duration || "";
-        // ISO 8601 duration 파싱 (예: PT1H30M45S)
-        const match = durationStr.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
-        if (!match) return true;
-
-        const hours = parseInt(match[1] || "0");
-        const minutes = parseInt(match[2] || "0");
-        const seconds = parseInt(match[3] || "0");
-        const totalSeconds = hours * 3600 + minutes * 60 + seconds;
-
-        // 180초(3분)를 기준으로 필터
-        if (length === "short" && totalSeconds > 180) return false;
-        if (length === "long" && totalSeconds <= 180) return false;
-
-        return true;
-      });
-    }
 
     // Engagement ratio 필터
     if (ratios.length > 0 && !ratios.includes("all")) {
       filtered = filtered.filter((video) => {
+        // ✅ 채널 타입은 필터링 적용 안함
+        if (video.type === 'channel') {
+          return true;
+        }
+
         const subscriberCount = video.subscriberCount || 0;
         const viewCount = video.viewCount || 0;
 
@@ -279,10 +263,21 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
 
     switch (sortOption) {
       case "viewCount":
-        sorted.sort((a, b) => (b.viewCount || 0) - (a.viewCount || 0));
+        sorted.sort((a, b) => {
+          // 채널은 viewCount 정렬에 영향 안줌
+          if (a.type === 'channel' && b.type === 'channel') return 0;
+          if (a.type === 'channel') return 1; // 채널을 뒤로
+          if (b.type === 'channel') return -1;
+          return (b.viewCount || 0) - (a.viewCount || 0);
+        });
         break;
       case "vph":
         sorted.sort((a, b) => {
+          // 채널은 VPH 정렬에 영향 안줌
+          if (a.type === 'channel' && b.type === 'channel') return 0;
+          if (a.type === 'channel') return 1; // 채널을 뒤로
+          if (b.type === 'channel') return -1;
+
           const vphA = calculateVPH(a.viewCount, a.publishedAt);
           const vphB = calculateVPH(b.viewCount, b.publishedAt);
 
@@ -301,8 +296,9 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
         break;
       case "engagementRatio":
         sorted.sort((a, b) => {
-          const ratioA = a.subscriberCount > 0 ? a.viewCount / a.subscriberCount : 0;
-          const ratioB = b.subscriberCount > 0 ? b.viewCount / b.subscriberCount : 0;
+          // 채널도 참여율 정렬할 수 있음 (구독자수 기준)
+          const ratioA = a.subscriberCount > 0 ? (a.viewCount || 0) / a.subscriberCount : 0;
+          const ratioB = b.subscriberCount > 0 ? (b.viewCount || 0) / b.subscriberCount : 0;
           return ratioB - ratioA;
         });
         break;
@@ -311,6 +307,11 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
         break;
       case "duration":
         sorted.sort((a, b) => {
+          // 채널은 duration이 없으므로 뒤로
+          if (a.type === 'channel' && b.type === 'channel') return 0;
+          if (a.type === 'channel') return 1; // 채널을 뒤로
+          if (b.type === 'channel') return -1;
+
           const getDurationSeconds = (durationStr: string) => {
             const match = durationStr.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
             if (!match) return 0;
@@ -325,7 +326,13 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
         });
         break;
       case "likeCount":
-        sorted.sort((a, b) => (b.likeCount || 0) - (a.likeCount || 0));
+        sorted.sort((a, b) => {
+          // 채널은 likeCount가 없으므로 뒤로
+          if (a.type === 'channel' && b.type === 'channel') return 0;
+          if (a.type === 'channel') return 1; // 채널을 뒤로
+          if (b.type === 'channel') return -1;
+          return (b.likeCount || 0) - (a.likeCount || 0);
+        });
         break;
       case "publishedAt":
         sorted.sort((a, b) => {
@@ -347,11 +354,22 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
   // 필터링된 결과 계산 (메모이제이션)
   const results = useMemo(
     () => {
-      // uploadPeriod는 API에서 이미 처리되므로 제외
-      let filtered = filterResults(allResults, videoLength, engagementRatios);
-      return sortResults(filtered, sortBy);
+      // uploadPeriod, videoLength는 API에서 이미 처리되므로 제외
+      console.log(`📌 필터링 전 allResults: ${allResults.length}개`);
+      let filtered = filterResults(allResults, engagementRatios);
+      console.log(`📌 filterResults 후: ${filtered.length}개`, {
+        engagementRatios,
+        typeCount: {
+          video: filtered.filter((i) => i.type === 'video').length,
+          shorts: filtered.filter((i) => i.type === 'shorts').length,
+          channel: filtered.filter((i) => i.type === 'channel').length,
+        }
+      });
+      const sorted = sortResults(filtered, sortBy);
+      console.log(`📌 sortResults 후: ${sorted.length}개`);
+      return sorted;
     },
-    [allResults, videoLength, engagementRatios, sortBy]
+    [allResults, engagementRatios, sortBy]
   );
 
   // 트렌딩 필터링된 결과 계산 (메모이제이션)
@@ -463,9 +481,21 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
       if (uploadPeriod !== 'all') {
         params.append('upload_date', uploadPeriod);
       }
+      // videoLength 파라미터 추가 (숏폼/롱폼/채널 필터링)
+      if (videoLength !== 'all') {
+        params.append('video_length', videoLength);
+      }
+
+      const requestUrl = `/api/youtube_search?${params}`;
+      console.log(`🔍 검색 요청:`, {
+        query: searchInput,
+        videoLength,
+        uploadPeriod,
+        requestUrl,
+      });
 
       const startTime = Date.now();
-      const response = await fetch(`/api/youtube_search?${params}`);
+      const response = await fetch(requestUrl);
       const data = await response.json();
       const fetchTime = Date.now() - startTime;
 
@@ -506,15 +536,35 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
 
       console.log(`✓ ${data.items?.length}개 | 필터: ${uploadPeriod} | ${fetchTime}ms`);
 
-      // 🔍 첫 번째 항목의 데이터 구조 확인
+      // 🔍 type별 개수 분석
       if (data.items && data.items.length > 0) {
+        const typeCount = { video: 0, shorts: 0, channel: 0, unknown: 0 };
+        data.items.forEach((item: any) => {
+          if (item.type === 'video') typeCount.video++;
+          else if (item.type === 'shorts') typeCount.shorts++;
+          else if (item.type === 'channel') typeCount.channel++;
+          else typeCount.unknown++;
+        });
+
+        console.log(`📊 Type 분석:`, typeCount);
+
+        // 첫 10개 항목의 타입 상세 출력
+        console.log(`📋 첫 10개 항목 상세 정보:`);
+        data.items.slice(0, 10).forEach((item: any, idx: number) => {
+          console.log(
+            `[${idx}] type="${item.type}" | duration="${item.duration}" | channel="${item.channelTitle}" | title="${item.title}"`
+          );
+        });
+
+        // 첫 번째 항목 상세
         const firstItem = data.items[0];
         console.log('📊 첫 번째 항목 데이터 구조:', {
           id: firstItem.id,
           title: firstItem.title,
+          type: firstItem.type,
+          duration: firstItem.duration,
           viewCount: firstItem.viewCount,
           subscriberCount: firstItem.subscriberCount,
-          duration: firstItem.duration,
           publishedAt: firstItem.publishedAt,
           channelId: firstItem.channelId,
           channelTitle: firstItem.channelTitle,
@@ -532,7 +582,7 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
       alert("검색 중 오류가 발생했습니다");
       setIsLoading(false);
     }
-  }, [searchInput, searchHistory, uploadPeriod, addToast]);
+  }, [searchInput, searchHistory, uploadPeriod, videoLength, addToast]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {

@@ -120,6 +120,8 @@ export interface ApifyDataItem {
   categoryId: string
   categoryName: string
   categoryIcon: string
+  type: 'video' | 'shorts' | 'channel'
+  videoCount?: number
   _needsDetailsFetch?: boolean
 }
 
@@ -348,12 +350,15 @@ async function safeFetch(
  * - sort_by=relevance: 관련도순 정렬
  * - geo=KR, lang=ko, local=1: 한국 로컬라이제이션
  * - token으로 pagination 지원
+ * - type: video, shorts 구분
  */
 async function searchWithYTAPI(
   query: string,
   targetCount: number = 50,
   uploadDate?: string, // 'hour' | 'today' | 'week' | 'month' | 'year'
-  continuation?: string // Pagination 토큰
+  continuation?: string, // Pagination 토큰
+  videoType: 'video' | 'shorts' | 'channel' | 'all' = 'video', // 비디오 타입
+  channel?: string // 채널 필터
 ): Promise<{
   items: NormalizedVideo[]
   metadata: SearchMetadata
@@ -369,13 +374,20 @@ async function searchWithYTAPI(
   let totalFetched = 0
 
   try {
-    const searchTypes = ['video']
+    // videoType에 따라 검색 타입 결정
+    const searchTypes: ('video' | 'shorts' | 'channel')[] =
+      videoType === 'all'
+        ? ['video', 'shorts']  // 전체: 비디오 + 쇼츠
+        : videoType === 'channel'
+        ? ['channel']  // 채널만
+        : [videoType as 'video' | 'shorts']  // 특정 타입만
 
     for (const searchType of searchTypes) {
       errorLogger.info(`🎬 [${searchType.toUpperCase()}] 검색 시작`, {
         query,
         targetCount,
         uploadDate,
+        channel,
       })
 
       // Pagination 루프
@@ -389,6 +401,9 @@ async function searchWithYTAPI(
 
         if (uploadDate) {
           url.searchParams.append('upload_date', uploadDate)
+        }
+        if (channel) {
+          url.searchParams.append('channel', channel)
         }
         url.searchParams.append('sort_by', 'relevance')
         url.searchParams.append('geo', 'KR')
@@ -436,9 +451,31 @@ async function searchWithYTAPI(
 
         // 정규화
         const normalizedItems = items
-          .map(item => {
+          .map((item, idx) => {
             try {
-              return normalizeVideo(item)
+              // 🔍 첫 3개 항목의 상세 로깅
+              if (idx < 3) {
+                errorLogger.info(`📍 [${searchType} 항목 ${idx}] 정규화 전`, {
+                  rawType: item.type,
+                  rawIsShorts: item.isShorts,
+                  rawTitle: item.title?.substring(0, 50),
+                  rawDuration: item.duration,
+                  rawLengthText: item.lengthText,
+                })
+              }
+
+              const normalized = normalizeVideo(item)
+
+              // 정규화 후 type 확인
+              if (idx < 3) {
+                errorLogger.info(`📍 [${searchType} 항목 ${idx}] 정규화 후`, {
+                  normalizedType: normalized.type,
+                  normalizedTitle: normalized.title.substring(0, 50),
+                  normalizedDuration: normalized.duration,
+                })
+              }
+
+              return normalized
             } catch (error) {
               errorLogger.warn('비디오 정규화 실패', {
                 error: error instanceof Error ? error.message : String(error),
@@ -448,6 +485,24 @@ async function searchWithYTAPI(
             }
           })
           .filter((item): item is NormalizedVideo => item !== null)
+          // ✅ 요청한 타입과 일치하는 항목만 필터링 (클라이언트 사이드 검증)
+          .filter(item => {
+            const matches =
+              (searchType === 'video' && item.type === 'video') ||
+              (searchType === 'shorts' && item.type === 'shorts') ||
+              (searchType === 'channel' && item.type === 'channel')
+
+            // 필터 실패한 항목 로깅
+            if (!matches) {
+              errorLogger.warn(`타입 필터 불일치`, {
+                searchType,
+                itemType: item.type,
+                title: item.title.substring(0, 40),
+              })
+            }
+
+            return matches
+          })
 
         allItems.push(...normalizedItems)
         totalFetched += normalizedItems.length
@@ -525,7 +580,10 @@ function normalizedToApifyItem(normalized: NormalizedVideo): ApifyDataItem {
   // 발행 시간 포맷 (한국어)
   const publishedDate = new Date(normalized.publishedAt)
   const now = new Date()
-  const daysOld = Math.floor((now.getTime() - publishedDate.getTime()) / (1000 * 60 * 60 * 24))
+  const isValidDate = !isNaN(publishedDate.getTime())
+  const daysOld = isValidDate
+    ? Math.floor((now.getTime() - publishedDate.getTime()) / (1000 * 60 * 60 * 24))
+    : 0
 
   let categoryName = ''
   if (daysOld === 0) {
@@ -546,7 +604,7 @@ function normalizedToApifyItem(normalized: NormalizedVideo): ApifyDataItem {
   }
 
   return {
-    id: normalized.videoId,
+    id: normalized.type === 'channel' ? normalized.channelId : normalized.videoId,
     title: titleWithoutHashtags,
     description: normalized.description,
     channelId: normalized.channelId,
@@ -562,23 +620,31 @@ function normalizedToApifyItem(normalized: NormalizedVideo): ApifyDataItem {
     categoryId: '',
     categoryName,
     categoryIcon: 'Video',
+    type: normalized.type,
+    videoCount: normalized.videoCount,
   }
 }
 
 // ============ 내보내기 ============
 
 /**
- * YouTube 검색 (YT-API 사용 + Pagination)
+ * YouTube 검색 (YT-API 사용 + Pagination + 비디오 타입 필터링)
  * targetCount개의 영상 반환 (기본 50개)
+ *
+ * videoType:
+ * - 'video': 일반 비디오만
+ * - 'shorts': 쇼츠만
+ * - 'all': 비디오 + 쇼츠 혼합
  */
 export async function searchYouTubeWithRapidAPI(
   query: string,
   targetCount: number = 50,
   uploadDate?: string, // 'hour' | 'today' | 'week' | 'month' | 'year'
-  continuation?: string // Pagination 토큰
+  channel?: string, // 채널 필터
+  videoType: 'video' | 'shorts' | 'channel' | 'all' = 'video' // 비디오 타입
 ): Promise<ApifyDataItem[]> {
   try {
-    const { items } = await searchWithYTAPI(query, targetCount, uploadDate, continuation)
+    const { items } = await searchWithYTAPI(query, targetCount, uploadDate, undefined, videoType, channel)
 
     return items.map(normalizedToApifyItem)
   } catch (error) {

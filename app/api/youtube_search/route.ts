@@ -99,6 +99,26 @@ export async function GET(request: NextRequest) {
     const query = searchParams.get('q')?.trim()
     let targetCount = parseInt(searchParams.get('count') || '50')
     const uploadDate = searchParams.get('upload_date') || undefined
+    const channel = searchParams.get('channel') || undefined
+
+    // 비디오 길이 필터 (short → shorts, long → video, channel → channel, all → all)
+    const videoLengthParam = searchParams.get('video_length') || 'all'
+    const videoTypeMap: Record<string, 'video' | 'shorts' | 'channel' | 'all'> = {
+      'short': 'shorts',
+      'long': 'video',
+      'channel': 'channel',
+      'all': 'all',
+    }
+    const videoType = videoTypeMap[videoLengthParam] || 'all'
+
+    console.log(`🎬 검색 파라미터:`, {
+      query,
+      videoLengthParam,
+      videoType,
+      uploadDate,
+      channel,
+      targetCount,
+    })
 
     if (!query || query.length < 1 || query.length > 100) {
       return NextResponse.json(
@@ -116,8 +136,8 @@ export async function GET(request: NextRequest) {
     try {
       const searchStartTime = Date.now()
 
-      // 검색 API 호출
-      items = await searchYouTubeWithRapidAPI(query, targetCount, uploadDate)
+      // 검색 API 호출 (비디오 타입, 채널 파라미터 전달)
+      items = await searchYouTubeWithRapidAPI(query, targetCount, uploadDate, channel, videoType)
 
       searchTime = Date.now() - searchStartTime
       console.log(`✅ YT-API 검색 완료: ${query} - ${items.length}개 (${searchTime}ms)`)
@@ -135,26 +155,43 @@ export async function GET(request: NextRequest) {
         })
       }
 
+      console.log(`🔍 [route.ts] searchYouTubeWithRapidAPI 후: ${items.length}개`)
+      console.log(`🔍 [route.ts] 첫 5개 item IDs:`, items.slice(0, 5).map(i => ({ id: i.id, type: i.type })))
+
       const uniqueIds = new Set<string>()
+      let duplicateCount = 0
       items = items.filter((video) => {
         if (uniqueIds.has(video.id)) {
+          duplicateCount++
           return false
         }
         uniqueIds.add(video.id)
         return true
       })
 
+      console.log(`🔍 [route.ts] 중복제거 후: ${items.length}개 (제거됨: ${duplicateCount}개)`)
+      console.log(`🔍 [route.ts] 중복제거 후 첫 5개:`, items.slice(0, 5).map(i => ({ id: i.id, channelId: i.channelId, type: i.type })))
+
       const channelIds = [...new Set(items.map((v) => v.channelId).filter(Boolean))]
+      console.log(`🔍 [route.ts] 추출된 channelIds: ${channelIds.length}개`)
+      if (channelIds.length > 0) {
+        console.log(`🔍 [route.ts] 첫 3개 channelId:`, channelIds.slice(0, 3))
+      }
 
       let channelInfoMap = new Map<string, { subscriberCount: number; country: string | null }>()
       if (channelIds.length > 0) {
         try {
+          console.log(`🔍 [route.ts] getChannelsInfo 호출 전 (items: ${items.length}개, channelIds: ${channelIds.length}개)`)
           channelInfoMap = await getChannelsInfo(channelIds)
+          console.log(`🔍 [route.ts] 채널정보 조회 후: Map 크기 ${channelInfoMap.size}개`)
+          console.log(`🔍 [route.ts] getChannelsInfo 호출 후 items: ${items.length}개`)
         } catch (channelsError) {
           console.warn(`⚠️  채널 정보 조회 실패:`, channelsError)
+          console.log(`🔍 [route.ts] Error 발생 후 items: ${items.length}개`)
         }
       }
 
+      console.log(`🔍 [route.ts] map 변환 전: ${items.length}개`)
       items = items.map((item) => {
         const channelInfo = channelInfoMap.get(item.channelId) || { subscriberCount: 0, country: null }
         const finalSubscriberCount = channelInfo.subscriberCount > 0
@@ -167,6 +204,7 @@ export async function GET(request: NextRequest) {
           channelCountry: channelInfo.country,
         }
       })
+      console.log(`🔍 [route.ts] map 변환 후: ${items.length}개`)
 
     } catch (error) {
       const totalTime = Date.now() - requestStartTime
@@ -243,6 +281,13 @@ export async function GET(request: NextRequest) {
       limit: usageCheck.limit,
       remaining: usageCheck.remaining - 1
     }
+
+    console.log(`📦 최종 응답 - items: ${items.length}개`)
+    console.log(`📦 type별 분포:`, {
+      video: items.filter((i) => i.type === 'video').length,
+      shorts: items.filter((i) => i.type === 'shorts').length,
+      channel: items.filter((i) => i.type === 'channel').length,
+    })
 
     return NextResponse.json({
       items,
