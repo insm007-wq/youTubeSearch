@@ -685,9 +685,12 @@ export async function searchYouTubeWithRapidAPI(
 
 /**
  * YouTube 트렌딩 영상 조회 (YT-API)
+ * @param section - 트렌딩 타입 (now, music, games, movies)
+ * @param geo - 국가 코드 (KR, JP, US)
  */
 export async function getTrendingVideos(
-  section: string = 'now'
+  section: string = 'now',
+  geo: string = 'KR'
 ): Promise<ApifyDataItem[]> {
   if (!RAPIDAPI_KEY) {
     throw new APIError('RapidAPI 키가 설정되지 않았습니다', 500, false)
@@ -699,9 +702,23 @@ export async function getTrendingVideos(
     const { data, metadata } = await withRetry(
       async () => {
         const url = new URL(`${API_BASE_URL}/trending`)
-        url.searchParams.append('geo', 'KR')
-        url.searchParams.append('lang', 'ko')
-        url.searchParams.append('type', section.toLowerCase())
+
+        // geo 파라미터 설정
+        url.searchParams.append('geo', geo)
+
+        // lang 파라미터 국가별 매핑
+        const langMap: Record<string, string> = {
+          'KR': 'ko',
+          'JP': 'ja',
+          'US': 'en'
+        }
+        const lang = langMap[geo] || 'ko'
+        url.searchParams.append('lang', lang)
+
+        // type은 optional (기본값: now), 다른 타입을 선택할 때만 추가
+        if (section.toLowerCase() !== 'now') {
+          url.searchParams.append('type', section.toLowerCase())
+        }
 
         const result = await safeFetch(url.toString(), {
           method: 'GET',
@@ -725,10 +742,24 @@ export async function getTrendingVideos(
     )
 
     const rawItems = extractDataArray(data)
+    console.log(`🔍 [트렌딩] 원본 API 응답 아이템 수:`, rawItems.length)
+    console.log(`🔍 [트렌딩] 첫 3개 항목:`, rawItems.slice(0, 3).map(item => ({
+      title: item.title?.substring(0, 30),
+      type: item.type,
+      isShorts: item.isShorts,
+    })))
+
     const normalizedItems = rawItems
-      .map(item => {
+      .map((item, idx) => {
         try {
-          return normalizeVideo(item)
+          const normalized = normalizeVideo(item)
+          if (idx < 3) {
+            console.log(`📊 [트렌딩 ${idx}] 정규화 후:`, {
+              title: normalized.title.substring(0, 30),
+              type: normalized.type,
+            })
+          }
+          return normalized
         } catch (error) {
           errorLogger.warn('트렌딩 비디오 정규화 실패', {
             error: error instanceof Error ? error.message : String(error),
@@ -738,10 +769,13 @@ export async function getTrendingVideos(
       })
       .filter((item): item is NormalizedVideo => item !== null)
 
+    console.log(`✅ [트렌딩] 정규화 완료: ${rawItems.length}개 → ${normalizedItems.length}개`)
+
     const totalTime = Date.now() - startTime
 
     errorLogger.info(`✅ 트렌딩 조회 완료`, {
       section,
+      rawItemsCount: rawItems.length,
       itemsReturned: normalizedItems.length,
       totalTime,
       rateLimitRemaining: metadata?.rateLimitRemaining,

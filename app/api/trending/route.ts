@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/auth'
 import { checkApiUsage, incrementApiUsage } from '@/lib/apiUsage'
-import { searchYouTubeWithRapidAPI, getChannelsInfo } from '@/lib/rapidApiClient'
+import { getTrendingVideos, getChannelsInfo } from '@/lib/rapidApiClient'
 
 export async function GET(request: NextRequest) {
   const requestStartTime = Date.now()
@@ -55,32 +55,18 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url)
-    const section = searchParams.get('section') || 'Now'
+    const sectionParam = searchParams.get('section') || 'now-kr'
 
-    // ✅ 조회수가 높은 트렌딩 영상 조회 (최근 7일 이내)
+    // section 파싱: "now-kr" → type="now", geo="KR"
+    const [type, geo] = sectionParam.split('-')
+
+    // ✅ RapidAPI /trending 엔드포인트 사용
     let items
     try {
       const trendingStartTime = Date.now()
 
-      // 섹션별 검색어 매핑
-      const sectionQueryMap: Record<string, string> = {
-        'Now': '유튜브',
-        'Music': '음악',
-        'Gaming': '게임',
-        'Movies': '영화',
-        'News': '뉴스',
-        'Sports': '스포츠',
-        'Education': '교육',
-        'Technology': '기술',
-        'Arts': '예술',
-        'Food': '음식',
-        'Fitness': '피트니스'
-      }
-      const query = sectionQueryMap[section] || '유튜브'
-
-      // 조회수가 높은 영상들을 검색 (조회수 기준 내림차순)
-      // 필터링 후 충분한 데이터 확보를 위해 50개 요청
-      items = await searchYouTubeWithRapidAPI(query, 50)
+      // RapidAPI /trending 엔드포인트로 조회
+      items = await getTrendingVideos(type, geo.toUpperCase())
 
       // 최근 7일 이내의 영상만 필터링
       const sevenDaysAgo = new Date()
@@ -147,7 +133,7 @@ export async function GET(request: NextRequest) {
       })
 
       // 비동기로 API 사용량 증가 (응답은 즉시 반환)
-      incrementApiUsage(userEmail, `trending:${section}`)
+      incrementApiUsage(userEmail, `trending:${sectionParam}`)
         .catch(() => {
           // API 사용량 증가 실패 시 무시
         })
@@ -155,7 +141,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         items,
         totalResults: items.length,
-        section,
+        section: sectionParam,
         apiUsageToday: {
           used: usageCheck.used,
           limit: usageCheck.limit,

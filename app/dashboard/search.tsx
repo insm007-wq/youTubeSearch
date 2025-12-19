@@ -39,7 +39,7 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
   // 트렌딩 기능
   const [showTrending, setShowTrending] = useState(false);
   const [trendingResults, setTrendingResults] = useState<any[]>([]);
-  const [trendingSection, setTrendingSection] = useState<string>('Now');
+  const [trendingSection, setTrendingSection] = useState<string>('now-kr');
   const [isTrendingLoading, setIsTrendingLoading] = useState(false);
 
   const handleTitleClick = () => {
@@ -705,17 +705,12 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
                 onChange={(e) => setTrendingSection(e.target.value)}
                 disabled={isTrendingLoading}
               >
-                <option value="Now">⭐ 지금 뜨는</option>
-                <option value="Music">🎵 음악</option>
-                <option value="Gaming">🎮 게임</option>
-                <option value="Movies">🎬 영화</option>
-                <option value="News">📰 뉴스</option>
-                <option value="Sports">🏃 스포츠</option>
-                <option value="Education">🎓 교육</option>
-                <option value="Technology">📱 기술</option>
-                <option value="Arts">🎨 예술</option>
-                <option value="Food">🍳 음식</option>
-                <option value="Fitness">🏋️ 피트니스</option>
+                <option value="now-kr">⭐ 지금 뜨는 (한국)</option>
+                <option value="now-jp">⭐ 지금 뜨는 (일본)</option>
+                <option value="now-us">⭐ 지금 뜨는 (미국)</option>
+                <option value="music-kr">🎵 음악 (한국)</option>
+                <option value="games-kr">🎮 게임 (한국)</option>
+                <option value="movies-kr">🎬 영화 (한국)</option>
               </select>
               <button
                 className="btn-trending"
