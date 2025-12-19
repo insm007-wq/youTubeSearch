@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/auth'
 import { checkApiUsage } from '@/lib/apiUsage'
-import { getVideoInfo } from '@/lib/rapidApiClient'
+import { getShortsInfo } from '@/lib/rapidApiClient'
 
 /**
- * 비디오 정보 조회 엔드포인트 (국가 정보 포함)
- * RapidAPI YT-API /video/info 사용
+ * 쇼츠 정보 조회 엔드포인트
+ * RapidAPI YT-API /shorts/details 사용
+ * channelId, channelTitle, publishedAt 등 메타데이터 조회
  */
 export async function GET(request: NextRequest) {
   // ✅ 인증 확인 및 비활성화 체크
@@ -48,21 +49,19 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // ✅ RapidAPI로 비디오 정보 조회
-    const videoInfo = await getVideoInfo(videoId)
+    // ✅ RapidAPI로 쇼츠 정보 조회
+    const shortsInfo = await getShortsInfo(videoId)
 
-    // ✅ 응답 반환 (duration, publishedAt 포함)
+    // ✅ 응답 반환
     return NextResponse.json({
-      languageCode: videoInfo.languageCode,
-      keywords: videoInfo.keywords || [],
-      duration: videoInfo.duration || '',
-      publishedAt: videoInfo.publishedAt || '',
-      channelTitle: videoInfo.channelTitle || '',
-      channelId: videoInfo.channelId || '',
+      channelId: shortsInfo.channelId || '',
+      channelTitle: shortsInfo.channelTitle || '',
+      publishedAt: shortsInfo.publishedAt || '',
+      duration: shortsInfo.duration || '',
     })
   } catch (error) {
     return NextResponse.json(
-      { error: '비디오 정보 조회 중 오류가 발생했습니다' },
+      { error: '쇼츠 정보 조회 중 오류가 발생했습니다' },
       { status: 500 }
     )
   }

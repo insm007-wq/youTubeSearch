@@ -7,7 +7,6 @@ interface PeriodFilterProps {
 
 // YT-API upload_date 파라미터에 맞춘 옵션
 const PERIOD_OPTIONS = [
-  { value: 'all', label: '전체' },
   { value: 'hour', label: '1시간' },
   { value: 'today', label: '오늘' },
   { value: 'week', label: '이번 주' },
@@ -31,7 +30,7 @@ export default function PeriodFilter({ value, onChange }: PeriodFilterProps) {
               checked={value === option.value}
               onChange={(e) => onChange(e.target.value)}
             />
-            <span>{option.label}</span>
+            <label>{option.label}</label>
           </label>
         ))}
       </div>

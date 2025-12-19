@@ -119,10 +119,14 @@ class FieldExtractor {
 /**
  * 재생시간 파싱 (YT-API 형식 정규화)
  * Input: "PT12M34S" | "12:34" | "1:23:45" | "SHORTS"
- * Output: "PT12M34S"
+ * Output: "PT12M34S" | "" (파싱 실패)
  */
 export function normalizeDuration(durationStr: string | number | undefined): string {
-  if (!durationStr || durationStr === 'SHORTS') {
+  if (!durationStr) {
+    return ''
+  }
+
+  if (durationStr === 'SHORTS') {
     return 'PT0S'
   }
 
@@ -135,6 +139,11 @@ export function normalizeDuration(durationStr: string | number | undefined): str
 
   // MM:SS 또는 H:MM:SS 형식 변환
   const parts = str.split(':').map(p => parseInt(p, 10)).filter(n => !isNaN(n))
+
+  // 파싱 실패 시 빈 문자열 반환
+  if (parts.length === 0) {
+    return ''
+  }
 
   let hours = 0,
     minutes = 0,
@@ -153,7 +162,7 @@ export function normalizeDuration(durationStr: string | number | undefined): str
   if (minutes > 0) iso += `${minutes}M`
   if (seconds > 0) iso += `${seconds}S`
 
-  return iso === 'PT' ? 'PT0S' : iso
+  return iso === 'PT' ? '' : iso
 }
 
 /**
@@ -175,15 +184,20 @@ export function normalizePublishedDate(
   }
 
   if (!relativeTime) {
-    return new Date().toISOString()
+    return ''
   }
 
-  const match = relativeTime.match(
-    /(\d+)\s*(second|minute|hour|day|week|month|year|초|분|시간|일|주|달|년)s?\s*(?:ago)?/i
+  // 공백 제거 후 더 유연한 정규식으로 매칭
+  const normalizedTime = relativeTime.trim()
+
+  // 여러 패턴 시도: "3주전", "3 주 전", "3 weeks ago", "3주 ago" 등
+  const match = normalizedTime.match(
+    /(\d+)\s*(second|minute|hour|day|week|month|year|초|분|시간|일|주|달|년)\s*(?:s|ago|전)?/i
   )
 
   if (!match) {
-    return new Date().toISOString()
+    // 파싱 실패 시 빈 문자열 반환 (UI에서 처리하도록)
+    return ''
   }
 
   const value = parseInt(match[1], 10)
@@ -212,6 +226,7 @@ export function normalizePublishedDate(
 
 /**
  * 숫자 문자열 파싱 ("1.5M" → 1500000)
+ * 한글 단위(만, 천, 억) + 영문 단위(K, M, B, T) 지원
  */
 export function parseNumberString(value: string | number | undefined): number {
   if (!value) return 0
@@ -220,10 +235,32 @@ export function parseNumberString(value: string | number | undefined): number {
     return isNaN(value) ? 0 : Math.floor(value)
   }
 
-  const cleaned = String(value)
-    .trim()
-    .toUpperCase()
-    .replace(/[^0-9.KMBT]/g, '') // 숫자, 점, K, M, B, T만 유지
+  const str = String(value).trim()
+
+  // 1. 한글 단위 우선 처리 (억 → 만 → 천)
+  if (str.includes('억')) {
+    const num = parseFloat(str.replace(/[^0-9.]/g, '')) * 100_000_000
+    return isNaN(num) ? 0 : Math.floor(num)
+  }
+
+  if (str.includes('만')) {
+    const num = parseFloat(str.replace(/[^0-9.]/g, '')) * 10_000
+    return isNaN(num) ? 0 : Math.floor(num)
+  }
+
+  if (str.includes('천')) {
+    const num = parseFloat(str.replace(/[^0-9.]/g, '')) * 1_000
+    return isNaN(num) ? 0 : Math.floor(num)
+  }
+
+  // 2. 영문 단위 처리 (기존 로직)
+  const cleaned = str.toUpperCase().replace(/[^0-9.KMBT]/g, '')
+
+  // "1.5B" → 1500000000
+  if (cleaned.includes('B')) {
+    const num = parseFloat(cleaned.replace('B', '')) * 1_000_000_000
+    return isNaN(num) ? 0 : Math.floor(num)
+  }
 
   // "1.5M" → 1500000
   if (cleaned.includes('M')) {
@@ -237,19 +274,13 @@ export function parseNumberString(value: string | number | undefined): number {
     return isNaN(num) ? 0 : Math.floor(num)
   }
 
-  // "150B" → 150000000000
-  if (cleaned.includes('B')) {
-    const num = parseFloat(cleaned.replace('B', '')) * 1_000_000_000
-    return isNaN(num) ? 0 : Math.floor(num)
-  }
-
   // "150T" → 150000000000000
   if (cleaned.includes('T')) {
     const num = parseFloat(cleaned.replace('T', '')) * 1_000_000_000_000
     return isNaN(num) ? 0 : Math.floor(num)
   }
 
-  // 순수 숫자
+  // 3. 순수 숫자
   const num = parseInt(cleaned, 10)
   return isNaN(num) ? 0 : num
 }
@@ -320,14 +351,17 @@ export function normalizeVideo(raw: RawYTAPIVideo): NormalizedVideo {
 
   // 구독자 수
   let subscriberCount = parseNumberString(
-    extractor.getString('subscriberCount') || extractor.getNumber('subscriberCount')
+    extractor.getString('subscriberCountText') ||
+      extractor.getString('subscriberCount') ||
+      extractor.getNumber('subscriberCount')
   )
 
   // 채널 객체에서도 시도
   if (!subscriberCount && raw.channel) {
     const channelExtractor = new FieldExtractor(raw.channel)
     subscriberCount = parseNumberString(
-      channelExtractor.getString('subscribers') ||
+      channelExtractor.getString('subscriberCountText') ||
+        channelExtractor.getString('subscribers') ||
         channelExtractor.getNumber('subscriberCount')
     )
   }
@@ -388,11 +422,21 @@ export function normalizeVideo(raw: RawYTAPIVideo): NormalizedVideo {
   else if (extractor.getBoolean('isShorts')) {
     type = 'shorts'
   }
-  // 3차: duration이 SHORTS 또는 PT0S 인 경우
-  else if (extractor.getString('lengthText') === 'SHORTS' || duration === 'PT0S') {
+  // 3차: lengthText가 SHORTS인 경우
+  else if (extractor.getString('lengthText') === 'SHORTS') {
     type = 'shorts'
   }
 
+  // 🔍 DEBUG: Shorts의 channelTitle 로깅
+  if (type === 'shorts' && !channelTitle) {
+    console.log(`🔍 Shorts channelTitle 확인:`, {
+      title: title.substring(0, 40),
+      extractedChannelTitle: extractor.getString('channelTitle'),
+      channelObject: raw.channel ? 'exists' : 'none',
+      channelName: raw.channel ? new FieldExtractor(raw.channel).getString('name') : 'N/A',
+      allKeys: Object.keys(raw).slice(0, 30),
+    })
+  }
 
   return {
     videoId,

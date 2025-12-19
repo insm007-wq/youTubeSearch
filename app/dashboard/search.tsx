@@ -25,8 +25,8 @@ interface User {
 export default function Search({ user, signOut }: { user?: User; signOut?: (options?: any) => void }) {
   const [searchInput, setSearchInput] = useState("");
   const [uploadPeriod, setUploadPeriod] = useState("week");
-  const [videoLength, setVideoLength] = useState("all");
-  const [engagementRatios, setEngagementRatios] = useState<string[]>(["all"]);
+  const [videoLength, setVideoLength] = useState("long");
+  const [engagementRatios, setEngagementRatios] = useState<string[]>(["4", "5"]);
   const [isLoading, setIsLoading] = useState(false);
   const [allResults, setAllResults] = useState<any[]>([]);
   const [totalResults, setTotalResults] = useState(0);
@@ -39,7 +39,7 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
   // 트렌딩 기능
   const [showTrending, setShowTrending] = useState(false);
   const [trendingResults, setTrendingResults] = useState<any[]>([]);
-  const [trendingSection, setTrendingSection] = useState<string>('Now');
+  const [trendingSection, setTrendingSection] = useState<string>('now-kr');
   const [isTrendingLoading, setIsTrendingLoading] = useState(false);
 
   const handleTitleClick = () => {
@@ -453,6 +453,15 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
       return;
     }
 
+    // 숏폼 선택 시 경고 메시지 표시
+    if (videoLength === 'short') {
+      addToast({
+        type: 'warning',
+        title: '숏폼 기간 필터 안내',
+        message: '숏폼은 기간 필터가 지원되지 않습니다',
+      });
+    }
+
     // 검색 히스토리 저장
     const newHistory = [searchInput, ...searchHistory.filter(item => item !== searchInput)].slice(0, 10);
     setSearchHistory(newHistory);
@@ -465,15 +474,9 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
       // 검색 API 호출 (기본값 사용 - 한 번만 호출)
       const params = new URLSearchParams({
         q: searchInput,
+        upload_date: uploadPeriod,
+        video_length: videoLength,
       });
-      // uploadPeriod가 'all'이 아니면 파라미터 추가
-      if (uploadPeriod !== 'all') {
-        params.append('upload_date', uploadPeriod);
-      }
-      // videoLength 파라미터 추가 (숏폼/롱폼/채널 필터링)
-      if (videoLength !== 'all') {
-        params.append('video_length', videoLength);
-      }
 
       const requestUrl = `/api/youtube_search?${params}`;
 
@@ -702,17 +705,12 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
                 onChange={(e) => setTrendingSection(e.target.value)}
                 disabled={isTrendingLoading}
               >
-                <option value="Now">⭐ 지금 뜨는</option>
-                <option value="Music">🎵 음악</option>
-                <option value="Gaming">🎮 게임</option>
-                <option value="Movies">🎬 영화</option>
-                <option value="News">📰 뉴스</option>
-                <option value="Sports">🏃 스포츠</option>
-                <option value="Education">🎓 교육</option>
-                <option value="Technology">📱 기술</option>
-                <option value="Arts">🎨 예술</option>
-                <option value="Food">🍳 음식</option>
-                <option value="Fitness">🏋️ 피트니스</option>
+                <option value="now-kr">⭐ 지금 뜨는 (한국)</option>
+                <option value="now-jp">⭐ 지금 뜨는 (일본)</option>
+                <option value="now-us">⭐ 지금 뜨는 (미국)</option>
+                <option value="music-kr">🎵 음악 (한국)</option>
+                <option value="games-kr">🎮 게임 (한국)</option>
+                <option value="movies-kr">🎬 영화 (한국)</option>
               </select>
               <button
                 className="btn-trending"

@@ -21,8 +21,8 @@ export interface YouTubeVideo {
  * Search Filter Type
  */
 export interface SearchFilter {
-  uploadPeriod: 'all' | '1month' | '2months' | '6months' | '1year'
-  videoLength: 'all' | 'short' | 'long'
+  uploadPeriod: 'hour' | 'today' | 'week' | 'month' | 'year'
+  videoLength: 'short' | 'long' | 'channel'
   engagementRatio: string[]
 }
 
