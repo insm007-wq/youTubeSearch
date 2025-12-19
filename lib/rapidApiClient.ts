@@ -403,6 +403,9 @@ async function searchWithYTAPI(
         url.searchParams.append('lang', 'ko')
         url.searchParams.append('local', '1')
 
+        // 🔍 디버그: 전송될 URL 확인
+        console.log(`🔍 RapidAPI 검색 URL (page ${pageCount}):`, url.toString().substring(0, 200))
+
         // Pagination 토큰
         if (currentContinuation) {
           url.searchParams.append('token', currentContinuation)
@@ -465,6 +468,7 @@ async function searchWithYTAPI(
                   normalizedType: normalized.type,
                   normalizedTitle: normalized.title.substring(0, 50),
                   normalizedDuration: normalized.duration,
+                  publishedAt: normalized.publishedAt,
                 })
               }
 
@@ -565,16 +569,12 @@ async function searchWithYTAPI(
 
 /**
  * Shorts 데이터 보강 (부족한 필드 채우기)
- * shorts는 최소한의 정보만 포함되므로, 빈 값을 유지해서 VideoCard에서 동적으로 로드
+ * shorts는 최소한의 정보만 포함되므로, VideoCard에서 동적으로 로드할 필드는 빈 값 유지
  */
 function enrichShortsData(normalized: NormalizedVideo): NormalizedVideo {
-  // publishedAt이 빈 값이면 현재 시간으로 설정 (UI에서 "최근"으로 표시되도록)
-  if (!normalized.publishedAt) {
-    normalized.publishedAt = new Date(Date.now() - 1000 * 60 * 60).toISOString() // 1시간 전
-  }
-
-  // duration과 channelTitle이 빈 값이면 유지 (VideoCard에서 API로 조회)
-  // 기본값을 설정하면 API 조회가 안 되므로 빈 값 그대로 유지
+  // Shorts는 /api/shorts-info에서 정확한 모든 데이터를 가져오므로
+  // 빈 값을 기본값으로 채우지 않음 (이렇게 하면 API 조회가 트리거되지 않음)
+  // publishedAt, duration, channelTitle이 빈 값이면 VideoCard에서 API로 조회
 
   return normalized
 }
@@ -592,29 +592,39 @@ function normalizedToApifyItem(normalized: NormalizedVideo): ApifyDataItem {
   const titleWithoutHashtags = removeHashtagsFromText(normalized.title)
 
   // 발행 시간 포맷 (한국어)
-  const publishedDate = new Date(normalized.publishedAt)
-  const now = new Date()
-  const isValidDate = !isNaN(publishedDate.getTime())
-  const daysOld = isValidDate
-    ? Math.floor((now.getTime() - publishedDate.getTime()) / (1000 * 60 * 60 * 24))
-    : 0
-
+  // ✅ publishedAt이 빈 값이면 비워둠 (VideoCard에서 API 업데이트 후 계산)
   let categoryName = ''
-  if (daysOld === 0) {
-    categoryName = '오늘'
-  } else if (daysOld === 1) {
-    categoryName = '어제'
-  } else if (daysOld < 7) {
-    categoryName = `${daysOld}일 전`
-  } else if (daysOld < 30) {
-    const weeks = Math.floor(daysOld / 7)
-    categoryName = `${weeks}주 전`
-  } else if (daysOld < 365) {
-    const months = Math.floor(daysOld / 30)
-    categoryName = `${months}개월 전`
-  } else {
-    const years = Math.floor(daysOld / 365)
-    categoryName = `${years}년 전`
+
+  if (normalized.publishedAt && normalized.publishedAt.trim() !== '') {
+    const publishedDate = new Date(normalized.publishedAt)
+    const now = new Date()
+    const isValidDate = !isNaN(publishedDate.getTime())
+
+    if (isValidDate) {
+      // 미래 날짜는 "최근" 또는 "오늘"로 표시 (API 오류나 시간대 차이 대비)
+      if (publishedDate > now) {
+        categoryName = '최근'
+      } else {
+        const daysOld = Math.floor((now.getTime() - publishedDate.getTime()) / (1000 * 60 * 60 * 24))
+
+        if (daysOld === 0) {
+          categoryName = '오늘'
+        } else if (daysOld === 1) {
+          categoryName = '어제'
+        } else if (daysOld < 7) {
+          categoryName = `${daysOld}일 전`
+        } else if (daysOld < 30) {
+          const weeks = Math.floor(daysOld / 7)
+          categoryName = `${weeks}주 전`
+        } else if (daysOld < 365) {
+          const months = Math.floor(daysOld / 30)
+          categoryName = `${months}개월 전`
+        } else {
+          const years = Math.floor(daysOld / 365)
+          categoryName = `${years}년 전`
+        }
+      }
+    }
   }
 
   return {
@@ -660,6 +670,12 @@ export async function searchYouTubeWithRapidAPI(
   try {
     const { items } = await searchWithYTAPI(query, targetCount, uploadDate, undefined, videoType, channel)
 
+    // ✅ RapidAPI의 upload_date 필터가 제대로 작동하지 않아 클라이언트 필터링은 스킵
+    // VideoCard에서 API 호출 시 정확한 publishedAt을 받으므로 거기서 시간 표시는 정확함
+    // 검색 필터는 VideoCard의 업로드 시간 계산과 별개로 진행
+
+    console.log(`📊 검색 결과: ${items.length}개 반환 (upload_date: ${uploadDate} - RapidAPI 필터 사용)`)
+
     return items.map(normalizedToApifyItem)
   } catch (error) {
     errorLogger.error('❌ YouTube 검색 실패', error as Error, { query })
@@ -671,7 +687,7 @@ export async function searchYouTubeWithRapidAPI(
  * YouTube 트렌딩 영상 조회 (YT-API)
  */
 export async function getTrendingVideos(
-  section: string = 'NOW'
+  section: string = 'now'
 ): Promise<ApifyDataItem[]> {
   if (!RAPIDAPI_KEY) {
     throw new APIError('RapidAPI 키가 설정되지 않았습니다', 500, false)
@@ -683,8 +699,9 @@ export async function getTrendingVideos(
     const { data, metadata } = await withRetry(
       async () => {
         const url = new URL(`${API_BASE_URL}/trending`)
-        url.searchParams.append('gl', 'KR')
-        url.searchParams.append('hl', 'ko')
+        url.searchParams.append('geo', 'KR')
+        url.searchParams.append('lang', 'ko')
+        url.searchParams.append('type', section.toLowerCase())
 
         const result = await safeFetch(url.toString(), {
           method: 'GET',
@@ -874,8 +891,6 @@ export async function getShortsInfo(videoId: string): Promise<{
     let url = new URL(`${API_BASE_URL}/video/info`)
     url.searchParams.append('id', videoId)
 
-    console.log(`🎬 /video/info 호출 시작 (videoId: ${videoId}, type: shorts)`)
-
     const result = await withRetry(
       async () => {
         const fetchResult = await safeFetch(url.toString(), {
@@ -901,18 +916,6 @@ export async function getShortsInfo(videoId: string): Promise<{
 
     const data = result.data
 
-    console.log(`🎬 /video/info 응답 (videoId: ${videoId}):`, {
-      isObject: typeof data === 'object',
-      keys: data ? Object.keys(data).slice(0, 40) : [],
-      hasChannelId: !!data?.channelId,
-      hasChannelTitle: !!data?.channelTitle,
-      hasLengthSeconds: !!data?.lengthSeconds,
-      channelId: data?.channelId,
-      channelTitle: data?.channelTitle,
-      lengthSeconds: data?.lengthSeconds,
-      publishedAt: data?.publishedAt,
-    })
-
     // lengthSeconds를 ISO 8601 duration 형식으로 변환
     let duration = ''
     if (data?.lengthSeconds) {
@@ -935,13 +938,6 @@ export async function getShortsInfo(videoId: string): Promise<{
     const channelTitle = data?.channelTitle || ''
     const publishedAt = data?.publishedAt || ''
 
-    console.log(`📊 /video/info 추출 결과:`, {
-      channelId,
-      channelTitle,
-      duration,
-      publishedAt,
-    })
-
     return {
       channelId,
       channelTitle,
@@ -955,8 +951,6 @@ export async function getShortsInfo(videoId: string): Promise<{
     })
 
     // 폴백 로직은 더 이상 필요 없음 (필요시 다른 엔드포인트 추가 가능)
-    console.log(`⚠️  Shorts 정보 조회 실패, 빈 값 반환 (videoId: ${videoId})`)
-
     try {
       const url = new URL(`${API_BASE_URL}/video/info`)
       url.searchParams.append('id', videoId)
@@ -986,12 +980,6 @@ export async function getShortsInfo(videoId: string): Promise<{
 
       const data = result.data.meta || result.data.data?.[0] || result.data
       const normalized = normalizeVideo(data)
-
-      console.log(`✅ /video/info 폴백 성공:`, {
-        channelId: data?.channelId || normalized.channelId,
-        channelTitle: data?.channelTitle || normalized.channelTitle,
-        duration: data?.duration || normalized.duration,
-      })
 
       return {
         channelId: data?.channelId || normalized.channelId || '',
