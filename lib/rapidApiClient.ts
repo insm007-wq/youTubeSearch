@@ -859,9 +859,9 @@ export async function getChannelsInfo(
 }
 
 /**
- * 쇼츠 상세 정보 조회 (YT-API /shorts/info)
- * 숏폼에 필요한 channelId, channelTitle, publishedAt, duration 등을 조회
- * 실패 시 /video/info로 폴백
+ * 쇼츠 상세 정보 조회 (YT-API /video/info)
+ * Shorts도 /video/info로 모든 메타데이터 조회 가능
+ * - channelId, channelTitle, publishedAt, lengthSeconds (duration) 등
  */
 export async function getShortsInfo(videoId: string): Promise<{
   channelId: string
@@ -870,11 +870,11 @@ export async function getShortsInfo(videoId: string): Promise<{
   duration: string
 }> {
   try {
-    // ✅ 올바른 엔드포인트: /shorts/info
-    let url = new URL(`${API_BASE_URL}/shorts/info`)
+    // ✅ Shorts도 /video/info 사용 (더 많은 정보 제공)
+    let url = new URL(`${API_BASE_URL}/video/info`)
     url.searchParams.append('id', videoId)
 
-    console.log(`🎬 /shorts/info 호출 시작 (videoId: ${videoId})`)
+    console.log(`🎬 /video/info 호출 시작 (videoId: ${videoId}, type: shorts)`)
 
     const result = await withRetry(
       async () => {
@@ -901,31 +901,41 @@ export async function getShortsInfo(videoId: string): Promise<{
 
     const data = result.data
 
-    console.log(`🎬 /shorts/info 응답 (videoId: ${videoId}):`, {
+    console.log(`🎬 /video/info 응답 (videoId: ${videoId}):`, {
       isObject: typeof data === 'object',
-      keys: data ? Object.keys(data).slice(0, 50) : [],
-      hasTitle: !!data?.title,
+      keys: data ? Object.keys(data).slice(0, 40) : [],
       hasChannelId: !!data?.channelId,
       hasChannelTitle: !!data?.channelTitle,
-      hasDuration: !!data?.duration,
-      hasLengthText: !!data?.lengthText,
+      hasLengthSeconds: !!data?.lengthSeconds,
       channelId: data?.channelId,
       channelTitle: data?.channelTitle,
-      title: data?.title,
-      duration: data?.duration,
-      lengthText: data?.lengthText,
+      lengthSeconds: data?.lengthSeconds,
+      publishedAt: data?.publishedAt,
     })
 
-    // ✅ normalizeVideo() 활용해서 모든 필드 추출 (일관성 유지)
-    const normalized = normalizeVideo(data)
+    // lengthSeconds를 ISO 8601 duration 형식으로 변환
+    let duration = ''
+    if (data?.lengthSeconds) {
+      const seconds = parseInt(data.lengthSeconds, 10)
+      if (!isNaN(seconds)) {
+        const hours = Math.floor(seconds / 3600)
+        const minutes = Math.floor((seconds % 3600) / 60)
+        const secs = seconds % 60
 
-    // 필드 추출 (다양한 필드명 지원)
-    let channelId = data?.channelId || normalized.channelId || ''
-    let channelTitle = data?.channelTitle || normalized.channelTitle || ''
-    let duration = data?.duration || data?.lengthText || normalized.duration || ''
-    let publishedAt = data?.publishedAt || normalized.publishedAt || ''
+        let durationStr = 'PT'
+        if (hours > 0) durationStr += `${hours}H`
+        if (minutes > 0) durationStr += `${minutes}M`
+        if (secs > 0 || durationStr === 'PT') durationStr += `${secs}S`
 
-    console.log(`📊 /shorts/info 추출 결과:`, {
+        duration = durationStr
+      }
+    }
+
+    const channelId = data?.channelId || ''
+    const channelTitle = data?.channelTitle || ''
+    const publishedAt = data?.publishedAt || ''
+
+    console.log(`📊 /video/info 추출 결과:`, {
       channelId,
       channelTitle,
       duration,
@@ -939,13 +949,13 @@ export async function getShortsInfo(videoId: string): Promise<{
       duration,
     }
   } catch (error) {
-    console.error(`❌ /shorts/info 호출 실패:`, {
+    console.error(`❌ /video/info 호출 실패 (shorts):`, {
       videoId,
       error: error instanceof Error ? error.message : String(error),
     })
 
-    // /shorts/info 실패 시 /video/info로 폴백
-    console.log(`🔄 /video/info로 폴백 시도 (videoId: ${videoId})`)
+    // 폴백 로직은 더 이상 필요 없음 (필요시 다른 엔드포인트 추가 가능)
+    console.log(`⚠️  Shorts 정보 조회 실패, 빈 값 반환 (videoId: ${videoId})`)
 
     try {
       const url = new URL(`${API_BASE_URL}/video/info`)

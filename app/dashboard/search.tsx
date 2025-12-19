@@ -453,6 +453,15 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
       return;
     }
 
+    // 숏폼 선택 시 경고 메시지 표시
+    if (videoLength === 'short') {
+      addToast({
+        type: 'warning',
+        title: '숏폼 기간 필터 안내',
+        message: '숏폼은 기간 필터가 지원되지 않습니다',
+      });
+    }
+
     // 검색 히스토리 저장
     const newHistory = [searchInput, ...searchHistory.filter(item => item !== searchInput)].slice(0, 10);
     setSearchHistory(newHistory);
