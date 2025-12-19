@@ -15,6 +15,7 @@ import {
   normalizeChannelInfo,
   extractDataArray,
   filterShortsListing,
+  normalizePublishedDate,
   NormalizedVideo,
   NormalizedChannelInfo,
 } from '@/lib/apiResponseNormalizer'
@@ -563,9 +564,30 @@ async function searchWithYTAPI(
 }
 
 /**
+ * Shorts 데이터 보강 (부족한 필드 채우기)
+ * shorts는 최소한의 정보만 포함되므로, 빈 값을 유지해서 VideoCard에서 동적으로 로드
+ */
+function enrichShortsData(normalized: NormalizedVideo): NormalizedVideo {
+  // publishedAt이 빈 값이면 현재 시간으로 설정 (UI에서 "최근"으로 표시되도록)
+  if (!normalized.publishedAt) {
+    normalized.publishedAt = new Date(Date.now() - 1000 * 60 * 60).toISOString() // 1시간 전
+  }
+
+  // duration과 channelTitle이 빈 값이면 유지 (VideoCard에서 API로 조회)
+  // 기본값을 설정하면 API 조회가 안 되므로 빈 값 그대로 유지
+
+  return normalized
+}
+
+/**
  * 내부 형식으로 변환 (기존 호환성 유지)
  */
 function normalizedToApifyItem(normalized: NormalizedVideo): ApifyDataItem {
+  // Shorts 데이터 보강
+  if (normalized.type === 'shorts') {
+    normalized = enrichShortsData(normalized)
+  }
+
   // 제목에서 해시태그 제거
   const titleWithoutHashtags = removeHashtagsFromText(normalized.title)
 
@@ -837,9 +859,168 @@ export async function getChannelsInfo(
 }
 
 /**
+ * 쇼츠 상세 정보 조회 (YT-API /shorts/info)
+ * 숏폼에 필요한 channelId, channelTitle, publishedAt, duration 등을 조회
+ * 실패 시 /video/info로 폴백
+ */
+export async function getShortsInfo(videoId: string): Promise<{
+  channelId: string
+  channelTitle: string
+  publishedAt: string
+  duration: string
+}> {
+  try {
+    // ✅ 올바른 엔드포인트: /shorts/info
+    let url = new URL(`${API_BASE_URL}/shorts/info`)
+    url.searchParams.append('id', videoId)
+
+    console.log(`🎬 /shorts/info 호출 시작 (videoId: ${videoId})`)
+
+    const result = await withRetry(
+      async () => {
+        const fetchResult = await safeFetch(url.toString(), {
+          method: 'GET',
+          headers: {
+            'x-rapidapi-key': RAPIDAPI_KEY || '',
+            'x-rapidapi-host': RAPIDAPI_HOST,
+          },
+          signal: AbortSignal.timeout(CONFIG.REQUEST_TIMEOUT),
+          context: { videoId },
+        })
+
+        return {
+          data: fetchResult.data,
+          headers: fetchResult.response.headers,
+          metadata: fetchResult.metadata,
+        }
+      },
+      CONFIG.RETRY_COUNT,
+      CONFIG.RETRY_DELAY,
+      { videoId }
+    )
+
+    const data = result.data
+
+    console.log(`🎬 /shorts/info 응답 (videoId: ${videoId}):`, {
+      isObject: typeof data === 'object',
+      keys: data ? Object.keys(data).slice(0, 50) : [],
+      hasTitle: !!data?.title,
+      hasChannelId: !!data?.channelId,
+      hasChannelTitle: !!data?.channelTitle,
+      hasDuration: !!data?.duration,
+      hasLengthText: !!data?.lengthText,
+      channelId: data?.channelId,
+      channelTitle: data?.channelTitle,
+      title: data?.title,
+      duration: data?.duration,
+      lengthText: data?.lengthText,
+    })
+
+    // ✅ normalizeVideo() 활용해서 모든 필드 추출 (일관성 유지)
+    const normalized = normalizeVideo(data)
+
+    // 필드 추출 (다양한 필드명 지원)
+    let channelId = data?.channelId || normalized.channelId || ''
+    let channelTitle = data?.channelTitle || normalized.channelTitle || ''
+    let duration = data?.duration || data?.lengthText || normalized.duration || ''
+    let publishedAt = data?.publishedAt || normalized.publishedAt || ''
+
+    console.log(`📊 /shorts/info 추출 결과:`, {
+      channelId,
+      channelTitle,
+      duration,
+      publishedAt,
+    })
+
+    return {
+      channelId,
+      channelTitle,
+      publishedAt,
+      duration,
+    }
+  } catch (error) {
+    console.error(`❌ /shorts/info 호출 실패:`, {
+      videoId,
+      error: error instanceof Error ? error.message : String(error),
+    })
+
+    // /shorts/info 실패 시 /video/info로 폴백
+    console.log(`🔄 /video/info로 폴백 시도 (videoId: ${videoId})`)
+
+    try {
+      const url = new URL(`${API_BASE_URL}/video/info`)
+      url.searchParams.append('id', videoId)
+
+      const result = await withRetry(
+        async () => {
+          const fetchResult = await safeFetch(url.toString(), {
+            method: 'GET',
+            headers: {
+              'x-rapidapi-key': RAPIDAPI_KEY || '',
+              'x-rapidapi-host': RAPIDAPI_HOST,
+            },
+            signal: AbortSignal.timeout(CONFIG.REQUEST_TIMEOUT),
+            context: { videoId },
+          })
+
+          return {
+            data: fetchResult.data,
+            headers: fetchResult.response.headers,
+            metadata: fetchResult.metadata,
+          }
+        },
+        CONFIG.RETRY_COUNT,
+        CONFIG.RETRY_DELAY,
+        { videoId }
+      )
+
+      const data = result.data.meta || result.data.data?.[0] || result.data
+      const normalized = normalizeVideo(data)
+
+      console.log(`✅ /video/info 폴백 성공:`, {
+        channelId: data?.channelId || normalized.channelId,
+        channelTitle: data?.channelTitle || normalized.channelTitle,
+        duration: data?.duration || normalized.duration,
+      })
+
+      return {
+        channelId: data?.channelId || normalized.channelId || '',
+        channelTitle: data?.channelTitle || normalized.channelTitle || '',
+        publishedAt: data?.publishedAt || normalized.publishedAt || '',
+        duration: data?.duration || normalized.duration || '',
+      }
+    } catch (fallbackError) {
+      console.error(`❌ /video/info 폴백도 실패`, {
+        videoId,
+        error: fallbackError instanceof Error ? fallbackError.message : String(fallbackError),
+      })
+
+      errorLogger.warn(`⚠️  쇼츠 정보 조회 완전 실패`, {
+        videoId,
+        error: error instanceof Error ? error.message : String(error),
+      })
+
+      return {
+        channelId: '',
+        channelTitle: '',
+        publishedAt: '',
+        duration: '',
+      }
+    }
+  }
+}
+
+/**
  * 개별 비디오 정보 조회 (YT-API /video/info)
  */
-export async function getVideoInfo(videoId: string): Promise<{ languageCode: string | null; keywords: string[] }> {
+export async function getVideoInfo(videoId: string): Promise<{
+  languageCode: string | null
+  keywords: string[]
+  duration: string
+  publishedAt: string
+  channelTitle: string
+  channelId: string
+}> {
   try {
     const url = new URL(`${API_BASE_URL}/video/info`)
     url.searchParams.append('id', videoId)
@@ -872,13 +1053,24 @@ export async function getVideoInfo(videoId: string): Promise<{ languageCode: str
     return {
       languageCode: data.defaultVideoLanguageCode || null,
       keywords: data.keywords || [],
+      duration: data.duration || '',
+      publishedAt: data.publishedAt || '',
+      channelTitle: data.channelTitle || '',
+      channelId: data.channelId || '',
     }
   } catch (error) {
     errorLogger.warn(`⚠️  비디오 정보 조회 실패`, {
       videoId,
       error: error instanceof Error ? error.message : String(error),
     })
-    return { languageCode: null, keywords: [] }
+    return {
+      languageCode: null,
+      keywords: [],
+      duration: '',
+      publishedAt: '',
+      channelTitle: '',
+      channelId: '',
+    }
   }
 }
 

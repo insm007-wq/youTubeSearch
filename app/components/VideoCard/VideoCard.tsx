@@ -183,7 +183,14 @@ export default function VideoCard({ video, showVPH = false, vph, onChannelClick 
   // 태그 정보 상태 관리 (API에서 조회)
   const [videoTags, setVideoTags] = useState<string[]>(tags || []);
   const [isLoadingTags, setIsLoadingTags] = useState(false);
-  const hasRequestedTags = useRef(false);
+
+  // 동적 정보 상태 관리 (duration, publishedAt, channelTitle 등)
+  const [videoDuration, setVideoDuration] = useState(duration);
+  const [videoPublishedAt, setVideoPublishedAt] = useState(publishedAt);
+  const [videoChannelTitle, setVideoChannelTitle] = useState(channelTitle);
+  const [isLoadingVideoInfo, setIsLoadingVideoInfo] = useState(false);
+
+  const hasRequestedVideoInfo = useRef(false);
 
   // 구독자 수가 0이고 channelId가 있으면 실시간 조회
   useEffect(() => {
@@ -204,25 +211,53 @@ export default function VideoCard({ video, showVPH = false, vph, onChannelClick 
     }
   }, [subscriberCount, channelId]);
 
-  // 비디오 태그 조회 (한 번만 요청)
+  // 비디오 정보 조회 (duration, publishedAt, channelTitle이 빈 값이면 실시간 조회)
   useEffect(() => {
-    if ((!videoTags || videoTags.length === 0) && id && !hasRequestedTags.current) {
-      hasRequestedTags.current = true;
-      setIsLoadingTags(true);
-      fetch(`/api/video-info?videoId=${encodeURIComponent(id)}`)
+    if (id && !hasRequestedVideoInfo.current && (!videoDuration || !videoChannelTitle)) {
+      hasRequestedVideoInfo.current = true;
+      setIsLoadingVideoInfo(true);
+
+      // ✅ shorts는 /api/shorts-info, 일반 비디오는 /api/video-info 호출
+      const apiUrl = type === 'shorts'
+        ? `/api/shorts-info?videoId=${encodeURIComponent(id)}`
+        : `/api/video-info?videoId=${encodeURIComponent(id)}`;
+
+      console.log(`🎬 ${type === 'shorts' ? '쇼츠' : '비디오'} 정보 조회 시작 (${id})`);
+
+      fetch(apiUrl)
         .then(res => res.json())
         .then(data => {
+          console.log(`📺 비디오 정보 조회 완료 (${id}):`, {
+            type,
+            duration: data.duration,
+            publishedAt: data.publishedAt,
+            channelTitle: data.channelTitle,
+            channelId: data.channelId,
+            keywords: data.keywords,
+          });
+          if (data.duration) {
+            console.log(`✅ Duration 업데이트: ${data.duration}`);
+            setVideoDuration(data.duration);
+          }
+          if (data.publishedAt) {
+            console.log(`✅ PublishedAt 업데이트: ${data.publishedAt}`);
+            setVideoPublishedAt(data.publishedAt);
+          }
+          if (data.channelTitle) {
+            console.log(`✅ ChannelTitle 업데이트: ${data.channelTitle}`);
+            setVideoChannelTitle(data.channelTitle);
+          }
           if (data.keywords && data.keywords.length > 0) {
             setVideoTags(data.keywords);
           }
-          setIsLoadingTags(false);
+          setIsLoadingVideoInfo(false);
         })
         .catch(error => {
-          console.warn(`⚠️  비디오 태그 조회 실패 (${id}):`, error);
-          setIsLoadingTags(false);
+          console.warn(`⚠️  비디오 정보 조회 실패 (${id}):`, error);
+          setIsLoadingVideoInfo(false);
         });
     }
-  }, [id]);
+  }, [id, videoDuration, videoChannelTitle, type]);
 
   const viewCountText = viewCount === 0 || viewCount === undefined ? "조회 불가" : formatNumber(viewCount);
   const subscriberText = isLoadingSubscribers
@@ -231,7 +266,7 @@ export default function VideoCard({ video, showVPH = false, vph, onChannelClick 
       ? formatNumber(subscriberCount)
       : "미공개";
 
-  const durationSeconds = parseDuration(duration || "");
+  const durationSeconds = parseDuration(videoDuration || "");
   const durationText = formatDuration(durationSeconds);
 
   const engagementRatio = viewCount
@@ -242,8 +277,8 @@ export default function VideoCard({ video, showVPH = false, vph, onChannelClick 
     ? engagementRatio.toFixed(2)
     : "N/A";
 
-  const calculatedVPH = publishedAt
-    ? calculateVPH(viewCount || 0, publishedAt)
+  const calculatedVPH = videoPublishedAt
+    ? calculateVPH(viewCount || 0, videoPublishedAt)
     : 0;
   const vphText = formatVPH(calculatedVPH);
 
@@ -260,11 +295,11 @@ export default function VideoCard({ video, showVPH = false, vph, onChannelClick 
             이미지 없음
           </div>
         )}
-        {duration && <div className="video-duration">{durationText}</div>}
+        {durationSeconds > 0 && <div className="video-duration">{durationText}</div>}
       </a>
       <div className="video-info">
         <div className="video-title">{title}</div>
-        <div className="video-channel">{channelTitle}</div>
+        <div className="video-channel">{videoChannelTitle || "채널 로딩중..."}</div>
 
         {/* stats */}
         <div className="video-stats">
