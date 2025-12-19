@@ -157,6 +157,50 @@ const getEngagementLevel = (ratio: number): number => {
   return 5;
 };
 
+// 업로드 시간 계산 (한국어)
+const calculatePublishedTime = (publishedAt: string, videoTitle?: string): string => {
+  if (!publishedAt || publishedAt.trim() === '') return '';
+
+  const publishedDate = new Date(publishedAt);
+  const now = new Date();
+  const isValidDate = !isNaN(publishedDate.getTime());
+
+  if (!isValidDate) return '';
+
+  // 미래 날짜는 "최근"으로 표시
+  if (publishedDate > now) {
+    return '최근';
+  }
+
+  const daysOld = Math.floor((now.getTime() - publishedDate.getTime()) / (1000 * 60 * 60 * 24));
+
+  // 디버그 로그
+  console.log(`📊 calculatePublishedTime 계산:`, {
+    publishedAt,
+    publishedDate: publishedDate.toISOString(),
+    now: now.toISOString(),
+    daysOld,
+    title: videoTitle?.substring(0, 30),
+  });
+
+  if (daysOld === 0) {
+    return '오늘';
+  } else if (daysOld === 1) {
+    return '어제';
+  } else if (daysOld < 7) {
+    return `${daysOld}일 전`;
+  } else if (daysOld < 30) {
+    const weeks = Math.floor(daysOld / 7);
+    return `${weeks}주 전`;
+  } else if (daysOld < 365) {
+    const months = Math.floor(daysOld / 30);
+    return `${months}개월 전`;
+  } else {
+    const years = Math.floor(daysOld / 365);
+    return `${years}년 전`;
+  }
+};
+
 
 export default function VideoCard({ video, showVPH = false, vph, onChannelClick }: VideoCardProps) {
   const {
@@ -213,7 +257,7 @@ export default function VideoCard({ video, showVPH = false, vph, onChannelClick 
 
   // 비디오 정보 조회 (duration, publishedAt, channelTitle이 빈 값이면 실시간 조회)
   useEffect(() => {
-    if (id && !hasRequestedVideoInfo.current && (!videoDuration || !videoChannelTitle)) {
+    if (id && !hasRequestedVideoInfo.current && (!videoDuration || !videoChannelTitle || !videoPublishedAt)) {
       hasRequestedVideoInfo.current = true;
       setIsLoadingVideoInfo(true);
 
@@ -282,6 +326,9 @@ export default function VideoCard({ video, showVPH = false, vph, onChannelClick 
     : 0;
   const vphText = formatVPH(calculatedVPH);
 
+  // ✅ publishedAt이 있으면 항상 정확하게 재계산 (검색 결과의 부정확한 categoryName 무시)
+  const displayCategoryName = videoPublishedAt ? calculatePublishedTime(videoPublishedAt, title) : video.categoryName;
+
   const badgeClass = `engagement-badge engagement-${engagementLevel}`;
   const videoLink = `https://www.youtube.com/watch?v=${id}`;
 
@@ -339,8 +386,8 @@ export default function VideoCard({ video, showVPH = false, vph, onChannelClick 
         <div className="badge-container">
           <div className={badgeClass}>{engagementLevel}단계</div>
 
-          {categoryName && (
-            <div className="text-badge upload-time">{categoryName}</div>
+          {displayCategoryName && (
+            <div className="text-badge upload-time">{displayCategoryName}</div>
           )}
         </div>
 

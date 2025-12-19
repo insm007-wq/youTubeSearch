@@ -427,6 +427,16 @@ export function normalizeVideo(raw: RawYTAPIVideo): NormalizedVideo {
     type = 'shorts'
   }
 
+  // 🔍 DEBUG: Shorts의 channelTitle 로깅
+  if (type === 'shorts' && !channelTitle) {
+    console.log(`🔍 Shorts channelTitle 확인:`, {
+      title: title.substring(0, 40),
+      extractedChannelTitle: extractor.getString('channelTitle'),
+      channelObject: raw.channel ? 'exists' : 'none',
+      channelName: raw.channel ? new FieldExtractor(raw.channel).getString('name') : 'N/A',
+      allKeys: Object.keys(raw).slice(0, 30),
+    })
+  }
 
   return {
     videoId,

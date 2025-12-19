@@ -30,7 +30,7 @@ export default function PeriodFilter({ value, onChange }: PeriodFilterProps) {
               checked={value === option.value}
               onChange={(e) => onChange(e.target.value)}
             />
-            <span>{option.label}</span>
+            <label>{option.label}</label>
           </label>
         ))}
       </div>
