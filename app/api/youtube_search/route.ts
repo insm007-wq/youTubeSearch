@@ -80,19 +80,18 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     const query = searchParams.get('q')?.trim()
-    let targetCount = parseInt(searchParams.get('count') || '50')
-    const uploadDate = searchParams.get('upload_date') || undefined
+    let targetCount = parseInt(searchParams.get('count') || '40')
+    const uploadDate = searchParams.get('upload_date') || 'week'
     const channel = searchParams.get('channel') || undefined
 
-    // 비디오 길이 필터 (short → shorts, long → video, channel → channel, all → all)
-    const videoLengthParam = searchParams.get('video_length') || 'all'
-    const videoTypeMap: Record<string, 'video' | 'shorts' | 'channel' | 'all'> = {
+    // 비디오 길이 필터 (short → shorts, long → video, channel → channel)
+    const videoLengthParam = searchParams.get('video_length') || 'long'
+    const videoTypeMap: Record<string, 'video' | 'shorts' | 'channel'> = {
       'short': 'shorts',
       'long': 'video',
       'channel': 'channel',
-      'all': 'all',
     }
-    const videoType = videoTypeMap[videoLengthParam] || 'all'
+    const videoType = videoTypeMap[videoLengthParam] || 'video'
 
     if (!query || query.length < 1 || query.length > 100) {
       return NextResponse.json(

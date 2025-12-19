@@ -353,10 +353,10 @@ async function safeFetch(
  */
 async function searchWithYTAPI(
   query: string,
-  targetCount: number = 50,
-  uploadDate?: string, // 'hour' | 'today' | 'week' | 'month' | 'year'
+  targetCount: number = 40,
+  uploadDate: string = 'week', // 'hour' | 'today' | 'week' | 'month' | 'year'
   continuation?: string, // Pagination 토큰
-  videoType: 'video' | 'shorts' | 'channel' | 'all' = 'video', // 비디오 타입
+  videoType: 'video' | 'shorts' | 'channel' = 'video', // 비디오 타입
   channel?: string // 채널 필터
 ): Promise<{
   items: NormalizedVideo[]
@@ -374,12 +374,7 @@ async function searchWithYTAPI(
 
   try {
     // videoType에 따라 검색 타입 결정
-    const searchTypes: ('video' | 'shorts' | 'channel')[] =
-      videoType === 'all'
-        ? ['video', 'shorts']  // 전체: 비디오 + 쇼츠
-        : videoType === 'channel'
-        ? ['channel']  // 채널만
-        : [videoType as 'video' | 'shorts']  // 특정 타입만
+    const searchTypes: ('video' | 'shorts' | 'channel')[] = [videoType]
 
     for (const searchType of searchTypes) {
       errorLogger.info(`🎬 [${searchType.toUpperCase()}] 검색 시작`, {
@@ -390,21 +385,19 @@ async function searchWithYTAPI(
       })
 
       // Pagination 루프
-      while (totalFetched < targetCount && pageCount < 3) {
+      while (totalFetched < targetCount && pageCount < 2) {
         pageCount++
 
         const fetchStart = Date.now()
         const url = new URL(`${API_BASE_URL}/search`)
         url.searchParams.append('query', query)
         url.searchParams.append('type', searchType)
+        url.searchParams.append('upload_date', uploadDate)
 
-        if (uploadDate) {
-          url.searchParams.append('upload_date', uploadDate)
-        }
         if (channel) {
           url.searchParams.append('channel', channel)
         }
-        url.searchParams.append('sort_by', 'relevance')
+        url.searchParams.append('sort_by', 'views')
         url.searchParams.append('geo', 'KR')
         url.searchParams.append('lang', 'ko')
         url.searchParams.append('local', '1')
@@ -633,14 +626,14 @@ function normalizedToApifyItem(normalized: NormalizedVideo): ApifyDataItem {
  * videoType:
  * - 'video': 일반 비디오만
  * - 'shorts': 쇼츠만
- * - 'all': 비디오 + 쇼츠 혼합
+ * - 'channel': 채널만
  */
 export async function searchYouTubeWithRapidAPI(
   query: string,
-  targetCount: number = 50,
-  uploadDate?: string, // 'hour' | 'today' | 'week' | 'month' | 'year'
+  targetCount: number = 40,
+  uploadDate: string = 'week', // 'hour' | 'today' | 'week' | 'month' | 'year'
   channel?: string, // 채널 필터
-  videoType: 'video' | 'shorts' | 'channel' | 'all' = 'video' // 비디오 타입
+  videoType: 'video' | 'shorts' | 'channel' = 'video' // 비디오 타입
 ): Promise<ApifyDataItem[]> {
   try {
     const { items } = await searchWithYTAPI(query, targetCount, uploadDate, undefined, videoType, channel)

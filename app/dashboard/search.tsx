@@ -24,8 +24,8 @@ interface User {
 
 export default function Search({ user, signOut }: { user?: User; signOut?: (options?: any) => void }) {
   const [searchInput, setSearchInput] = useState("");
-  const [uploadPeriod, setUploadPeriod] = useState("all");
-  const [videoLength, setVideoLength] = useState("all");
+  const [uploadPeriod, setUploadPeriod] = useState("week");
+  const [videoLength, setVideoLength] = useState("long");
   const [engagementRatios, setEngagementRatios] = useState<string[]>(["4", "5"]);
   const [isLoading, setIsLoading] = useState(false);
   const [allResults, setAllResults] = useState<any[]>([]);
@@ -465,15 +465,9 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
       // 검색 API 호출 (기본값 사용 - 한 번만 호출)
       const params = new URLSearchParams({
         q: searchInput,
+        upload_date: uploadPeriod,
+        video_length: videoLength,
       });
-      // uploadPeriod가 'all'이 아니면 파라미터 추가
-      if (uploadPeriod !== 'all') {
-        params.append('upload_date', uploadPeriod);
-      }
-      // videoLength 파라미터 추가 (숏폼/롱폼/채널 필터링)
-      if (videoLength !== 'all') {
-        params.append('video_length', videoLength);
-      }
 
       const requestUrl = `/api/youtube_search?${params}`;
 
