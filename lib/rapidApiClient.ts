@@ -929,12 +929,12 @@ export async function getChannelInfo(
  */
 export async function getChannelsInfo(
   channelIds: string[]
-): Promise<Map<string, { subscriberCount: number; country: string | null }>> {
+): Promise<Map<string, { subscriberCount: number }>> {
   if (channelIds.length === 0) {
     return new Map()
   }
 
-  const result = new Map<string, { subscriberCount: number; country: string | null }>()
+  const result = new Map<string, { subscriberCount: number }>()
   const uncachedIds: string[] = []
   let cacheHits = 0
 
@@ -944,7 +944,6 @@ export async function getChannelsInfo(
     if (cached) {
       result.set(id, {
         subscriberCount: cached.subscriberCount,
-        country: cached.country,
       })
       cacheHits++
     } else {
@@ -963,7 +962,6 @@ export async function getChannelsInfo(
         const channelId = uncachedIds[index]
         result.set(channelId, {
           subscriberCount: channel.subscriberCount,
-          country: channel.country,
         })
         setCachedChannelInfo(channelId, channel.subscriberCount, channel.country)
       })
