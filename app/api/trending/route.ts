@@ -60,6 +60,8 @@ export async function GET(request: NextRequest) {
     // section 파싱: "now-kr" → type="now", geo="KR"
     const [type, geo] = sectionParam.split('-')
 
+    console.log(`🌍 트렌딩 조회 시작: section=${sectionParam}, type=${type}, geo=${geo.toUpperCase()}`)
+
     // ✅ RapidAPI /trending 엔드포인트 사용
     let items
     try {
@@ -67,15 +69,11 @@ export async function GET(request: NextRequest) {
 
       // RapidAPI /trending 엔드포인트로 조회
       items = await getTrendingVideos(type, geo.toUpperCase())
+      console.log(`📊 RapidAPI 응답: ${items.length}개 항목`)
 
-      // 최근 7일 이내의 영상만 필터링
-      const sevenDaysAgo = new Date()
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
-
-      items = items.filter((video) => {
-        const publishDate = new Date(video.publishedAt || '')
-        return publishDate >= sevenDaysAgo
-      })
+      // ✅ 트렌딩은 이미 최신 콘텐츠이므로 날짜 필터 제거
+      // (publishedAt이 없는 영상도 포함하도록 허용)
+      console.log(`✅ 필터링 후: ${items.length}개 항목 (날짜 필터 미적용 - 트렌딩은 최신 콘텐츠)`)
 
       // 조회수 기준 내림차순 정렬 (높은 조회수가 먼저)
       items.sort((a, b) => (b.viewCount || 0) - (a.viewCount || 0))

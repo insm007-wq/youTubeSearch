@@ -174,15 +174,6 @@ const calculatePublishedTime = (publishedAt: string, videoTitle?: string): strin
 
   const daysOld = Math.floor((now.getTime() - publishedDate.getTime()) / (1000 * 60 * 60 * 24));
 
-  // 디버그 로그
-  console.log(`📊 calculatePublishedTime 계산:`, {
-    publishedAt,
-    publishedDate: publishedDate.toISOString(),
-    now: now.toISOString(),
-    daysOld,
-    title: videoTitle?.substring(0, 30),
-  });
-
   if (daysOld === 0) {
     return '오늘';
   } else if (daysOld === 1) {

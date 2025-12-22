@@ -448,6 +448,8 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
   };
 
   const handleSearch = useCallback(async () => {
+    console.log(`🔍 handleSearch 시작, 검색어: "${searchInput}"`);
+
     if (!searchInput.trim()) {
       alert("검색어를 입력해주세요");
       return;
@@ -479,9 +481,11 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
       });
 
       const requestUrl = `/api/youtube_search?${params}`;
+      console.log(`🔍 API 요청 URL: ${requestUrl}`);
 
       const startTime = Date.now();
       const response = await fetch(requestUrl);
+      console.log(`🔍 API 응답 상태: ${response.status}`);
       const data = await response.json();
       const fetchTime = Date.now() - startTime;
 
@@ -522,6 +526,12 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
 
 
       // 결과 표시
+      console.log(`🔍 [클라이언트] API 응답:`, {
+        itemsLength: data.items?.length || 0,
+        totalResults: data.totalResults,
+        firstItem: data.items?.[0],
+      });
+
       setAllResults(data.items || []);
       setTotalResults(data.totalResults || 0);
       setIsLoading(false);
@@ -708,6 +718,9 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
                 <option value="now-kr">⭐ 지금 뜨는 (한국)</option>
                 <option value="now-jp">⭐ 지금 뜨는 (일본)</option>
                 <option value="now-us">⭐ 지금 뜨는 (미국)</option>
+                <option value="now-gb">⭐ 지금 뜨는 (영국)</option>
+                <option value="now-de">⭐ 지금 뜨는 (독일)</option>
+                <option value="now-vn">⭐ 지금 뜨는 (베트남)</option>
                 <option value="music-kr">🎵 음악 (한국)</option>
                 <option value="games-kr">🎮 게임 (한국)</option>
                 <option value="movies-kr">🎬 영화 (한국)</option>

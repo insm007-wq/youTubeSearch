@@ -139,6 +139,27 @@ export interface SearchMetadata {
 // ============ 요청 큐 관리 ============
 const requestQueue = new RequestQueue(CONFIG.MAX_CONCURRENT_REQUESTS)
 
+// ============ 언어 감지 ============
+/**
+ * 검색어에서 언어를 감지하여 적절한 geo, lang을 반환
+ */
+function detectLanguageFromQuery(query: string): { geo: string; lang: string } {
+  // 일본어 문자 범위 확인 (히라가나, 카타카나만 포함)
+  const japaneseRegex = /[\u3040-\u309F\u30A0-\u30FF]/g
+  const japaneseMatches = query.match(japaneseRegex) || []
+
+  const queryLength = query.length
+  const japaneseRatio = japaneseMatches.length / queryLength
+
+  // 일본어 비율이 30% 이상이면 일본어로 간주
+  if (japaneseRatio >= 0.3) {
+    return { geo: 'JP', lang: 'ja' }
+  }
+
+  // 기본값: 한국어
+  return { geo: 'KR', lang: 'ko' }
+}
+
 // ============ 채널 정보 캐싱 ============
 interface CachedChannelInfo {
   subscriberCount: number
@@ -373,6 +394,9 @@ async function searchWithYTAPI(
   let pageCount = 0
   let totalFetched = 0
 
+  // 검색어의 언어 감지 (함수 시작 시 한 번만 수행)
+  const { geo, lang } = detectLanguageFromQuery(query)
+
   try {
     // videoType에 따라 검색 타입 결정
     const searchTypes: ('video' | 'shorts' | 'channel')[] = [videoType]
@@ -383,6 +407,8 @@ async function searchWithYTAPI(
         targetCount,
         uploadDate,
         channel,
+        detectedGeo: geo,
+        detectedLang: lang,
       })
 
       // Pagination 루프
@@ -399,8 +425,8 @@ async function searchWithYTAPI(
           url.searchParams.append('channel', channel)
         }
         url.searchParams.append('sort_by', 'views')
-        url.searchParams.append('geo', 'KR')
-        url.searchParams.append('lang', 'ko')
+        url.searchParams.append('geo', geo)
+        url.searchParams.append('lang', lang)
         url.searchParams.append('local', '1')
 
         // 🔍 디버그: 전송될 URL 확인
@@ -441,6 +467,18 @@ async function searchWithYTAPI(
 
         // 응답에서 데이터 배열 추출
         let items: any[] = extractDataArray(data)
+
+        console.log(`🔍 [검색/${searchType}] 페이지 ${pageCount}`)
+        console.log(`🔍 extractDataArray 입력 (data):`, Object.keys(data))
+        console.log(`🔍 extractDataArray 결과: ${items.length}개`)
+        if (items.length > 0) {
+          console.log(`🔍 첫 항목 구조:`, Object.keys(items[0]))
+          console.log(`🔍 첫 항목 데이터:`, {
+            type: items[0].type,
+            videoId: items[0].videoId,
+            title: items[0].title?.substring(0, 50),
+          })
+        }
 
         // Shorts listing 필터링
         items = filterShortsListing(items)
@@ -710,7 +748,10 @@ export async function getTrendingVideos(
         const langMap: Record<string, string> = {
           'KR': 'ko',
           'JP': 'ja',
-          'US': 'en'
+          'US': 'en',
+          'GB': 'en',
+          'DE': 'de',
+          'VN': 'vi'
         }
         const lang = langMap[geo] || 'ko'
         url.searchParams.append('lang', lang)
@@ -741,8 +782,12 @@ export async function getTrendingVideos(
       { section }
     )
 
+    // 🔍 API 응답 구조 확인
+    console.log(`🔍 [트렌딩 API 응답] 최상위 키:`, Object.keys(data))
+    console.log(`🔍 [트렌딩 API 응답] 전체 데이터:`, data)
+
     const rawItems = extractDataArray(data)
-    console.log(`🔍 [트렌딩] 원본 API 응답 아이템 수:`, rawItems.length)
+    console.log(`🔍 [트렌딩] extractDataArray 결과 아이템 수:`, rawItems.length)
     console.log(`🔍 [트렌딩] 첫 3개 항목:`, rawItems.slice(0, 3).map(item => ({
       title: item.title?.substring(0, 30),
       type: item.type,
