@@ -834,6 +834,88 @@ export async function getTrendingVideos(
 }
 
 /**
+ * YouTube 관련 영상 조회 (YT-API /related)
+ * @param videoId - 비디오 ID
+ */
+export async function getRelatedVideos(
+  videoId: string
+): Promise<ApifyDataItem[]> {
+  if (!RAPIDAPI_KEY) {
+    throw new APIError('RapidAPI 키가 설정되지 않았습니다', 500, false)
+  }
+
+  const startTime = Date.now()
+
+  try {
+    const { data, metadata } = await withRetry(
+      async () => {
+        const url = new URL(`${API_BASE_URL}/related`)
+        url.searchParams.append('id', videoId)
+
+        const result = await safeFetch(url.toString(), {
+          method: 'GET',
+          headers: {
+            'x-rapidapi-key': RAPIDAPI_KEY,
+            'x-rapidapi-host': RAPIDAPI_HOST,
+          },
+          signal: AbortSignal.timeout(CONFIG.REQUEST_TIMEOUT),
+          context: { videoId },
+        })
+
+        return {
+          data: result.data,
+          headers: result.response.headers,
+          metadata: result.metadata,
+        }
+      },
+      CONFIG.RETRY_COUNT,
+      CONFIG.RETRY_DELAY,
+      { videoId }
+    )
+
+    const rawItems = extractDataArray(data)
+    console.log(`🔍 [관련 영상] extractDataArray 결과 아이템 수:`, rawItems.length)
+
+    const normalizedItems = rawItems
+      .map((item, idx) => {
+        try {
+          const normalized = normalizeVideo(item)
+          if (idx < 3) {
+            console.log(`📊 [관련 영상 ${idx}] 정규화 후:`, {
+              title: normalized.title.substring(0, 30),
+              type: normalized.type,
+            })
+          }
+          return normalized
+        } catch (error) {
+          errorLogger.warn('관련 영상 정규화 실패', {
+            error: error instanceof Error ? error.message : String(error),
+          })
+          return null
+        }
+      })
+      .filter((item): item is NormalizedVideo => item !== null)
+
+    console.log(`✅ [관련 영상] 정규화 완료: ${rawItems.length}개 → ${normalizedItems.length}개`)
+
+    const totalTime = Date.now() - startTime
+
+    errorLogger.info(`✅ 관련 영상 조회 완료`, {
+      videoId,
+      rawItemsCount: rawItems.length,
+      itemsReturned: normalizedItems.length,
+      totalTime,
+      rateLimitRemaining: metadata?.rateLimitRemaining,
+    })
+
+    return normalizedItems.map(normalizedToApifyItem)
+  } catch (error) {
+    errorLogger.error('❌ 관련 영상 조회 실패', error as Error, { videoId })
+    throw error
+  }
+}
+
+/**
  * YouTube 채널 정보 조회 (YT-API /channel/about)
  */
 export async function getChannelInfo(

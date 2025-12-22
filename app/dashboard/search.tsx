@@ -9,6 +9,7 @@ import PeriodFilter from "@/app/components/Filters/PeriodFilter/PeriodFilter";
 import VideoLengthFilter from "@/app/components/Filters/VideoLengthFilter/VideoLengthFilter";
 import EngagementRatioFilter from "@/app/components/Filters/EngagementRatioFilter/EngagementRatioFilter";
 import ChannelModal from "@/app/components/ChannelModal/ChannelModal";
+import Breadcrumb from "@/app/components/Breadcrumb/Breadcrumb";
 import Toast, { Toast as ToastType } from "@/app/components/Toast/Toast";
 import { calculateVPH } from "@/lib/vphUtils";
 import "./search.css";
@@ -19,6 +20,13 @@ interface User {
   email?: string | null;
   image?: string | null;
   provider?: string;
+}
+
+interface RelatedVideoHistoryItem {
+  videoId: string;
+  title: string;
+  thumbnail?: string;
+  results: any[];
 }
 
 
@@ -41,6 +49,14 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
   const [trendingResults, setTrendingResults] = useState<any[]>([]);
   const [trendingSection, setTrendingSection] = useState<string>('now-kr');
   const [isTrendingLoading, setIsTrendingLoading] = useState(false);
+
+  // 관련 영상 기능
+  const [showRelatedVideos, setShowRelatedVideos] = useState(false);
+  const [relatedVideos, setRelatedVideos] = useState<any[]>([]);
+  const [isRelatedVideosLoading, setIsRelatedVideosLoading] = useState(false);
+  const [relatedVideosHistory, setRelatedVideosHistory] = useState<RelatedVideoHistoryItem[]>([]);
+  const [currentLevel, setCurrentLevel] = useState(0); // 0 = 검색결과, 1 = 1단계, 2 = 2단계, ...
+  const MAX_HISTORY_DEPTH = 5;
 
   const handleTitleClick = () => {
     setIsTitleRefreshing(true);
@@ -371,6 +387,16 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
     [trendingResults, sortBy]
   );
 
+  // 관련 영상 필터링된 결과 계산 (메모이제이션)
+  // 관련 영상은 필터 제외, 정렬만 적용
+  const sortedRelatedVideos = useMemo(
+    () => {
+      // 정렬만 적용 (모든 필터 제외)
+      return sortResults(relatedVideos, sortBy);
+    },
+    [relatedVideos, sortBy]
+  );
+
   // 엑셀 다운로드 함수
   const handleExcelDownload = () => {
     if (results.length === 0) {
@@ -472,6 +498,12 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
     setIsLoading(true);
     setShowTrending(false); // 검색 시 트렌딩 탭 숨기기
 
+    // 관련 영상 히스토리 초기화
+    setRelatedVideosHistory([]);
+    setRelatedVideos([]);
+    setShowRelatedVideos(false);
+    setCurrentLevel(0);
+
     try {
       // 검색 API 호출 (기본값 사용 - 한 번만 호출)
       const params = new URLSearchParams({
@@ -552,6 +584,12 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
     setTrendingSection(section);
     setShowTrending(true);
     setIsTrendingLoading(true);
+
+    // 관련 영상 히스토리 초기화
+    setRelatedVideosHistory([]);
+    setRelatedVideos([]);
+    setShowRelatedVideos(false);
+    setCurrentLevel(0);
 
     try {
       const params = new URLSearchParams({
@@ -645,6 +683,71 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
       setChannelModalData((prev) => ({ ...prev, isLoading: false }));
     }
   }, []);
+
+  // 관련 영상 조회 함수
+  const handleRelatedClick = useCallback(async (videoId: string) => {
+    setIsRelatedVideosLoading(true);
+
+    try {
+      const response = await fetch(`/api/related-videos?videoId=${encodeURIComponent(videoId)}`);
+      const data = await response.json();
+
+      if (!response.ok) {
+        addToast({
+          type: 'error',
+          message: data.error || '관련 영상을 불러올 수 없습니다',
+        });
+        setIsRelatedVideosLoading(false);
+        return;
+      }
+
+      // Find current video info
+      const currentVideo = relatedVideos.find((v) => v.id === videoId) ||
+                          allResults.find((v) => v.id === videoId) ||
+                          trendingResults.find((v) => v.id === videoId);
+
+      if (!currentVideo) {
+        console.warn('Current video not found');
+        setIsRelatedVideosLoading(false);
+        return;
+      }
+
+      // Check max depth
+      if (relatedVideosHistory.length >= MAX_HISTORY_DEPTH) {
+        addToast({
+          type: 'warning',
+          message: `최대 탐색 깊이(${MAX_HISTORY_DEPTH}단계)에 도달했습니다`,
+        });
+        setIsRelatedVideosLoading(false);
+        return;
+      }
+
+      // Push current state to history
+      const newHistoryItem: RelatedVideoHistoryItem = {
+        videoId: currentVideo.id,
+        title: currentVideo.title,
+        thumbnail: currentVideo.thumbnail,
+        results: relatedVideos.length > 0 ? relatedVideos : (showTrending ? trendingResults : allResults),
+      };
+
+      setRelatedVideosHistory(prev => [...prev, newHistoryItem]);
+
+      // Load new related videos
+      console.log(`✅ 관련 영상 로드 완료: ${data.items.length}개`);
+      setRelatedVideos(data.items);
+      setShowRelatedVideos(true);
+      setCurrentLevel(relatedVideosHistory.length + 1); // 새로운 레벨로 업데이트
+      setIsRelatedVideosLoading(false);
+
+    } catch (error) {
+      console.error('관련 영상 조회 중 오류:', error);
+      addToast({
+        type: 'error',
+        message: '관련 영상 조회 중 오류가 발생했습니다',
+      });
+      setIsRelatedVideosLoading(false);
+    }
+  }, [relatedVideos, allResults, trendingResults, relatedVideosHistory, currentLevel, showTrending, addToast]);
 
   return (
     <>
@@ -746,8 +849,58 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
         {/* 오른쪽 컨텐츠 영역 */}
         <div className="content">
           <div className="content-header">
-            <div className="content-title">검색결과</div>
-            <div className="controls-right">
+            <div className="content-title">
+              {showRelatedVideos
+                ? relatedVideosHistory.length > 0
+                  ? `관련 영상: ${relatedVideosHistory[relatedVideosHistory.length - 1].title}`
+                  : '관련 영상'
+                : '검색결과'
+              }
+            </div>
+            {showRelatedVideos && (
+              <button
+                className="btn-back-to-results"
+                onClick={() => {
+                  // Return to search results but keep history
+                  setShowRelatedVideos(false);
+                  setCurrentLevel(0);
+                  // 히스토리는 유지하여 드롭다운이 계속 보이도록 함
+                }}
+                style={{ marginRight: 'auto' }}
+              >
+                ← 검색결과로 돌아가기
+              </button>
+            )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginLeft: 'auto' }}>
+              {relatedVideosHistory.length > 0 && (
+                <Breadcrumb
+                  items={[
+                    {
+                      title: '검색결과',
+                      level: 0,
+                      isCurrent: currentLevel === 0,
+                      onClick: () => {
+                        setRelatedVideosHistory([]);
+                        setRelatedVideos([]);
+                        setShowRelatedVideos(false);
+                        setCurrentLevel(0);
+                      }
+                    },
+                    ...relatedVideosHistory.map((item, index) => ({
+                      title: item.title,
+                      level: index + 1,
+                      isCurrent: currentLevel === index + 1,
+                      onClick: () => {
+                        // Navigate to this level: restore results only
+                        // 히스토리는 유지하고 현재 위치만 변경
+                        setRelatedVideos(item.results);
+                        setCurrentLevel(index + 1);
+                      }
+                    }))
+                  ]}
+                />
+              )}
+              <div className="controls-right">
               <div className="view-toggle">
                 <button className={`view-btn ${viewMode === "card" ? "active" : ""}`} onClick={() => setViewMode("card")}>
                   <LayoutGrid size={16} style={{ display: "inline", marginRight: "4px" }} />
@@ -817,15 +970,17 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
                 )}
               </div>
             </div>
+            </div>
           </div>
 
           <SearchResults
-            results={showTrending ? filteredTrendingResults : results}
-            totalResults={showTrending ? filteredTrendingResults.length : totalResults}
-            isLoading={showTrending ? isTrendingLoading : isLoading}
+            results={showRelatedVideos ? sortedRelatedVideos : (showTrending ? filteredTrendingResults : results)}
+            totalResults={showRelatedVideos ? sortedRelatedVideos.length : (showTrending ? filteredTrendingResults.length : totalResults)}
+            isLoading={showRelatedVideos ? isRelatedVideosLoading : (showTrending ? isTrendingLoading : isLoading)}
             showVPH={true}
             viewMode={viewMode}
             onChannelClick={handleChannelClick}
+            onRelatedClick={handleRelatedClick}
           />
         </div>
       </div>

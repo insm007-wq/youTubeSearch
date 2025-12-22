@@ -81,6 +81,7 @@ interface VideoCardProps {
   showVPH?: boolean;
   vph?: number;
   onChannelClick?: (channelId: string, channelTitle: string) => void;
+  onRelatedClick?: (videoId: string) => void;
 }
 
 // 숫자 포맷팅 함수
@@ -193,7 +194,7 @@ const calculatePublishedTime = (publishedAt: string, videoTitle?: string): strin
 };
 
 
-export default function VideoCard({ video, showVPH = false, vph, onChannelClick }: VideoCardProps) {
+export default function VideoCard({ video, showVPH = false, vph, onChannelClick, onRelatedClick }: VideoCardProps) {
   const {
     id,
     title,
@@ -395,6 +396,17 @@ export default function VideoCard({ video, showVPH = false, vph, onChannelClick 
           >
             <Play size={12} />
             채널
+          </button>
+
+          <button
+            className="btn-related-videos"
+            onClick={(e) => {
+              e.preventDefault();
+              onRelatedClick?.(id);
+            }}
+          >
+            <LinkIcon size={12} />
+            관련 영상
           </button>
 
           <button

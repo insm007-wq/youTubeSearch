@@ -343,13 +343,20 @@
   align-items: center;
   margin-bottom: 20px;
   gap: 20px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  height: 40px;
+  overflow: visible;
 }
 
 .content-title {
   font-size: 16px;
   font-weight: 600;
   color: #333;
+  max-width: 600px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-shrink: 0;
 }
 
 .controls-right {
@@ -1143,4 +1150,33 @@
 .btn-trending:disabled {
   background-color: #cccccc;
   cursor: not-allowed;
+}
+
+/* 뒤로 가기 버튼 */
+.btn-back-to-results {
+  padding: 6px 14px !important;
+  height: 32px;
+  font-size: 13px;
+  font-weight: 500;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  border-radius: 6px;
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+.btn-back-to-results:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.btn-back-to-results:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(102, 126, 234, 0.3);
 }
