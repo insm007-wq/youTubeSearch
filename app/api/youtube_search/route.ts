@@ -140,7 +140,7 @@ export async function GET(request: NextRequest) {
 
       const channelIds = [...new Set(items.map((v) => v.channelId).filter(Boolean))]
 
-      let channelInfoMap = new Map<string, { subscriberCount: number; country: string | null }>()
+      let channelInfoMap = new Map<string, { subscriberCount: number }>()
       if (channelIds.length > 0) {
         try {
           channelInfoMap = await getChannelsInfo(channelIds)
@@ -149,7 +149,7 @@ export async function GET(request: NextRequest) {
         }
       }
       items = items.map((item) => {
-        const channelInfo = channelInfoMap.get(item.channelId) || { subscriberCount: 0, country: null }
+        const channelInfo = channelInfoMap.get(item.channelId) || { subscriberCount: 0 }
         const finalSubscriberCount = channelInfo.subscriberCount > 0
           ? channelInfo.subscriberCount
           : item.subscriberCount
@@ -157,7 +157,6 @@ export async function GET(request: NextRequest) {
         return {
           ...item,
           subscriberCount: finalSubscriberCount,
-          channelCountry: channelInfo.country,
         }
       })
 

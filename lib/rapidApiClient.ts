@@ -375,9 +375,9 @@ async function safeFetch(
  */
 async function searchWithYTAPI(
   query: string,
-  targetCount: number = 40,
+  targetCount: number = 40, // 파라미터 유지 (호환성) - 실제로는 사용하지 않음
   uploadDate: string = 'week', // 'hour' | 'today' | 'week' | 'month' | 'year'
-  continuation?: string, // Pagination 토큰
+  continuation?: string, // 파라미터 유지 (호환성) - 실제로는 사용하지 않음
   videoType: 'video' | 'shorts' | 'channel' = 'video', // 비디오 타입
   channel?: string // 채널 필터
 ): Promise<{
@@ -389,10 +389,6 @@ async function searchWithYTAPI(
   }
 
   const startTime = Date.now()
-  const allItems: NormalizedVideo[] = []
-  let currentContinuation = continuation
-  let pageCount = 0
-  let totalFetched = 0
 
   // 검색어의 언어 감지 (함수 시작 시 한 번만 수행)
   const { geo, lang } = detectLanguageFromQuery(query)
@@ -402,204 +398,155 @@ async function searchWithYTAPI(
     const searchTypes: ('video' | 'shorts' | 'channel')[] = [videoType]
 
     for (const searchType of searchTypes) {
-      errorLogger.info(`🎬 [${searchType.toUpperCase()}] 검색 시작`, {
+      errorLogger.info(`🎬 [${searchType.toUpperCase()}] 검색 시작 (첫 페이지만)`, {
         query,
-        targetCount,
         uploadDate,
         channel,
         detectedGeo: geo,
         detectedLang: lang,
       })
 
-      // Pagination 루프
-      while (totalFetched < targetCount && pageCount < 2) {
-        pageCount++
+      // ✅ 단일 API 호출만 수행 (페이지네이션 제거)
+      const fetchStart = Date.now()
+      const url = new URL(`${API_BASE_URL}/search`)
+      url.searchParams.append('query', query)
+      url.searchParams.append('type', searchType)
+      url.searchParams.append('upload_date', uploadDate)
 
-        const fetchStart = Date.now()
-        const url = new URL(`${API_BASE_URL}/search`)
-        url.searchParams.append('query', query)
-        url.searchParams.append('type', searchType)
-        url.searchParams.append('upload_date', uploadDate)
+      if (channel) {
+        url.searchParams.append('channel', channel)
+      }
+      url.searchParams.append('sort_by', 'views')
+      url.searchParams.append('geo', geo)
+      url.searchParams.append('lang', lang)
+      url.searchParams.append('local', '1')
 
-        if (channel) {
-          url.searchParams.append('channel', channel)
-        }
-        url.searchParams.append('sort_by', 'views')
-        url.searchParams.append('geo', geo)
-        url.searchParams.append('lang', lang)
-        url.searchParams.append('local', '1')
+      // 🔍 디버그: 전송될 URL 확인
+      console.log(`🔍 RapidAPI 검색 URL (단일 호출):`, url.toString().substring(0, 200))
 
-        // 🔍 디버그: 전송될 URL 확인
-        console.log(`🔍 RapidAPI 검색 URL (page ${pageCount}):`, url.toString().substring(0, 200))
-
-        // Pagination 토큰
-        if (currentContinuation) {
-          url.searchParams.append('token', currentContinuation)
-          errorLogger.info(`  📄 [${searchType} 페이지 ${pageCount}] 다음 페이지 요청`, {
-            token: currentContinuation.substring(0, 20),
+      const { data, metadata } = await withRetry(
+        async () => {
+          const result = await safeFetch(url.toString(), {
+            method: 'GET',
+            headers: {
+              'x-rapidapi-key': RAPIDAPI_KEY,
+              'x-rapidapi-host': RAPIDAPI_HOST,
+            },
+            signal: AbortSignal.timeout(CONFIG.REQUEST_TIMEOUT),
+            context: { query, searchType },
           })
-        }
 
-        const { data, metadata } = await withRetry(
-          async () => {
-            const result = await safeFetch(url.toString(), {
-              method: 'GET',
-              headers: {
-                'x-rapidapi-key': RAPIDAPI_KEY,
-                'x-rapidapi-host': RAPIDAPI_HOST,
-              },
-              signal: AbortSignal.timeout(CONFIG.REQUEST_TIMEOUT),
-              context: { query, searchType, pageCount },
+          return {
+            data: result.data,
+            headers: result.response.headers,
+            metadata: result.metadata,
+          }
+        },
+        CONFIG.RETRY_COUNT,
+        CONFIG.RETRY_DELAY,
+        { query, searchType }
+      )
+
+      const fetchTime = Date.now() - fetchStart
+
+      // 응답에서 데이터 배열 추출
+      let items: any[] = extractDataArray(data)
+
+      console.log(`🔍 [검색/${searchType}] 첫 페이지 응답`)
+      console.log(`🔍 extractDataArray 결과: ${items.length}개`)
+      if (items.length > 0) {
+        console.log(`🔍 첫 항목 구조:`, Object.keys(items[0]))
+        console.log(`🔍 첫 항목 데이터:`, {
+          type: items[0].type,
+          videoId: items[0].videoId,
+          title: items[0].title?.substring(0, 50),
+        })
+      }
+
+      // Shorts listing 필터링
+      items = filterShortsListing(items)
+
+      // 정규화
+      const normalizedItems = items
+        .map((item, idx) => {
+          try {
+            // 🔍 첫 3개 항목의 상세 로깅
+            if (idx < 3) {
+              errorLogger.info(`📍 [${searchType} 항목 ${idx}] 정규화 전`, {
+                rawType: item.type,
+                rawIsShorts: item.isShorts,
+                rawTitle: item.title?.substring(0, 50),
+                rawDuration: item.duration,
+                rawLengthText: item.lengthText,
+              })
+            }
+
+            const normalized = normalizeVideo(item)
+
+            // 정규화 후 type 확인
+            if (idx < 3) {
+              errorLogger.info(`📍 [${searchType} 항목 ${idx}] 정규화 후`, {
+                normalizedType: normalized.type,
+                normalizedTitle: normalized.title.substring(0, 50),
+                normalizedDuration: normalized.duration,
+                publishedAt: normalized.publishedAt,
+              })
+            }
+
+            return normalized
+          } catch (error) {
+            errorLogger.warn('비디오 정규화 실패', {
+              error: error instanceof Error ? error.message : String(error),
+              title: item.title?.substring(0, 30),
             })
+            return null
+          }
+        })
+        .filter((item): item is NormalizedVideo => item !== null)
+        // ✅ 요청한 타입과 일치하는 항목만 필터링 (클라이언트 사이드 검증)
+        .filter(item => {
+          const matches =
+            (searchType === 'video' && item.type === 'video') ||
+            (searchType === 'shorts' && item.type === 'shorts') ||
+            (searchType === 'channel' && item.type === 'channel')
 
-            return {
-              data: result.data,
-              headers: result.response.headers,
-              metadata: result.metadata,
-            }
-          },
-          CONFIG.RETRY_COUNT,
-          CONFIG.RETRY_DELAY,
-          { query, searchType, pageCount }
-        )
+          // 필터 실패한 항목 로깅
+          if (!matches) {
+            errorLogger.warn(`타입 필터 불일치`, {
+              searchType,
+              itemType: item.type,
+              title: item.title.substring(0, 40),
+            })
+          }
 
-        const fetchTime = Date.now() - fetchStart
-
-        // 응답에서 데이터 배열 추출
-        let items: any[] = extractDataArray(data)
-
-        console.log(`🔍 [검색/${searchType}] 페이지 ${pageCount}`)
-        console.log(`🔍 extractDataArray 입력 (data):`, Object.keys(data))
-        console.log(`🔍 extractDataArray 결과: ${items.length}개`)
-        if (items.length > 0) {
-          console.log(`🔍 첫 항목 구조:`, Object.keys(items[0]))
-          console.log(`🔍 첫 항목 데이터:`, {
-            type: items[0].type,
-            videoId: items[0].videoId,
-            title: items[0].title?.substring(0, 50),
-          })
-        }
-
-        // Shorts listing 필터링
-        items = filterShortsListing(items)
-
-        // 정규화
-        const normalizedItems = items
-          .map((item, idx) => {
-            try {
-              // 🔍 첫 3개 항목의 상세 로깅
-              if (idx < 3) {
-                errorLogger.info(`📍 [${searchType} 항목 ${idx}] 정규화 전`, {
-                  rawType: item.type,
-                  rawIsShorts: item.isShorts,
-                  rawTitle: item.title?.substring(0, 50),
-                  rawDuration: item.duration,
-                  rawLengthText: item.lengthText,
-                })
-              }
-
-              const normalized = normalizeVideo(item)
-
-              // 정규화 후 type 확인
-              if (idx < 3) {
-                errorLogger.info(`📍 [${searchType} 항목 ${idx}] 정규화 후`, {
-                  normalizedType: normalized.type,
-                  normalizedTitle: normalized.title.substring(0, 50),
-                  normalizedDuration: normalized.duration,
-                  publishedAt: normalized.publishedAt,
-                })
-              }
-
-              return normalized
-            } catch (error) {
-              errorLogger.warn('비디오 정규화 실패', {
-                error: error instanceof Error ? error.message : String(error),
-                title: item.title?.substring(0, 30),
-              })
-              return null
-            }
-          })
-          .filter((item): item is NormalizedVideo => item !== null)
-          // ✅ 요청한 타입과 일치하는 항목만 필터링 (클라이언트 사이드 검증)
-          .filter(item => {
-            const matches =
-              (searchType === 'video' && item.type === 'video') ||
-              (searchType === 'shorts' && item.type === 'shorts') ||
-              (searchType === 'channel' && item.type === 'channel')
-
-            // 필터 실패한 항목 로깅
-            if (!matches) {
-              errorLogger.warn(`타입 필터 불일치`, {
-                searchType,
-                itemType: item.type,
-                title: item.title.substring(0, 40),
-              })
-            }
-
-            return matches
-          })
-
-        allItems.push(...normalizedItems)
-        totalFetched += normalizedItems.length
-
-        errorLogger.info(`  ✅ [${searchType} 페이지 ${pageCount}] ${normalizedItems.length}개 조회`, {
-          fetchTime,
-          totalFetched,
-          rateLimitRemaining: metadata?.rateLimitRemaining,
+          return matches
         })
 
-        // 다음 페이지 토큰 업데이트
-        currentContinuation = metadata?.continuation
-        if (!currentContinuation) {
-          errorLogger.info(`  ⏹️  [${searchType}] 더 이상의 페이지 없음`, {
-            totalPages: pageCount,
-            itemsFetched: totalFetched,
-          })
-          break
-        }
+      const totalTime = Date.now() - startTime
 
-        // Rate limit 체크
-        if (
-          metadata?.rateLimitRemaining !== undefined &&
-          metadata?.rateLimitRemaining < 5
-        ) {
-          errorLogger.warn('Rate limit 부족 - 검색 중단', {
-            remaining: metadata?.rateLimitRemaining,
-            itemsFetched: totalFetched,
-          })
-          break
-        }
+      errorLogger.info(`✅ YT-API 검색 완료 (첫 페이지)`, {
+        query,
+        itemsReturned: normalizedItems.length,
+        fetchTime,
+        totalTime,
+        rateLimitRemaining: metadata?.rateLimitRemaining,
+      })
 
-        // 충분히 수집했으면 중단
-        if (totalFetched >= targetCount) {
-          break
-        }
+      // ✅ 첫 페이지 결과 그대로 반환 (슬라이싱 없음)
+      return {
+        items: normalizedItems,
+        metadata: {
+          hasMore: !!metadata?.continuation,
+          continuation: metadata?.continuation,
+          itemsReturned: normalizedItems.length,
+        },
       }
     }
 
-    const totalTime = Date.now() - startTime
-
-    errorLogger.info(`✅ YT-API 검색 완료`, {
-      query,
-      itemsReturned: allItems.length,
-      pagesRequested: pageCount,
-      totalTime,
-      continuation: currentContinuation,
-    })
-
-    return {
-      items: allItems.slice(0, targetCount),
-      metadata: {
-        hasMore: !!currentContinuation,
-        continuation: currentContinuation,
-        itemsReturned: allItems.length,
-      },
-    }
+    throw new APIError('검색 타입 처리 실패', 500, false)
   } catch (error) {
     errorLogger.error('❌ YT-API 검색 실패', error as Error, {
       query,
-      pageCount,
-      itemsFetched: totalFetched,
     })
     throw error
   }
@@ -982,12 +929,12 @@ export async function getChannelInfo(
  */
 export async function getChannelsInfo(
   channelIds: string[]
-): Promise<Map<string, { subscriberCount: number; country: string | null }>> {
+): Promise<Map<string, { subscriberCount: number }>> {
   if (channelIds.length === 0) {
     return new Map()
   }
 
-  const result = new Map<string, { subscriberCount: number; country: string | null }>()
+  const result = new Map<string, { subscriberCount: number }>()
   const uncachedIds: string[] = []
   let cacheHits = 0
 
@@ -997,7 +944,6 @@ export async function getChannelsInfo(
     if (cached) {
       result.set(id, {
         subscriberCount: cached.subscriberCount,
-        country: cached.country,
       })
       cacheHits++
     } else {
@@ -1016,7 +962,6 @@ export async function getChannelsInfo(
         const channelId = uncachedIds[index]
         result.set(channelId, {
           subscriberCount: channel.subscriberCount,
-          country: channel.country,
         })
         setCachedChannelInfo(channelId, channel.subscriberCount, channel.country)
       })
