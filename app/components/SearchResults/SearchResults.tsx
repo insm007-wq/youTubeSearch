@@ -13,6 +13,7 @@ interface SearchResultsProps {
   showVPH?: boolean
   viewMode: 'card' | 'table'
   onChannelClick?: (channelId: string, channelTitle: string) => void
+  onRelatedClick?: (videoId: string) => void
 }
 
 export default function SearchResults({
@@ -22,6 +23,7 @@ export default function SearchResults({
   showVPH = false,
   viewMode,
   onChannelClick,
+  onRelatedClick,
 }: SearchResultsProps) {
 
   return (
@@ -70,6 +72,7 @@ export default function SearchResults({
                   video={item}
                   showVPH={showVPH}
                   onChannelClick={onChannelClick}
+                  onRelatedClick={onRelatedClick}
                 />
               )
             })}

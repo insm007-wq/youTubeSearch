@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/auth'
 import { checkApiUsage, incrementApiUsage } from '@/lib/apiUsage'
-import { getTrendingVideos, getChannelsInfo } from '@/lib/rapidApiClient'
+import { getRelatedVideos } from '@/lib/rapidApiClient'
 
 export async function GET(request: NextRequest) {
   const requestStartTime = Date.now()
@@ -55,27 +55,26 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url)
-    const sectionParam = searchParams.get('section') || 'now-kr'
+    const videoId = searchParams.get('videoId')
 
-    // section 파싱: "now-kr" → type="now", geo="KR"
-    const [type, geo] = sectionParam.split('-')
+    if (!videoId) {
+      return NextResponse.json(
+        { error: 'videoId 파라미터가 필요합니다' },
+        { status: 400 }
+      )
+    }
 
-    console.log(`🌍 트렌딩 조회 시작: section=${sectionParam}, type=${type}, geo=${geo.toUpperCase()}`)
+    console.log(`🎬 관련 영상 조회 시작: videoId=${videoId}`)
 
-    // ✅ RapidAPI /trending 엔드포인트 사용
+    // ✅ RapidAPI /related 엔드포인트 사용
     let items
     try {
-      const trendingStartTime = Date.now()
+      const relatedStartTime = Date.now()
 
-      // RapidAPI /trending 엔드포인트로 조회
-      items = await getTrendingVideos(type, geo.toUpperCase())
-      console.log(`📊 RapidAPI 응답: ${items.length}개 항목`)
+      items = await getRelatedVideos(videoId)
+      console.log(`📊 RapidAPI /related 응답: ${items.length}개 항목`)
 
-      // ✅ 트렌딩은 이미 최신 콘텐츠이므로 날짜 필터 제거
-      // (publishedAt이 없는 영상도 포함하도록 허용)
-      console.log(`✅ 필터링 후: ${items.length}개 항목 (날짜 필터 미적용 - 트렌딩은 최신 콘텐츠)`)
-
-      // 조회수 기준 내림차순 정렬 (높은 조회수가 먼저)
+      // 조회수 기준 내림차순 정렬
       items.sort((a, b) => (b.viewCount || 0) - (a.viewCount || 0))
 
       // 중복 제거 (같은 video.id가 있으면 제거)
@@ -88,7 +87,7 @@ export async function GET(request: NextRequest) {
         return true
       })
 
-      const trendingTime = Date.now() - trendingStartTime
+      const relatedTime = Date.now() - relatedStartTime
 
       if (!items || items.length === 0) {
         return NextResponse.json({
@@ -103,35 +102,8 @@ export async function GET(request: NextRequest) {
         })
       }
 
-      // 2️⃣ 고유 채널 ID 추출
-      const channelStart = Date.now()
-      const channelIds = [...new Set(items.map((v) => v.channelId).filter(Boolean))]
-      const channelExtractTime = Date.now() - channelStart
-
-      // 3️⃣ 채널 정보 조회
-      let channelInfoMap = new Map<string, { subscriberCount: number; country: string | null }>()
-      const channelsStartTime = Date.now()
-      if (channelIds.length > 0) {
-        try {
-          channelInfoMap = await getChannelsInfo(channelIds)
-        } catch (channelsError) {
-          // 채널 정보 조회 실패 시 계속 진행
-        }
-      }
-
-      // 4️⃣ 데이터 병합
-      const mergeStart = Date.now()
-      items = items.map((item) => {
-        const channelInfo = channelInfoMap.get(item.channelId) || { subscriberCount: 0, country: null }
-        return {
-          ...item,
-          subscriberCount: channelInfo.subscriberCount,
-          channelCountry: channelInfo.country,
-        }
-      })
-
       // 비동기로 API 사용량 증가 (응답은 즉시 반환)
-      incrementApiUsage(userEmail, `trending:${sectionParam}`)
+      incrementApiUsage(userEmail, `related:${videoId}`)
         .catch(() => {
           // API 사용량 증가 실패 시 무시
         })
@@ -139,7 +111,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         items,
         totalResults: items.length,
-        section: sectionParam,
+        videoId,
         apiUsageToday: {
           used: usageCheck.used,
           limit: usageCheck.limit,
@@ -150,8 +122,8 @@ export async function GET(request: NextRequest) {
     } catch (error) {
       return NextResponse.json(
         {
-          error: 'TRENDING_FAILED',
-          message: error instanceof Error ? error.message : '트렌딩 조회 중 오류 발생',
+          error: 'RELATED_VIDEOS_FAILED',
+          message: error instanceof Error ? error.message : '관련 영상 조회 중 오류 발생',
         },
         { status: 500 }
       )

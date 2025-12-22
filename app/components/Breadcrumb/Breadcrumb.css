@@ -1,0 +1,118 @@
+/* 드롭다운 컨테이너 */
+.breadcrumb-dropdown {
+  position: relative;
+  display: inline-block;
+  min-width: 200px;
+  max-width: 300px;
+}
+
+/* 토글 버튼 */
+.breadcrumb-toggle {
+  display: flex;
+  align-items: center;
+  padding: 6px 12px;
+  background: white;
+  border: 1px solid #e5e5e5;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  overflow: hidden;
+  min-width: 200px;
+  max-width: 300px;
+}
+
+.breadcrumb-toggle:hover {
+  background: #f5f5f5;
+  border-color: #999;
+  color: #333;
+}
+
+.breadcrumb-toggle:active {
+  background: #e5e5e5;
+}
+
+/* 토글 버튼 텍스트 */
+.breadcrumb-toggle-text {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+
+/* 드롭다운 메뉴 */
+.breadcrumb-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #e5e5e5;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  z-index: 100;
+  max-height: 300px;
+  overflow-y: auto;
+  min-width: 250px;
+}
+
+/* 메뉴 항목 */
+.breadcrumb-menu-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 10px 12px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid #f0f0f0;
+  text-align: left;
+  font-size: 13px;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.breadcrumb-menu-item:last-child {
+  border-bottom: none;
+}
+
+.breadcrumb-menu-item:hover {
+  background: #f5f5f5;
+  color: #333;
+}
+
+.breadcrumb-menu-item:active {
+  background: #e5e5e5;
+}
+
+/* 현재 항목 강조 */
+.breadcrumb-menu-item.current {
+  background: #e3f2fd;
+  color: #1565c0;
+  font-weight: 600;
+}
+
+.breadcrumb-menu-item.current:hover {
+  background: #bbdefb;
+}
+
+/* 메뉴 항목 텍스트 */
+.breadcrumb-menu-item-text {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 현재 마커 */
+.breadcrumb-current-marker {
+  margin-left: 8px;
+  color: #4caf50;
+  font-weight: bold;
+  flex-shrink: 0;
+}
