@@ -895,6 +895,7 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
                         // 히스토리는 유지하고 현재 위치만 변경
                         setRelatedVideos(item.results);
                         setCurrentLevel(index + 1);
+                        setShowRelatedVideos(true);
                       }
                     }))
                   ]}
