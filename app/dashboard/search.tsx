@@ -686,6 +686,8 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
 
   // 관련 영상 조회 함수
   const handleRelatedClick = useCallback(async (videoId: string) => {
+    // ✅ 먼저 관련 영상 뷰 활성화 + 로딩 시작 (동시에 업데이트)
+    setShowRelatedVideos(true);
     setIsRelatedVideosLoading(true);
 
     try {
@@ -735,7 +737,6 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
       // Load new related videos
       console.log(`✅ 관련 영상 로드 완료: ${data.items.length}개`);
       setRelatedVideos(data.items);
-      setShowRelatedVideos(true);
       setCurrentLevel(relatedVideosHistory.length + 1); // 새로운 레벨로 업데이트
       setIsRelatedVideosLoading(false);
 
@@ -747,7 +748,7 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
       });
       setIsRelatedVideosLoading(false);
     }
-  }, [relatedVideos, allResults, trendingResults, relatedVideosHistory, currentLevel, showTrending, addToast]);
+  }, [relatedVideos, allResults, trendingResults, relatedVideosHistory, showTrending, addToast]);
 
   return (
     <>
