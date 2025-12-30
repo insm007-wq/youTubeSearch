@@ -14,6 +14,8 @@ interface SearchResultsProps {
   viewMode: 'card' | 'table'
   onChannelClick?: (channelId: string, channelTitle: string) => void
   onRelatedClick?: (videoId: string) => void
+  onThumbnailDownload?: (videoId: string, title: string, thumbnailUrl: string) => void
+  onToast?: (message: { type: 'success' | 'error' | 'warning'; title?: string; message: string }) => void
 }
 
 export default function SearchResults({
@@ -24,6 +26,8 @@ export default function SearchResults({
   viewMode,
   onChannelClick,
   onRelatedClick,
+  onThumbnailDownload,
+  onToast,
 }: SearchResultsProps) {
 
   return (
@@ -73,6 +77,8 @@ export default function SearchResults({
                   showVPH={showVPH}
                   onChannelClick={onChannelClick}
                   onRelatedClick={onRelatedClick}
+                  onThumbnailDownload={onThumbnailDownload}
+                  onToast={onToast}
                 />
               )
             })}

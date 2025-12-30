@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import TagAnalysis from "@/app/components/TagAnalysis/TagAnalysis";
 import { Tooltip } from "@/app/components/ui/Tooltip";
+import ContextMenu from "@/app/components/ContextMenu/ContextMenu";
 import { calculateVPH } from "@/lib/vphUtils";
 import {
   Eye,
@@ -82,6 +83,8 @@ interface VideoCardProps {
   vph?: number;
   onChannelClick?: (channelId: string, channelTitle: string) => void;
   onRelatedClick?: (videoId: string) => void;
+  onThumbnailDownload?: (videoId: string, title: string, thumbnailUrl: string) => void;
+  onToast?: (message: { type: 'success' | 'error' | 'warning'; title?: string; message: string }) => void;
 }
 
 // 숫자 포맷팅 함수
@@ -194,7 +197,7 @@ const calculatePublishedTime = (publishedAt: string, videoTitle?: string): strin
 };
 
 
-export default function VideoCard({ video, showVPH = false, vph, onChannelClick, onRelatedClick }: VideoCardProps) {
+export default function VideoCard({ video, showVPH = false, vph, onChannelClick, onRelatedClick, onThumbnailDownload, onToast }: VideoCardProps) {
   const {
     id,
     title,
@@ -215,6 +218,9 @@ export default function VideoCard({ video, showVPH = false, vph, onChannelClick,
   // 구독자 수 상태 관리 (API에서 0이면 실시간 조회)
   const [subscriberCount, setSubscriberCount] = useState(initialSubscriberCount);
   const [isLoadingSubscribers, setIsLoadingSubscribers] = useState(false);
+
+  // 컨텍스트 메뉴 상태 관리
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
 
   // 태그 정보 상태 관리 (API에서 조회)
   const [videoTags, setVideoTags] = useState<string[]>(tags || []);
@@ -324,11 +330,33 @@ export default function VideoCard({ video, showVPH = false, vph, onChannelClick,
   const badgeClass = `engagement-badge engagement-${engagementLevel}`;
   const videoLink = `https://www.youtube.com/watch?v=${id}`;
 
+  // 썸네일 우클릭 이벤트
+  const handleContextMenu = (e: React.MouseEvent<HTMLImageElement>) => {
+    e.preventDefault();
+    setContextMenu({ x: e.clientX, y: e.clientY });
+  };
+
+  // 썸네일 링크 (고해상도)
+  const getThumbnailUrl = (quality: 'maxres' | 'sd' | 'hq' = 'maxres') => {
+    const qualityMap = {
+      maxres: 'maxresdefault',
+      sd: 'sddefault',
+      hq: 'hqdefault',
+    };
+    return `https://img.youtube.com/vi/${id}/${qualityMap[quality]}.jpg`;
+  };
+
   return (
     <div className="video-card">
       <a href={videoLink} target="_blank" rel="noopener noreferrer" style={{ position: "relative", textDecoration: "none" }}>
         {thumbnail ? (
-          <img src={thumbnail} alt={title} className={`video-thumbnail ${type === 'shorts' ? 'shorts-thumbnail' : ''}`} />
+          <img
+            src={thumbnail}
+            alt={title}
+            className={`video-thumbnail ${type === 'shorts' ? 'shorts-thumbnail' : ''}`}
+            onContextMenu={handleContextMenu}
+            style={{ cursor: 'context-menu' }}
+          />
         ) : (
           <div className={`video-thumbnail ${type === 'shorts' ? 'shorts-thumbnail' : ''}`} style={{ backgroundColor: "#e5e5e5", display: "flex", alignItems: "center", justifyContent: "center", color: "#999" }}>
             이미지 없음
@@ -421,6 +449,35 @@ export default function VideoCard({ video, showVPH = false, vph, onChannelClick,
           </button>
         </div>
       </div>
+
+      {/* 컨텍스트 메뉴 */}
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          items={[
+            { label: '📥 썸네일 다운로드', action: 'download' },
+            { label: '🔗 영상 링크 복사', action: 'copy-link' },
+            { label: 'ℹ️ 정보 보기', action: 'info' },
+          ]}
+          onSelect={(action) => {
+            if (action === 'download') {
+              onThumbnailDownload?.(id, title, getThumbnailUrl('maxres'));
+            } else if (action === 'copy-link') {
+              const videoUrl = `https://www.youtube.com/watch?v=${id}`;
+              navigator.clipboard.writeText(videoUrl);
+              onToast?.({
+                type: 'success',
+                title: '링크 복사됨',
+                message: '영상 링크가 복사되었습니다',
+              });
+            } else if (action === 'info') {
+              // 추후 구현: 정보 모달 등
+            }
+          }}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
     </div>
   );
 }

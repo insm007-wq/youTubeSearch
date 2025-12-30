@@ -192,6 +192,48 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
     isLoading: false,
   });
 
+  // 썸네일 다운로드 함수
+  const handleThumbnailDownload = useCallback(async (videoId: string, title: string, thumbnailUrl: string) => {
+    try {
+      // 파일명 정리 (특수문자 제거)
+      const safeTitle = title.replace(/[\\/:*?"<>|]/g, "").trim();
+
+      // 썸네일 다운로드
+      const response = await fetch(thumbnailUrl);
+      if (!response.ok) {
+        throw new Error('이미지 다운로드 실패');
+      }
+
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+
+      // 다운로드 링크 생성
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = `${safeTitle}.jpg`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      // 메모리 정리
+      URL.revokeObjectURL(objectUrl);
+
+      // 성공 토스트
+      addToast({
+        type: 'success',
+        title: '다운로드 완료',
+        message: `${safeTitle}.jpg`,
+      });
+    } catch (error) {
+      console.error('썸네일 다운로드 실패:', error);
+      addToast({
+        type: 'error',
+        title: '다운로드 실패',
+        message: '썸네일을 다운로드할 수 없습니다',
+      });
+    }
+  }, [addToast]);
+
   // ✅ 로그아웃 처리 함수 (오프라인 상태 설정)
   const handleLogout = async () => {
     try {
@@ -983,6 +1025,8 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
             viewMode={viewMode}
             onChannelClick={handleChannelClick}
             onRelatedClick={handleRelatedClick}
+            onThumbnailDownload={handleThumbnailDownload}
+            onToast={addToast}
           />
         </div>
       </div>
