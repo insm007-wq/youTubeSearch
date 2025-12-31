@@ -109,7 +109,7 @@ export async function GET(request: NextRequest) {
       const channelExtractTime = Date.now() - channelStart
 
       // 3️⃣ 채널 정보 조회
-      let channelInfoMap = new Map<string, { subscriberCount: number; country: string | null }>()
+      let channelInfoMap = new Map<string, { subscriberCount: number }>()
       const channelsStartTime = Date.now()
       if (channelIds.length > 0) {
         try {
@@ -122,11 +122,10 @@ export async function GET(request: NextRequest) {
       // 4️⃣ 데이터 병합
       const mergeStart = Date.now()
       items = items.map((item) => {
-        const channelInfo = channelInfoMap.get(item.channelId) || { subscriberCount: 0, country: null }
+        const channelInfo = channelInfoMap.get(item.channelId) || { subscriberCount: 0 }
         return {
           ...item,
           subscriberCount: channelInfo.subscriberCount,
-          channelCountry: channelInfo.country,
         }
       })
 

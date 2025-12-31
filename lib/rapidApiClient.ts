@@ -375,7 +375,7 @@ async function safeFetch(
  */
 async function searchWithYTAPI(
   query: string,
-  targetCount: number = 40, // 파라미터 유지 (호환성) - 실제로는 사용하지 않음
+  targetCount: number = 50, // ✅ 기본값 50으로 변경 (페이지네이션으로 최대 50개 수집)
   uploadDate: string = 'week', // 'hour' | 'today' | 'week' | 'month' | 'year'
   continuation?: string, // 파라미터 유지 (호환성) - 실제로는 사용하지 않음
   videoType: 'video' | 'shorts' | 'channel' = 'video', // 비디오 타입
@@ -398,147 +398,156 @@ async function searchWithYTAPI(
     const searchTypes: ('video' | 'shorts' | 'channel')[] = [videoType]
 
     for (const searchType of searchTypes) {
-      errorLogger.info(`🎬 [${searchType.toUpperCase()}] 검색 시작 (첫 페이지만)`, {
+      errorLogger.info(`🎬 [${searchType.toUpperCase()}] 검색 시작 (페이지네이션 활성화)`, {
         query,
         uploadDate,
+        targetCount,
         channel,
         detectedGeo: geo,
         detectedLang: lang,
       })
 
-      // ✅ 단일 API 호출만 수행 (페이지네이션 제거)
-      const fetchStart = Date.now()
-      const url = new URL(`${API_BASE_URL}/search`)
-      url.searchParams.append('query', query)
-      url.searchParams.append('type', searchType)
-      url.searchParams.append('upload_date', uploadDate)
+      // ✅ 페이지네이션 루프 복원
+      const allItems: NormalizedVideo[] = []
+      let currentContinuation: string | undefined = undefined
+      let pageCount = 0
+      let totalFetched = 0
+      const MAX_PAGES = 5
+      let lastMetadata: SearchMetadata | undefined = undefined
 
-      if (channel) {
-        url.searchParams.append('channel', channel)
-      }
-      url.searchParams.append('sort_by', 'views')
-      url.searchParams.append('geo', geo)
-      url.searchParams.append('lang', lang)
-      url.searchParams.append('local', '1')
+      while (totalFetched < targetCount && pageCount < MAX_PAGES) {
+        pageCount++
+        const fetchStart = Date.now()
 
-      // 🔍 디버그: 전송될 URL 확인
-      console.log(`🔍 RapidAPI 검색 URL (단일 호출):`, url.toString().substring(0, 200))
+        // URL 생성
+        const url = new URL(`${API_BASE_URL}/search`)
+        url.searchParams.append('query', query)
+        url.searchParams.append('type', searchType)
+        url.searchParams.append('upload_date', uploadDate)
 
-      const { data, metadata } = await withRetry(
-        async () => {
-          const result = await safeFetch(url.toString(), {
-            method: 'GET',
-            headers: {
-              'x-rapidapi-key': RAPIDAPI_KEY,
-              'x-rapidapi-host': RAPIDAPI_HOST,
-            },
-            signal: AbortSignal.timeout(CONFIG.REQUEST_TIMEOUT),
-            context: { query, searchType },
+        if (channel) {
+          url.searchParams.append('channel', channel)
+        }
+        url.searchParams.append('sort_by', 'views')
+        url.searchParams.append('geo', geo)
+        url.searchParams.append('lang', lang)
+        url.searchParams.append('local', '1')
+
+        // ✅ continuation 토큰 추가 (2페이지 이상)
+        if (currentContinuation) {
+          url.searchParams.append('token', currentContinuation)
+        }
+
+        const { data, metadata } = await withRetry(
+          async () => {
+            const result = await safeFetch(url.toString(), {
+              method: 'GET',
+              headers: {
+                'x-rapidapi-key': RAPIDAPI_KEY,
+                'x-rapidapi-host': RAPIDAPI_HOST,
+              },
+              signal: AbortSignal.timeout(CONFIG.REQUEST_TIMEOUT),
+              context: { query, searchType, pageCount },
+            })
+
+            return {
+              data: result.data,
+              headers: result.response.headers,
+              metadata: result.metadata,
+            }
+          },
+          CONFIG.RETRY_COUNT,
+          CONFIG.RETRY_DELAY,
+          { query, searchType, pageCount }
+        )
+
+        const fetchTime = Date.now() - fetchStart
+
+        // ✅ 마지막 메타데이터 저장
+        lastMetadata = metadata
+
+        // 응답에서 데이터 배열 추출
+        let items: any[] = extractDataArray(data)
+
+        // Shorts listing 필터링
+        items = filterShortsListing(items)
+
+        // 정규화
+        let normalizedAfterMap = items
+          .map((item) => {
+            try {
+              return normalizeVideo(item)
+            } catch (error) {
+              errorLogger.warn('비디오 정규화 실패', {
+                error: error instanceof Error ? error.message : String(error),
+                title: item.title?.substring(0, 30),
+              })
+              return null
+            }
           })
+          .filter((item): item is NormalizedVideo => item !== null)
 
-          return {
-            data: result.data,
-            headers: result.response.headers,
-            metadata: result.metadata,
+        // ✅ 타입 필터링 (각 분야별로 정확히 구분)
+        const pageNormalizedItems = normalizedAfterMap.filter(item => {
+          // channel 검색은 channel만
+          if (searchType === 'channel') {
+            return item.type === 'channel'
           }
-        },
-        CONFIG.RETRY_COUNT,
-        CONFIG.RETRY_DELAY,
-        { query, searchType }
-      )
 
-      const fetchTime = Date.now() - fetchStart
+          // video 검색 시 video만
+          if (searchType === 'video') {
+            return item.type === 'video'
+          }
 
-      // 응답에서 데이터 배열 추출
-      let items: any[] = extractDataArray(data)
+          // shorts 검색 시 shorts만
+          if (searchType === 'shorts') {
+            return item.type === 'shorts'
+          }
 
-      console.log(`🔍 [검색/${searchType}] 첫 페이지 응답`)
-      console.log(`🔍 extractDataArray 결과: ${items.length}개`)
-      if (items.length > 0) {
-        console.log(`🔍 첫 항목 구조:`, Object.keys(items[0]))
-        console.log(`🔍 첫 항목 데이터:`, {
-          type: items[0].type,
-          videoId: items[0].videoId,
-          title: items[0].title?.substring(0, 50),
+          return false
         })
+
+        // 결과 누적
+        allItems.push(...pageNormalizedItems)
+        totalFetched += pageNormalizedItems.length
+
+        errorLogger.info(
+          `✅ [페이지 ${pageCount}/${MAX_PAGES}] ${pageNormalizedItems.length}개 수집 (누적: ${totalFetched}개)`,
+          {
+            fetchTime,
+            targetRemaining: Math.max(0, targetCount - totalFetched),
+            rateLimitRemaining: metadata?.rateLimitRemaining,
+          }
+        )
+
+        // ✅ 다음 페이지 토큰 확인
+        currentContinuation = metadata?.continuation
+        if (!currentContinuation) {
+          break
+        }
+
+        // ✅ 목표 달성 시 조기 종료
+        if (totalFetched >= targetCount) {
+          break
+        }
+
+        // Rate limit 보호 (페이지 간 50ms 대기)
+        if (pageCount < MAX_PAGES && currentContinuation) {
+          await new Promise(resolve => setTimeout(resolve, 50))
+        }
       }
-
-      // Shorts listing 필터링
-      items = filterShortsListing(items)
-
-      // 정규화
-      const normalizedItems = items
-        .map((item, idx) => {
-          try {
-            // 🔍 첫 3개 항목의 상세 로깅
-            if (idx < 3) {
-              errorLogger.info(`📍 [${searchType} 항목 ${idx}] 정규화 전`, {
-                rawType: item.type,
-                rawIsShorts: item.isShorts,
-                rawTitle: item.title?.substring(0, 50),
-                rawDuration: item.duration,
-                rawLengthText: item.lengthText,
-              })
-            }
-
-            const normalized = normalizeVideo(item)
-
-            // 정규화 후 type 확인
-            if (idx < 3) {
-              errorLogger.info(`📍 [${searchType} 항목 ${idx}] 정규화 후`, {
-                normalizedType: normalized.type,
-                normalizedTitle: normalized.title.substring(0, 50),
-                normalizedDuration: normalized.duration,
-                publishedAt: normalized.publishedAt,
-              })
-            }
-
-            return normalized
-          } catch (error) {
-            errorLogger.warn('비디오 정규화 실패', {
-              error: error instanceof Error ? error.message : String(error),
-              title: item.title?.substring(0, 30),
-            })
-            return null
-          }
-        })
-        .filter((item): item is NormalizedVideo => item !== null)
-        // ✅ 요청한 타입과 일치하는 항목만 필터링 (클라이언트 사이드 검증)
-        .filter(item => {
-          const matches =
-            (searchType === 'video' && item.type === 'video') ||
-            (searchType === 'shorts' && item.type === 'shorts') ||
-            (searchType === 'channel' && item.type === 'channel')
-
-          // 필터 실패한 항목 로깅
-          if (!matches) {
-            errorLogger.warn(`타입 필터 불일치`, {
-              searchType,
-              itemType: item.type,
-              title: item.title.substring(0, 40),
-            })
-          }
-
-          return matches
-        })
 
       const totalTime = Date.now() - startTime
 
-      errorLogger.info(`✅ YT-API 검색 완료 (첫 페이지)`, {
-        query,
-        itemsReturned: normalizedItems.length,
-        fetchTime,
-        totalTime,
-        rateLimitRemaining: metadata?.rateLimitRemaining,
-      })
+      // ✅ 결과 슬라이싱 (정확한 개수 반환)
+      const finalItems = allItems.slice(0, targetCount)
 
-      // ✅ 첫 페이지 결과 그대로 반환 (슬라이싱 없음)
       return {
-        items: normalizedItems,
+        items: finalItems,
         metadata: {
-          hasMore: !!metadata?.continuation,
-          continuation: metadata?.continuation,
-          itemsReturned: normalizedItems.length,
+          hasMore: !!currentContinuation,
+          continuation: currentContinuation,
+          itemsReturned: finalItems.length,
         },
       }
     }
@@ -658,8 +667,6 @@ export async function searchYouTubeWithRapidAPI(
     // ✅ RapidAPI의 upload_date 필터가 제대로 작동하지 않아 클라이언트 필터링은 스킵
     // VideoCard에서 API 호출 시 정확한 publishedAt을 받으므로 거기서 시간 표시는 정확함
     // 검색 필터는 VideoCard의 업로드 시간 계산과 별개로 진행
-
-    console.log(`📊 검색 결과: ${items.length}개 반환 (upload_date: ${uploadDate} - RapidAPI 필터 사용)`)
 
     return items.map(normalizedToApifyItem)
   } catch (error) {

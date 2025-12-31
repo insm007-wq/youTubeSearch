@@ -458,7 +458,6 @@ export default function VideoCard({ video, showVPH = false, vph, onChannelClick,
           items={[
             { label: '📥 썸네일 다운로드', action: 'download' },
             { label: '🔗 영상 링크 복사', action: 'copy-link' },
-            { label: 'ℹ️ 정보 보기', action: 'info' },
           ]}
           onSelect={(action) => {
             if (action === 'download') {
@@ -471,8 +470,6 @@ export default function VideoCard({ video, showVPH = false, vph, onChannelClick,
                 title: '링크 복사됨',
                 message: '영상 링크가 복사되었습니다',
               });
-            } else if (action === 'info') {
-              // 추후 구현: 정보 모달 등
             }
           }}
           onClose={() => setContextMenu(null)}
