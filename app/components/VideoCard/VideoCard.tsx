@@ -264,29 +264,16 @@ export default function VideoCard({ video, showVPH = false, vph, onChannelClick,
         ? `/api/shorts-info?videoId=${encodeURIComponent(id)}`
         : `/api/video-info?videoId=${encodeURIComponent(id)}`;
 
-      console.log(`🎬 ${type === 'shorts' ? '쇼츠' : '비디오'} 정보 조회 시작 (${id})`);
-
       fetch(apiUrl)
         .then(res => res.json())
         .then(data => {
-          console.log(`📺 비디오 정보 조회 완료 (${id}):`, {
-            type,
-            duration: data.duration,
-            publishedAt: data.publishedAt,
-            channelTitle: data.channelTitle,
-            channelId: data.channelId,
-            keywords: data.keywords,
-          });
           if (data.duration) {
-            console.log(`✅ Duration 업데이트: ${data.duration}`);
             setVideoDuration(data.duration);
           }
           if (data.publishedAt) {
-            console.log(`✅ PublishedAt 업데이트: ${data.publishedAt}`);
             setVideoPublishedAt(data.publishedAt);
           }
           if (data.channelTitle) {
-            console.log(`✅ ChannelTitle 업데이트: ${data.channelTitle}`);
             setVideoChannelTitle(data.channelTitle);
           }
           if (data.keywords && data.keywords.length > 0) {

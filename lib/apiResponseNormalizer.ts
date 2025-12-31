@@ -427,14 +427,22 @@ export function normalizeVideo(raw: RawYTAPIVideo): NormalizedVideo {
     type = 'shorts'
   }
 
-  // 🔍 DEBUG: Shorts의 channelTitle 로깅
-  if (type === 'shorts' && !channelTitle) {
-    console.log(`🔍 Shorts channelTitle 확인:`, {
-      title: title.substring(0, 40),
-      extractedChannelTitle: extractor.getString('channelTitle'),
-      channelObject: raw.channel ? 'exists' : 'none',
-      channelName: raw.channel ? new FieldExtractor(raw.channel).getString('name') : 'N/A',
-      allKeys: Object.keys(raw).slice(0, 30),
+
+  // 불완전한 데이터 감지 (채널명, 조회수, 구독자 수 중 2개 이상 누락)
+  const missingFields = [
+    !channelTitle ? 'channelTitle' : null,
+    viewCount === 0 ? 'viewCount' : null,
+    subscriberCount === 0 ? 'subscriberCount' : null,
+  ].filter(Boolean).length
+
+  if (missingFields >= 2) {
+    console.warn(`⚠️ 불완전한 데이터 감지 (${missingFields}개 누락):`, {
+      title: title.substring(0, 50),
+      channelTitle: channelTitle || '❌',
+      viewCount: viewCount || '❌',
+      subscriberCount: subscriberCount || '❌',
+      type,
+      videoId,
     })
   }
 

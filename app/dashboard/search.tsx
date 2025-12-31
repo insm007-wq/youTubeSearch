@@ -516,8 +516,6 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
   };
 
   const handleSearch = useCallback(async () => {
-    console.log(`🔍 handleSearch 시작, 검색어: "${searchInput}"`);
-
     if (!searchInput.trim()) {
       alert("검색어를 입력해주세요");
       return;
@@ -555,11 +553,9 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
       });
 
       const requestUrl = `/api/youtube_search?${params}`;
-      console.log(`🔍 API 요청 URL: ${requestUrl}`);
 
       const startTime = Date.now();
       const response = await fetch(requestUrl);
-      console.log(`🔍 API 응답 상태: ${response.status}`);
       const data = await response.json();
       const fetchTime = Date.now() - startTime;
 
@@ -598,13 +594,6 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
         return;
       }
 
-
-      // 결과 표시
-      console.log(`🔍 [클라이언트] API 응답:`, {
-        itemsLength: data.items?.length || 0,
-        totalResults: data.totalResults,
-        firstItem: data.items?.[0],
-      });
 
       setAllResults(data.items || []);
       setTotalResults(data.totalResults || 0);
@@ -776,8 +765,6 @@ export default function Search({ user, signOut }: { user?: User; signOut?: (opti
 
       setRelatedVideosHistory(prev => [...prev, newHistoryItem]);
 
-      // Load new related videos
-      console.log(`✅ 관련 영상 로드 완료: ${data.items.length}개`);
       setRelatedVideos(data.items);
       setCurrentLevel(relatedVideosHistory.length + 1); // 새로운 레벨로 업데이트
       setIsRelatedVideosLoading(false);
